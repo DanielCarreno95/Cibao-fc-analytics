@@ -1,0 +1,22 @@
+{
+  "export_date": "2025-10-28T11:34:32.804554",
+  "input_file": "/Users/daniel/Documents/Smart Sports Lab/Football/Sports Data Campus/Cibao/Wyscout/Data/Processed_Data/Liga Myor Clean Per 90.xlsx",
+  "output_directory": "/Users/daniel/Documents/Smart Sports Lab/Football/Sports Data Campus/Cibao/Wyscout/Data/Processed_Data/JSON_Exports",
+  "teams_processed": 10,
+  "total_teams": 10,
+  "individual_json_files": 10,
+  "consolidated_json_file": 1,
+  "files_created": [
+    "Atlético_Pantoja_per_90.json",
+    "Universidad_O&M_per_90.json",
+    "Don_Bosco_Jarabacoa_per_90.json",
+    "Cibao_per_90.json",
+    "Delfines_Del_Este_per_90.json",
+    "Salcedo_per_90.json",
+    "Moca_per_90.json",
+    "San_Cristobal_per_90.json",
+    "Vega_Real_per_90.json",
+    "Atlántico_per_90.json",
+    "Liga_Mayor_Clean_Per_90_Consolidated.json"
+  ]
+}
