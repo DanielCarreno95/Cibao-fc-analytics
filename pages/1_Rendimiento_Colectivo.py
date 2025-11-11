@@ -227,48 +227,102 @@ st.markdown("<br>", unsafe_allow_html=True)
 # --- Separador visual antes de los KPIs ---
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ======== ESTILO GLOBAL CIBAO ========
-CIBAO_ORANGE = "#FF8C00"
+# ==============================
+# 🎨 PALETA INSTITUCIONAL CIBAO FC
+# ==============================
+CIBAO_ORANGE = "#FF8C00"         # Naranja principal
+CIBAO_ORANGE_LIGHT = "#FFA64D"   # Naranja claro (chips seleccionados)
+CIBAO_BLACK = "#111111"          # Fondo general
+CIBAO_GRAY = "#D3D3D3"           # Texto neutro
+CIBAO_DARKGRAY = "#2B2B2B"       # Contenedores oscuros
+PALETTE_CIBAO = [CIBAO_ORANGE, "#F78E1E", "#2F2F2F", "#777777"]
 
+# ==============================
+# 🎯 ESTILO GLOBAL (CSS)
+# ==============================
 st.markdown(
     f"""
     <style>
-    /* Color de los valores seleccionados en multiselect */
+    /* Chips de multiselect */
     div[data-baseweb="tag"] {{
-        background-color: {CIBAO_ORANGE} !important;
+        background-color: {CIBAO_ORANGE_LIGHT} !important;
         color: white !important;
         border-radius: 8px !important;
+        font-size: 13px !important;
+        padding: 3px 8px !important;
     }}
-    /* Fondo y bordes del multiselect */
+    /* Contenedor del multiselect */
     div[data-baseweb="select"] > div {{
-        background-color: #1B1B1B !important;
+        background-color: {CIBAO_DARKGRAY} !important;
         border: 1px solid {CIBAO_ORANGE} !important;
         border-radius: 10px !important;
+        font-size: 13px !important;
     }}
-    /* Hover sobre las opciones */
+    /* Hover en opciones */
     div[role="option"]:hover {{
         background-color: {CIBAO_ORANGE}33 !important;
+    }}
+    /* Títulos */
+    h3 {{
+        color: {CIBAO_ORANGE} !important;
+        font-weight: 900 !important;
+        font-size: 20px !important;
+    }}
+    p, label {{
+        font-size: 13px !important;
+        color: {CIBAO_GRAY} !important;
     }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-
 # ---------- ANÁLISIS RÁPIDO CIBAO VS RIVAL ----------
 if not df_liga_mayor.empty:
-    st.markdown("## Comparativa liga (Cibao vs próximo rival)")
+    st.markdown(
+        f"""
+        <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
+        Comparativa liga (Cibao vs próximo rival)
+        </h2>
+        <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
+        Evalúa el rendimiento del Cibao FC frente a su próximo rival, considerando métricas ofensivas y defensivas clave.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
     col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.2, 1])
-    team_options = sorted({str(t) for t in df_liga_mayor['Team'].dropna().unique() if str(t).strip().lower() != 'cibao'})
+    team_options = sorted(
+        {
+            str(t)
+            for t in df_liga_mayor["Team"].dropna().unique()
+            if str(t).strip().lower() != "cibao"
+        }
+    )
     if not team_options:
         st.info("No hay rivales disponibles en el dataset de Liga Mayor.")
     else:
         opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
         metric_labels = list(METRIC_OPTIONS.keys())
-        x_default = metric_labels.index("Goles por 90") if "Goles por 90" in metric_labels else 0
-        y_default = metric_labels.index("Goles en contra por 90") if "Goles en contra por 90" in metric_labels else min(1, len(metric_labels) - 1)
-        x_choice = col_sel2.selectbox("Métrica ofensiva (eje X)", metric_labels, index=x_default if metric_labels else 0)
-        y_choice = col_sel3.selectbox("Métrica defensiva (eje Y)", metric_labels, index=y_default if metric_labels else 0)
+        x_default = (
+            metric_labels.index("Goles por 90")
+            if "Goles por 90" in metric_labels
+            else 0
+        )
+        y_default = (
+            metric_labels.index("Goles en contra por 90")
+            if "Goles en contra por 90" in metric_labels
+            else min(1, len(metric_labels) - 1)
+        )
+        x_choice = col_sel2.selectbox(
+            "Métrica ofensiva (eje X)",
+            metric_labels,
+            index=x_default if metric_labels else 0,
+        )
+        y_choice = col_sel3.selectbox(
+            "Métrica defensiva (eje Y)",
+            metric_labels,
+            index=y_default if metric_labels else 0,
+        )
         filters = {"Competition": lambda s: s.str.contains("Liga", case=False, na=False)}
         x_column = METRIC_OPTIONS.get(x_choice)
         y_column = METRIC_OPTIONS.get(y_choice)
@@ -286,48 +340,13 @@ if not df_liga_mayor.empty:
                 title=f"Liga Mayor — {x_choice} vs {y_choice}",
                 filters=filters,
             )
-            st.plotly_chart(fig_radar, use_container_width=True, config={"displayModeBar": True})
+            st.plotly_chart(
+                fig_radar, use_container_width=True, config={"displayModeBar": True}
+            )
             if resumen_radar:
                 st.caption(f"Resumen: {resumen_radar}")
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
-
-# ==============================
-# 🎯 ESTILO GLOBAL (más armonizado)
-# ==============================
-st.markdown(f"""
-<style>
-/* Multiselect chips */
-div[data-baseweb="tag"] {{
-    background-color: {CIBAO_ORANGE} !important;
-    color: white !important;
-    border-radius: 5px !important;
-    font-size: 13px !important;
-    padding: 2px 6px !important;
-}}
-/* Multiselect container */
-div[data-baseweb="select"] > div {{
-    background-color: {CIBAO_DARKGRAY} !important;
-    border: 1px solid {CIBAO_ORANGE} !important;
-    border-radius: 8px !important;
-    font-size: 13px !important;
-}}
-div[role="option"]:hover {{
-    background-color: {CIBAO_ORANGE}33 !important;
-}}
-/* Ajustes tipográficos */
-h3 {{
-    color: {CIBAO_ORANGE} !important;
-    font-weight: 900 !important;
-    font-size: 20px !important;
-    letter-spacing: 0.3px !important;
-}}
-p, label {{
-    font-size: 13px !important;
-    color: {CIBAO_GRAY} !important;
-}}
-</style>
-""", unsafe_allow_html=True)
 
 
 # ==============================
@@ -379,7 +398,6 @@ def bloque_eficiencia_ataque(df_filtrado):
         {v: k for k, v in offensive_metrics.items()}
     )
 
-    # 📊 Gráfico de barras horizontales
     fig = px.bar(
         df_long,
         x="value",
@@ -391,7 +409,6 @@ def bloque_eficiencia_ataque(df_filtrado):
         template="plotly_dark",
         text_auto=".1f",
     )
-
     fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
     fig.update_layout(
         height=260,
@@ -460,7 +477,6 @@ def bloque_construccion_pases(df_filtrado):
         {v: k for k, v in passing_metrics.items()}
     )
 
-    # 📊 Gráfico de barras horizontales
     fig = px.bar(
         df_long_pass,
         x="value",
@@ -472,7 +488,6 @@ def bloque_construccion_pases(df_filtrado):
         template="plotly_dark",
         text_auto=".1f",
     )
-
     fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
     fig.update_layout(
         height=260,
@@ -487,7 +502,6 @@ def bloque_construccion_pases(df_filtrado):
         margin=dict(l=40, r=30, t=30, b=20),
     )
     st.plotly_chart(fig, use_container_width=True)
-
 
 # ==============================
 # LAYOUT 1x2
