@@ -1046,14 +1046,18 @@ else:
             if "Jornada" not in df_copa_adapter.columns:
                 df_copa_adapter["Jornada"] = df_copa_adapter.get("stage", "Copa")
 
-            # Convertir métricas seleccionadas a numérico
+            # --- Convertir a numérico y limpiar NaNs
             for col_num in [x_column_copa, y_column_copa]:
                 if col_num in df_copa_adapter.columns:
-                    df_copa_adapter[col_num] = pd.to_numeric(
-                        df_copa_adapter[col_num], errors="coerce"
+                    df_copa_adapter[col_num] = (
+                        pd.to_numeric(df_copa_adapter[col_num], errors="coerce")
+                        .fillna(0)
                     )
 
-            # ✅ Usar todos los equipos para mantener los rankings
+            # ✅ Rellenar todo el resto de columnas numéricas con 0 (evita errores int/NaN)
+            df_copa_adapter = df_copa_adapter.fillna(0)
+
+            # ✅ Usar todos los equipos (así make_team_scatter puede calcular rankings)
             df_copa_view = df_copa_adapter.copy()
 
             if df_copa_view.empty:
