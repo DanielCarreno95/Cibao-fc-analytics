@@ -1238,7 +1238,7 @@ if not team_options_copa:
     st.stop()
 
 col_sel = st.columns([1])
-opponent_choice = col_sel[0].selectbox("Selecciona rival de Copa", team_options_copa)
+opponent_choice = col_sel[0].selectbox("Selecciona rival de Copa", team_options_copa, key="copa_metrics_select")
 
 # --- Función auxiliar de comparación Cibao vs Rival ---
 def make_comparison_bar(group_name, df, mapping_dict, group_dict, rival_name):
