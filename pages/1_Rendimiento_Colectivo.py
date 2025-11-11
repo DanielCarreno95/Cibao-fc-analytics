@@ -293,82 +293,51 @@ else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
 
 # ==============================
-# 🔶 CONFIGURACIÓN VISUAL GLOBAL CIBAO FC
+# 🎯 ESTILO GLOBAL (más armonizado)
 # ==============================
-import numpy as np
-import pandas as pd
-import plotly.express as px
-import streamlit as st
-
-# 🎨 PALETA INSTITUCIONAL
-CIBAO_ORANGE = "#FF6B00"
-CIBAO_ORANGE_LIGHT = "#FFA64D"
-CIBAO_BLACK = "#111111"
-CIBAO_GRAY = "#D3D3D3"
-CIBAO_DARKGRAY = "#2B2B2B"
-PALETTE_CIBAO = [CIBAO_ORANGE, "#F78E1E", "#2F2F2F", "#777777"]
-
-# 🎨 CSS GLOBAL
 st.markdown(f"""
 <style>
+/* Multiselect chips */
 div[data-baseweb="tag"] {{
     background-color: {CIBAO_ORANGE} !important;
     color: white !important;
-    border-radius: 6px !important;
+    border-radius: 5px !important;
+    font-size: 13px !important;
+    padding: 2px 6px !important;
 }}
+/* Multiselect container */
 div[data-baseweb="select"] > div {{
     background-color: {CIBAO_DARKGRAY} !important;
     border: 1px solid {CIBAO_ORANGE} !important;
     border-radius: 8px !important;
+    font-size: 13px !important;
 }}
 div[role="option"]:hover {{
     background-color: {CIBAO_ORANGE}33 !important;
 }}
+/* Ajustes tipográficos */
 h3 {{
     color: {CIBAO_ORANGE} !important;
     font-weight: 900 !important;
+    font-size: 20px !important;
+    letter-spacing: 0.3px !important;
+}}
+p, label {{
+    font-size: 13px !important;
+    color: {CIBAO_GRAY} !important;
 }}
 </style>
 """, unsafe_allow_html=True)
 
-# ==============================
-# 🔍 FILTROS GLOBALES
-# ==============================
-st.markdown(f"<h3 style='text-align:center;'>Filtros de análisis</h3>", unsafe_allow_html=True)
-
-cols_filtros = st.columns(2)
-ultimas_jornadas = (
-    sorted(df_filtrado["Jornada"].unique())[-3:]
-    if len(df_filtrado["Jornada"].unique()) >= 3
-    else sorted(df_filtrado["Jornada"].unique())
-)
-
-with cols_filtros[0]:
-    jornadas_sel = st.multiselect(
-        "Selecciona jornadas (máx 5)",
-        sorted(df_filtrado["Jornada"].unique().tolist()),
-        default=ultimas_jornadas,
-        max_selections=5,
-        key="global_jornadas",
-    )
-
-with cols_filtros[1]:
-    partidos_sel = st.multiselect(
-        "Selecciona partidos para comparar (máx 4)",
-        df_filtrado["Match"].unique().tolist(),
-        default=df_filtrado[df_filtrado["Jornada"].isin(ultimas_jornadas)]["Match"].unique().tolist()[:3],
-        max_selections=4,
-        key="global_partidos",
-    )
-
-st.markdown("<hr style='border:1px solid #333;'>", unsafe_allow_html=True)
 
 # ==============================
-# BLOQUE 1 — EFICIENCIA Y ATAQUE
+# BLOQUE 1 — EFICIENCIA Y ATAQUE (Horizontal)
 # ==============================
 def bloque_eficiencia_ataque(df_filtrado):
     st.markdown("<h3 style='text-align:center;'>Eficiencia y Ataque</h3>", unsafe_allow_html=True)
-    st.caption("Evalúa la productividad ofensiva del Cibao FC, analizando goles, xG y disparos por partido.")
+    st.caption(
+        "Evalúa la productividad ofensiva del Cibao FC analizando goles, xG y disparos por partido en comparación con otros equipos."
+    )
 
     offensive_metrics = {
         "Goles por partido": "goals",
@@ -388,7 +357,8 @@ def bloque_eficiencia_ataque(df_filtrado):
     )
 
     df_off = df_filtrado[
-        (df_filtrado["Match"].isin(partidos_sel)) & (df_filtrado["Jornada"].isin(jornadas_sel))
+        (df_filtrado["Match"].isin(partidos_sel))
+        & (df_filtrado["Jornada"].isin(jornadas_sel))
     ].copy()
 
     if df_off.empty:
@@ -397,40 +367,55 @@ def bloque_eficiencia_ataque(df_filtrado):
 
     df_long = df_off.melt(
         id_vars=["Match"],
-        value_vars=[offensive_metrics[m] for m in metrics_sel if offensive_metrics[m] in df_off.columns],
+        value_vars=[
+            offensive_metrics[m]
+            for m in metrics_sel
+            if offensive_metrics[m] in df_off.columns
+        ],
         var_name="metric",
         value_name="value",
     )
-    df_long["metric_label"] = df_long["metric"].map({v: k for k, v in offensive_metrics.items()})
+    df_long["metric_label"] = df_long["metric"].map(
+        {v: k for k, v in offensive_metrics.items()}
+    )
 
+    # 📊 Gráfico de barras horizontales
     fig = px.bar(
         df_long,
-        x="Match",
-        y="value",
+        x="value",
+        y="Match",
         color="metric_label",
+        orientation="h",
         barmode="group",
         color_discrete_sequence=PALETTE_CIBAO,
         template="plotly_dark",
         text_auto=".1f",
     )
+
+    fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
     fig.update_layout(
         height=260,
         plot_bgcolor=CIBAO_BLACK,
         paper_bgcolor=CIBAO_BLACK,
         font=dict(color=CIBAO_GRAY, size=12),
-        xaxis_title=None,
-        yaxis_title="Valor",
+        xaxis_title="Valor",
+        yaxis_title=None,
         legend_title="Métrica ofensiva",
+        legend=dict(font=dict(size=11)),
         bargap=0.25,
+        margin=dict(l=40, r=30, t=30, b=20),
     )
     st.plotly_chart(fig, use_container_width=True)
 
+
 # ==============================
-# BLOQUE 2 — CONSTRUCCIÓN Y PASES
+# BLOQUE 2 — CONSTRUCCIÓN Y PASES (Horizontal)
 # ==============================
 def bloque_construccion_pases(df_filtrado):
     st.markdown("<h3 style='text-align:center;'>Construcción y Pases</h3>", unsafe_allow_html=True)
-    st.caption("Analiza la precisión de pase en distintas zonas de juego y su impacto en la construcción ofensiva.")
+    st.caption(
+        "Analiza la precisión y calidad de los pases en distintas zonas del campo, mostrando la consistencia técnica del equipo."
+    )
 
     passing_metrics = {
         "Precisión de pase (%)": "passes_accurate_percent",
@@ -453,7 +438,8 @@ def bloque_construccion_pases(df_filtrado):
     )
 
     df_pass = df_filtrado[
-        (df_filtrado["Match"].isin(partidos_sel)) & (df_filtrado["Jornada"].isin(jornadas_sel))
+        (df_filtrado["Match"].isin(partidos_sel))
+        & (df_filtrado["Jornada"].isin(jornadas_sel))
     ].copy()
 
     if df_pass.empty:
@@ -462,33 +448,46 @@ def bloque_construccion_pases(df_filtrado):
 
     df_long_pass = df_pass.melt(
         id_vars=["Match"],
-        value_vars=[passing_metrics[m] for m in metrics_sel if passing_metrics[m] in df_pass.columns],
+        value_vars=[
+            passing_metrics[m]
+            for m in metrics_sel
+            if passing_metrics[m] in df_pass.columns
+        ],
         var_name="metric",
         value_name="value",
     )
-    df_long_pass["metric_label"] = df_long_pass["metric"].map({v: k for k, v in passing_metrics.items()})
+    df_long_pass["metric_label"] = df_long_pass["metric"].map(
+        {v: k for k, v in passing_metrics.items()}
+    )
 
+    # 📊 Gráfico de barras horizontales
     fig = px.bar(
         df_long_pass,
-        x="Match",
-        y="value",
+        x="value",
+        y="Match",
         color="metric_label",
+        orientation="h",
         barmode="group",
         color_discrete_sequence=PALETTE_CIBAO,
         template="plotly_dark",
         text_auto=".1f",
     )
+
+    fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
     fig.update_layout(
         height=260,
         plot_bgcolor=CIBAO_BLACK,
         paper_bgcolor=CIBAO_BLACK,
         font=dict(color=CIBAO_GRAY, size=12),
-        xaxis_title=None,
-        yaxis_title="Precisión (%)",
+        xaxis_title="Precisión (%)",
+        yaxis_title=None,
         legend_title="Tipo de pase",
+        legend=dict(font=dict(size=11)),
         bargap=0.25,
+        margin=dict(l=40, r=30, t=30, b=20),
     )
     st.plotly_chart(fig, use_container_width=True)
+
 
 # ==============================
 # LAYOUT 1x2
