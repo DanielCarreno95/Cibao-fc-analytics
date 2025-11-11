@@ -1030,7 +1030,6 @@ else:
             # --- ✨ Preparar dataset completo de Copa
             df_copa_adapter = df_copa_cibao.copy()
 
-            # Estandarización de columnas
             df_copa_adapter["Team"] = df_copa_adapter["team"]
             df_copa_adapter["Opponent"] = df_copa_adapter.apply(
                 lambda r: r["away_team"]
@@ -1046,7 +1045,6 @@ else:
             if "Jornada" not in df_copa_adapter.columns:
                 df_copa_adapter["Jornada"] = df_copa_adapter.get("stage", "Copa")
 
-            # --- Convertir a numérico y limpiar NaNs
             for col_num in [x_column_copa, y_column_copa]:
                 if col_num in df_copa_adapter.columns:
                     df_copa_adapter[col_num] = (
@@ -1073,15 +1071,17 @@ else:
                         filters=None,
                     )
 
-                    # --- Ajuste visual mejorado
+                    # 🚫 Eliminar anotaciones superiores automáticas (texto que se superpone)
+                    fig_copa.layout.annotations = [
+                        ann for ann in fig_copa.layout.annotations if ann.yref != "paper" or ann.y < 1
+                    ]
+
+                    # Ajuste de márgenes para mantener buen espaciado
                     fig_copa.update_layout(
-                        margin=dict(t=160, b=70, l=60, r=40),
-                        title_pad=dict(t=100),
+                        margin=dict(t=100, b=80, l=60, r=40),
+                        title_pad=dict(t=60),
                         title_font=dict(size=20),
                     )
-
-                    # Pequeño espacio extra arriba para evitar cortes
-                    st.markdown("<div style='margin-top:25px'></div>", unsafe_allow_html=True)
 
                     st.plotly_chart(
                         fig_copa,
@@ -1089,8 +1089,10 @@ else:
                         config={"displayModeBar": True},
                     )
 
+                    # ✅ Mostrar solo resumen inferior
                     if resumen_copa:
-                        st.caption(f"Resumen: {resumen_copa}")
+                        st.markdown("---")
+                        st.caption(f"**Resumen:** {resumen_copa}")
 
                 except Exception as e:
                     st.warning(
@@ -1107,11 +1109,10 @@ else:
                         template="plotly_dark",
                     )
                     fig_basic.update_layout(
-                        margin=dict(t=160, b=70, l=60, r=40),
-                        title_pad=dict(t=100),
+                        margin=dict(t=100, b=80, l=60, r=40),
+                        title_pad=dict(t=60),
                         title_font=dict(size=20),
                     )
-                    st.markdown("<div style='margin-top:25px'></div>", unsafe_allow_html=True)
                     st.plotly_chart(fig_basic, use_container_width=True)
 
 
