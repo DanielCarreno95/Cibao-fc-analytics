@@ -56,45 +56,43 @@ Diseñado para soporte táctico del staff técnico — decisiones claras, con co
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ===============================================
-# 🎯 SIDEBAR + FILTROS GLOBALES (jornada / partido)
+# 🎯 FILTROS GLOBALES (Sidebar + Aplicación completa)
 # ===============================================
-with st.sidebar:
-    st.subheader("Filtros")
 
-    # --------------------------
-    # 1️⃣ Detectar las últimas 3 jornadas disponibles
-    # --------------------------
-    if "Jornada" in df_cibao.columns:
-        jornadas_unicas = sorted(df_cibao["Jornada"].unique())
-        ultimas_jornadas = jornadas_unicas[-3:] if len(jornadas_unicas) >= 3 else jornadas_unicas
-    else:
-        ultimas_jornadas = []
+# --- Detectar últimas 3 jornadas automáticamente ---
+if "Jornada" in df_cibao.columns and not df_cibao.empty:
+    jornadas_unicas = sorted(df_cibao["Jornada"].dropna().unique())
+    ultimas_jornadas = jornadas_unicas[-3:] if len(jornadas_unicas) >= 3 else jornadas_unicas
+else:
+    ultimas_jornadas = []
 
-    # --------------------------
-    # 2️⃣ Calcular partidos correspondientes a esas jornadas
-    # --------------------------
+# --- Obtener partidos correspondientes ---
+if not df_cibao.empty and "Match" in df_cibao.columns:
     default_partidos = (
         df_cibao[df_cibao["Jornada"].isin(ultimas_jornadas)]
         .sort_values("Date")["Match"]
         .unique()
         .tolist()[:5]
     )
+else:
+    default_partidos = []
 
-    # --------------------------
-    # 3️⃣ Inicializar valores en sesión (solo una vez)
-    # --------------------------
-    if "jornadas_sel" not in st.session_state:
-        st.session_state["jornadas_sel"] = ultimas_jornadas
-    if "partidos_sel" not in st.session_state:
-        st.session_state["partidos_sel"] = default_partidos
+# --- Inicialización del estado global (solo primera carga) ---
+if "global_jornadas" not in st.session_state:
+    st.session_state["global_jornadas"] = ultimas_jornadas
+if "global_partidos" not in st.session_state:
+    st.session_state["global_partidos"] = default_partidos
 
-    # --------------------------
-    # 4️⃣ Controles de selección
-    # --------------------------
+# ===============================================
+# 🧭 SIDEBAR — Filtros globales
+# ===============================================
+with st.sidebar:
+    st.subheader("Filtros")
+
     jornadas_sel = st.multiselect(
         "Selecciona Jornadas (máx 5)",
         options=sorted(df_cibao["Jornada"].unique().tolist()),
-        default=st.session_state["jornadas_sel"],
+        default=st.session_state["global_jornadas"],
         key="sidebar_jornadas",
         max_selections=5,
     )
@@ -102,38 +100,47 @@ with st.sidebar:
     partidos_sel = st.multiselect(
         "Selecciona Partidos (máx 5)",
         options=df_cibao["Match"].unique().tolist(),
-        default=st.session_state["partidos_sel"],
+        default=st.session_state["global_partidos"],
         key="sidebar_partidos",
         max_selections=5,
     )
 
-    # --------------------------
-    # 5️⃣ Botón de reinicio (solo sidebar)
-    # --------------------------
+    # --- Botón para limpiar filtros ---
     if st.button("🔄 Borrar filtros", use_container_width=True):
-        st.session_state["jornadas_sel"] = ultimas_jornadas
-        st.session_state["partidos_sel"] = default_partidos
-        st.toast("Filtros restablecidos a las últimas 3 jornadas ✅", icon="🔄")
+        st.session_state["global_jornadas"] = ultimas_jornadas
+        st.session_state["global_partidos"] = default_partidos
+        st.session_state["sidebar_jornadas"] = ultimas_jornadas
+        st.session_state["sidebar_partidos"] = default_partidos
+        st.toast("Filtros restablecidos a las últimas 3 jornadas ✅", icon="🔁")
         st.rerun()
+
+# ===============================================
+# 🧮 SINCRONIZACIÓN entre sidebar y app
+# ===============================================
+# Siempre sincroniza el estado global (para que todos los bloques usen lo mismo)
+st.session_state["global_jornadas"] = st.session_state.get("sidebar_jornadas", ultimas_jornadas)
+st.session_state["global_partidos"] = st.session_state.get("sidebar_partidos", default_partidos)
+
+jornadas_sel = st.session_state["global_jornadas"]
+partidos_sel = st.session_state["global_partidos"]
 
 # ===============================================
 # 🔍 FILTRADO DE DATOS
 # ===============================================
 df_filtrado = df_cibao.copy()
 
-# Aplicar filtros dinámicos
-if st.session_state.get("sidebar_jornadas"):
-    df_filtrado = df_filtrado[df_filtrado["Jornada"].isin(st.session_state["sidebar_jornadas"])]
+if jornadas_sel and "Jornada" in df_filtrado.columns:
+    df_filtrado = df_filtrado[df_filtrado["Jornada"].isin(jornadas_sel)]
 
-if st.session_state.get("sidebar_partidos"):
-    df_filtrado = df_filtrado[df_filtrado["Match"].isin(st.session_state["sidebar_partidos"])]
+if partidos_sel:
+    df_filtrado = df_filtrado[df_filtrado["Match"].isin(partidos_sel)]
 
-# Si no hay selecciones (caso inicial o reset completo)
-if (not st.session_state.get("sidebar_jornadas")) and (not st.session_state.get("sidebar_partidos")):
-    df_filtrado = df_cibao.copy()
+# Si no hay selección válida, usa últimas 3 por defecto
+if df_filtrado.empty and not df_cibao.empty:
+    df_filtrado = df_cibao[df_cibao["Jornada"].isin(ultimas_jornadas)]
 
 # ===============================================
-# ⚙️ HELPERS AUXILIARES
+# 🧠 HELPERS AUXILIARES
 # ===============================================
 def col_from(metric_name: str):
     """Devuelve nombre de columna real según METRICS_DICT si existe en df."""
@@ -160,7 +167,7 @@ def warn_missing(metrics, titulo: str):
         st.info(f"ℹ️ {titulo}: faltan columnas para {', '.join(missing)}")
 
 # ===============================================
-# 🔁 BOTÓN GLOBAL DE REINICIO DE FILTROS (parte superior de la página)
+# 🔁 BOTÓN GLOBAL DE REINICIO
 # ===============================================
 cols_reset = st.columns([4, 1])
 with cols_reset[1]:
@@ -171,10 +178,13 @@ with cols_reset[1]:
                 "tables", "efficiency", "passes", "offensive", "defensive", "tactical"
             ]):
                 del st.session_state[key]
-        st.toast("Filtros restablecidos a los valores por defecto ✅", icon="🔄")
+        st.toast("Filtros restablecidos a las últimas 3 jornadas ✅", icon="🔄")
         st.rerun()
 
-# ---------- KPIs ----------
+# ===============================================
+# Bloque KPIs
+# ===============================================
+
 st.markdown("### Indicadores del último partido")
 
 # Seleccionar el último partido según la fecha más reciente
