@@ -720,7 +720,7 @@ def bloque_distribucion_tactica(df_filtrado):
     fig_pressure.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
     fig_pressure.update_layout(
         height=230,
-        title=dict(text="🔶 Presión — Pérdidas estimadas", font=dict(size=14, color=CIBAO_ORANGE)),
+        title=dict(text="Presión — Por zonas del campo", font=dict(size=14, color=CIBAO_ORANGE)),
         plot_bgcolor=CIBAO_BLACK,
         paper_bgcolor=CIBAO_BLACK,
         font=dict(color=CIBAO_GRAY, size=12),
@@ -757,7 +757,7 @@ def bloque_distribucion_tactica(df_filtrado):
     fig_recovery.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
     fig_recovery.update_layout(
         height=230,
-        title=dict(text="🟠 Recuperaciones — Por zonas del campo", font=dict(size=14, color=CIBAO_ORANGE)),
+        title=dict(text="Recuperaciones — Por zonas del campo", font=dict(size=14, color=CIBAO_ORANGE)),
         plot_bgcolor=CIBAO_BLACK,
         paper_bgcolor=CIBAO_BLACK,
         font=dict(color=CIBAO_GRAY, size=12),
@@ -783,7 +783,7 @@ with col2:
 
 
 # ==============================
-# 🟧 ANÁLISIS COMPARATIVO POR BLOQUES — ESTILO CIBAO
+# 🟧 ANÁLISIS COMPARATIVO POR BLOQUES — ESTILO CIBAO (VERTICAL + UN SOLO COLOR)
 # ==============================
 
 import pandas as pd
@@ -794,21 +794,14 @@ st.subheader("Análisis Comparativo por Bloques")
 st.caption(
     "Visualiza y compara los indicadores clave del rendimiento colectivo en tres fases del juego: "
     "**ofensiva**, **construcción/pase** y **defensiva**. "
-    "Cada bloque usa una paleta cromática institucional inspirada en los colores del Cibao FC, "
-    "mostrando de menor a mayor rendimiento."
+    "El diseño usa una única paleta institucional naranja del Cibao FC, con intensidad creciente según el rendimiento."
 )
 
 # ==============================
-# 🎨 PALETAS INSTITUCIONALES — CIBAO FC
+# 🎨 PALETA ÚNICA CIBAO (NARANJA)
 # ==============================
-CIBAO_OFF = LinearSegmentedColormap.from_list(
-    "cibao_off", ["#3d1a00", "#7a3000", "#b84700", "#ff7b00", "#ffae42"]
-)
-CIBAO_PASS = LinearSegmentedColormap.from_list(
-    "cibao_pass", ["#1f1f1f", "#383838", "#5c5c5c", "#a1a1a1", "#f5f5f5"]
-)
-CIBAO_DEF = LinearSegmentedColormap.from_list(
-    "cibao_def", ["#001f33", "#004466", "#007799", "#00a3cc", "#33d4ff"]
+CIBAO_ORANGE = LinearSegmentedColormap.from_list(
+    "cibao_orange", ["#3d1a00", "#7a3000", "#b84700", "#ff7b00", "#ffb347"]
 )
 
 # ==============================
@@ -852,47 +845,55 @@ else:
     df_base = df_base.sort_values("Date", ascending=False).head(5)
 
 # ==============================
-# ⚙️ FUNCIÓN PARA CONSTRUIR TABLA
+# ⚙️ FUNCIÓN PARA CONSTRUIR TABLA CON FORMATO COLUMNA A COLUMNA
 # ==============================
-def build_table(df, metrics_dict, cmap):
+def build_table(df, metrics_dict):
     df_local = df[["Match"] + list(metrics_dict.values())].copy()
     df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
     df_local = df_local.round(2)
 
+    # Aplicar gradiente por columna (manteniendo la independencia de cada métrica)
+    styled_df = df_local.style
+    for col in metrics_dict.keys():
+        styled_df = styled_df.background_gradient(cmap=CIBAO_ORANGE, subset=[col])
+
     styled_df = (
-        df_local.style
-        .background_gradient(cmap=cmap, subset=list(metrics_dict.keys()), axis=0)
-        .set_properties(**{
-            "text-align": "center",
-            "font-size": "12px",
-            "border-color": "#2c2c2c",
-            "border-width": "1px",
-            "border-style": "solid",
-        })
+        styled_df.set_properties(
+            **{
+                "text-align": "center",
+                "font-size": "12px",
+                "border-color": "#2b2b2b",
+                "border-width": "1px",
+                "border-style": "solid",
+            }
+        )
         .format(precision=2)
     )
     return styled_df, df_local
 
 # ==============================
-# 🧩 LAYOUT 1x3 — Tablas por bloque
+# 🧩 BLOQUES VERTICALES (UNO DEBAJO DEL OTRO)
 # ==============================
 if not df_base.empty:
-    col1, col2, col3 = st.columns(3)
 
-    with col1:
-        st.markdown("### 🔶 Bloque Ofensivo")
-        styled_off, df_off = build_table(df_base, metrics_blocks["Ofensivas"], cmap=CIBAO_OFF)
-        st.dataframe(styled_off, use_container_width=True, height=320)
+    # Bloque Ofensivo
+    st.markdown("### 🔶 Bloque Ofensivo")
+    styled_off, df_off = build_table(df_base, metrics_blocks["Ofensivas"])
+    st.dataframe(styled_off, use_container_width=True, height=320)
 
-    with col2:
-        st.markdown("### ⚫ Bloque Construcción y Pase")
-        styled_pass, df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"], cmap=CIBAO_PASS)
-        st.dataframe(styled_pass, use_container_width=True, height=320)
+    st.divider()
 
-    with col3:
-        st.markdown("### 🔷 Bloque Defensivo")
-        styled_def, df_def = build_table(df_base, metrics_blocks["Defensivas"], cmap=CIBAO_DEF)
-        st.dataframe(styled_def, use_container_width=True, height=320)
+    # Bloque Construcción y Pase
+    st.markdown("### 🔶 Bloque Construcción y Pase")
+    styled_pass, df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"])
+    st.dataframe(styled_pass, use_container_width=True, height=320)
+
+    st.divider()
+
+    # Bloque Defensivo
+    st.markdown("### 🔶 Bloque Defensivo")
+    styled_def, df_def = build_table(df_base, metrics_blocks["Defensivas"])
+    st.dataframe(styled_def, use_container_width=True, height=320)
 
     # ==============================
     # 📥 DESCARGA EN EXCEL
@@ -913,8 +914,8 @@ if not df_base.empty:
 
     st.markdown(
         f"**Insight general:** Se muestran los últimos {len(df_base)} partidos disponibles según los filtros. "
-        "Cada bloque usa una escala cromática coherente al estilo Cibao FC para destacar los valores más altos "
-        "de rendimiento en cada fase del juego."
+        "Cada bloque utiliza una escala de tonos naranjas institucionales, resaltando los valores más altos "
+        "de rendimiento dentro de cada columna de forma independiente."
     )
 
 # ==============================
