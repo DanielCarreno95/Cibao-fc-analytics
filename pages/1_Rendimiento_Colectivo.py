@@ -1183,21 +1183,29 @@ col1, col2 = st.columns(2)
 with col1:
     ataque_names = METRIC_GROUPS_CONCACAF["Ataque"]
     ataque_cols  = [METRICS_CONCACAF[m] for m in ataque_names if m in METRICS_CONCACAF]
+    ataque_cols  = list(dict.fromkeys(ataque_cols))  # ✅ eliminar duplicados
 
     df_a = _ensure_numeric(df_copa_cibao.copy(), ataque_cols)
-    avg_a = df_a[ataque_cols].mean().rename(index={v:k for k,v in METRICS_CONCACAF.items()})
-    avg_a = avg_a.reindex(ataque_names)
+    avg_a = (
+        df_a[ataque_cols]
+        .mean()
+        .rename(index={v: k for k, v in METRICS_CONCACAF.items()})
+        .groupby(level=0)
+        .first()
+    )
+    avg_a = avg_a.loc[~avg_a.index.duplicated(keep="first")]
+    avg_a = avg_a.reindex([n for n in ataque_names if n in avg_a.index])
 
     fig_a = px.bar(
         x=avg_a.index, y=avg_a.values,
-        title="⚽ Ataque — Promedios por partido",
-        labels={"x":"Métrica","y":"Promedio"},
+        title=" Ataque — Promedios por partido",
+        labels={"x": "Métrica", "y": "Promedio"},
         color_discrete_sequence=[CIBAO_ORANGE],
     )
     fig_a.update_layout(
         template="plotly_dark",
         margin=dict(t=80, b=60, l=60, r=40),
-        height=450
+        height=450,
     )
     st.plotly_chart(fig_a, use_container_width=True)
 
@@ -1208,21 +1216,24 @@ with col2:
 
     df_p = _ensure_numeric(df_copa_cibao.copy(), pase_cols)
     df_p["pass_accuracy_%"] = (
-        (df_p.get("accuratePass",0) / df_p.get("totalPass",1)).replace([np.inf,np.nan],0)*100
+        (df_p.get("accuratePass", 0) / df_p.get("totalPass", 1))
+        .replace([np.inf, np.nan], 0)
+        * 100
     )
-    avg_p = df_p[["totalPass","accuratePass","pass_accuracy_%"]].mean()
-    avg_p.index = ["Total de Pases","Pases Precisos","Precisión (%)"]
+    avg_p = df_p[["totalPass", "accuratePass", "pass_accuracy_%"]].mean()
+    avg_p.index = ["Total de Pases", "Pases Precisos", "Precisión (%)"]
 
     fig_p = px.bar(
-        x=avg_p.index, y=avg_p.values,
-        title="🎯 Pases — Volumen y precisión",
-        labels={"x":"Métrica","y":"Promedio"},
+        x=avg_p.index,
+        y=avg_p.values,
+        title=" Pases — Volumen y precisión",
+        labels={"x": "Métrica", "y": "Promedio"},
         color_discrete_sequence=["#1E90FF"],
     )
     fig_p.update_layout(
         template="plotly_dark",
         margin=dict(t=80, b=60, l=60, r=40),
-        height=450
+        height=450,
     )
     st.plotly_chart(fig_p, use_container_width=True)
 
@@ -1256,7 +1267,7 @@ with col3:
 
     fig_d = px.bar(
         x=avg_d.index, y=avg_d.values,
-        title="🛡️ Defensa — Promedios por partido",
+        title=" Defensa — Promedios por partido",
         labels={"x":"Métrica","y":"Promedio"},
         color_discrete_sequence=["#DC143C"],
     )
@@ -1278,7 +1289,7 @@ with col4:
 
     fig_s = px.bar(
         x=avg_s.index, y=avg_s.values,
-        title="🧩 Set Pieces — Promedios por partido",
+        title=" Set Pieces — Promedios por partido",
         labels={"x":"Métrica","y":"Promedio"},
         color_discrete_sequence=["#FFD700"],
     )
