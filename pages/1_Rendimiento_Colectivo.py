@@ -1148,12 +1148,6 @@ def _ensure_numeric(df, cols):
     return df
 
 def _dedup_names_by_column(metric_names, mapping):
-    """
-    Dado un listado de nombres (según tu diccionario) devuelve una lista de
-    (display_name, dataset_col) sin duplicados por columna real.
-    Si dos nombres apuntan a la misma col (p.ej. Disparos Totales = Intentos de Gol),
-    se queda el primero que aparezca en 'metric_names'.
-    """
     seen = set()
     result = []
     for n in metric_names:
@@ -1162,52 +1156,6 @@ def _dedup_names_by_column(metric_names, mapping):
             seen.add(col)
             result.append((n, col))
     return result
-
-def _bar_from_means(pairs_name_col, df, title):
-    """
-    pairs_name_col: lista de (display_name, dataset_col)
-    df: dataframe base (df_copa_cibao)
-    """
-    cols = [c for _, c in pairs_name_col]
-    df = _ensure_numeric(df.copy(), cols)
-
-    means, labels = [], []
-    for display, col in pairs_name_col:
-        val = 0.0
-        if col in df.columns and len(df):
-            try:
-                val = float(df[col].mean())
-            except Exception:
-                val = 0.0
-        labels.append(str(display))
-        means.append(val)
-
-    means = list(np.nan_to_num(means, nan=0.0))
-
-    # 🔒 Color seguro (si la variable no existe o no es válida)
-    color_safe = (
-        CIBAO_ORANGE
-        if isinstance(CIBAO_ORANGE, str) and CIBAO_ORANGE.startswith("#")
-        else "#FF8C00"
-    )
-
-    fig = go.Figure()
-    try:
-        fig.add_trace(go.Bar(x=labels, y=means, marker=dict(color=color_safe)))
-    except Exception:
-        # fallback si Plotly no acepta el color
-        fig.add_trace(go.Bar(x=labels, y=means, marker=dict(color="#FF8C00")))
-
-    fig.update_layout(
-        title=title,
-        template="plotly_dark",
-        margin=dict(t=80, b=60, l=60, r=40),
-        height=450,
-        xaxis_title="Métrica",
-        yaxis_title="Promedio por partido",
-    )
-    return fig
-
 
 # =========================================================
 # 🧩 BLOQUES 1–4 · COMPARATIVA CIBAO VS RIVAL — COPA CONCACAF
@@ -1238,9 +1186,15 @@ if not team_options_copa:
     st.stop()
 
 col_sel = st.columns([1])
-opponent_choice = col_sel[0].selectbox("Selecciona rival de Copa", team_options_copa, key="copa_metrics_select")
+opponent_choice = col_sel[0].selectbox(
+    "Selecciona rival de Copa",
+    team_options_copa,
+    key="copa_metrics_select",
+)
 
-# --- Función auxiliar de comparación Cibao vs Rival ---
+# =========================================================
+# 🧮 Función principal comparativa Cibao vs Rival
+# =========================================================
 def make_comparison_bar(group_name, df, mapping_dict, group_dict, rival_name):
     group_metrics = group_dict.get(group_name, [])
     pairs = _dedup_names_by_column(group_metrics, mapping_dict)
@@ -1256,13 +1210,17 @@ def make_comparison_bar(group_name, df, mapping_dict, group_dict, rival_name):
         cibao_means.append(float(cibao_df[col].mean()) if col in cibao_df.columns else 0)
         rival_means.append(float(rival_df[col].mean()) if col in rival_df.columns else 0)
 
+    color_cibao = "#FF8C00"  # naranja sólido (seguro)
+    color_rival = "#FFA500"
+
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        x=labels, y=cibao_means, name="Cibao", marker_color=CIBAO_ORANGE
+        x=labels, y=cibao_means, name="Cibao", marker_color=color_cibao
     ))
     fig.add_trace(go.Bar(
-        x=labels, y=rival_means, name=rival_name, marker_color="#FFA500"
+        x=labels, y=rival_means, name=rival_name, marker_color=color_rival
     ))
+
     fig.update_layout(
         title=f"{group_name} — Promedio por partido (Cibao vs {rival_name})",
         barmode="group",
@@ -1271,10 +1229,13 @@ def make_comparison_bar(group_name, df, mapping_dict, group_dict, rival_name):
         margin=dict(t=70, b=60, l=60, r=40),
         xaxis_title="Métrica",
         yaxis_title="Promedio por partido",
+        legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
     )
     return fig
 
-# --- FILA 1: ATAQUE + PASES ---
+# =========================================================
+# 📊 FILA 1: ATAQUE + PASES
+# =========================================================
 col1, col2 = st.columns(2)
 with col1:
     st.plotly_chart(
@@ -1287,7 +1248,9 @@ with col2:
         use_container_width=True,
     )
 
-# --- FILA 2: DEFENSIVO + SET PIECES ---
+# =========================================================
+# 📊 FILA 2: DEFENSIVO + SET PIECES
+# =========================================================
 col3, col4 = st.columns(2)
 with col3:
     st.plotly_chart(
@@ -1299,41 +1262,6 @@ with col4:
         make_comparison_bar("Set Pieces", df_copa_cibao, METRICS_CONCACAF, METRIC_GROUPS_CONCACAF, opponent_choice),
         use_container_width=True,
     )
-
-# =========================================================
-# Bloques 3 – 4 · Defensivo y Set Pieces (Copa Concacaf)
-# =========================================================
-st.markdown(
-    f"""
-    <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
-    Bloques 3 – 4 · Defensivo y Set Pieces — Copa Concacaf
-    </h2>
-    """,
-    unsafe_allow_html=True,
-)
-
-col3, col4 = st.columns(2)
-
-# --- DEFENSIVO ---
-with col3:
-    def_names = METRIC_GROUPS_CONCACAF.get("Defensivo", [])
-    def_pairs = _dedup_names_by_column(def_names, METRICS_CONCACAF)
-    if not def_pairs:
-        st.info("No hay métricas mapeadas para Defensivo.")
-    else:
-        fig_d = _bar_from_means(def_pairs, df_copa_cibao, title="Defensivo — promedios por partido")
-        st.plotly_chart(fig_d, use_container_width=True)
-
-# --- SET PIECES ---
-with col4:
-    sp_names = METRIC_GROUPS_CONCACAF.get("Set Pieces", [])
-    sp_pairs = _dedup_names_by_column(sp_names, METRICS_CONCACAF)
-    if not sp_pairs:
-        st.info("No hay métricas mapeadas para Set Pieces.")
-    else:
-        fig_s = _bar_from_means(sp_pairs, df_copa_cibao, title="Set Pieces — promedios por partido")
-        st.plotly_chart(fig_s, use_container_width=True)
-
 
 
 
