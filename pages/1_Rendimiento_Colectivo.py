@@ -782,6 +782,23 @@ with col2:
     bloque_distribucion_tactica(df_filtrado)
 
 # ==============================
+# ANÁLISIS COMPARATIVO — TABLAS OFENSIVA, CONSTRUCCIÓN Y DEFENSIVA (CIBAO ORANGE)
+# ==============================
+
+import pandas as pd
+import io
+import matplotlib
+from matplotlib.colors import LinearSegmentedColormap
+
+st.subheader("Análisis Comparativo por Bloques")
+st.caption(
+    "Visualiza y compara los indicadores clave del rendimiento colectivo en tres fases del juego: "
+    "**ofensiva**, **construcción/pase** y **defensiva**. "
+    "El formato condicional usa una paleta cromática institucional en tonos **naranja Cibao FC**, "
+    "donde los valores más altos indican mejor rendimiento."
+)
+
+# ==============================
 # 📋 DICCIONARIO DE MÉTRICAS POR BLOQUE
 # ==============================
 metrics_blocks = {
@@ -818,87 +835,78 @@ metrics_blocks = {
 }
 
 # ==============================
-# 🔍 DATOS FILTRADOS (usa los filtros globales del sidebar)
+# 🎨 PALETA NARANJA CIBAO — REGISTRADA GLOBALMENTE
 # ==============================
+CIBAO_ORANGE = LinearSegmentedColormap.from_list(
+    "cibao_orange",
+    ["#ff6600", "#ff7b00", "#ff9933", "#ffb84d", "#ffd699"]
+)
+matplotlib.colormaps.register(CIBAO_ORANGE, name="cibao_orange", force=True)
 
+# ==============================
+# 🔍 DATOS FILTRADOS Y LÍMITE DE FILAS
+# ==============================
 df_base = df_filtrado.copy()
 
 if df_base.empty:
     st.info("No hay datos disponibles para los filtros seleccionados.")
 else:
-    # Ordenar por fecha (más recientes primero)
     df_base = df_base.sort_values("Date", ascending=False)
-
-    # Calcular número de partidos seleccionados
     partidos_sel = df_base["Match"].nunique()
 
-    # Mostrar 3 por defecto, pero permitir hasta 5 máximo según filtros seleccionados
+    # Mostrar 3 filas por defecto, hasta 5 máximo
     if partidos_sel <= 3:
         df_base = df_base.head(3)
     else:
         df_base = df_base.head(min(partidos_sel, 5))
 
-    # Mostrar una nota informativa debajo de las tablas
     st.caption(
         f"Mostrando los últimos {len(df_base)} partidos seleccionados "
         "(máximo 5 por visualización)."
     )
 
 # ==============================
-# ⚙️ FUNCIÓN PARA CONSTRUIR TABLA CON FORMATO COLUMNA A COLUMNA
+# ⚙️ FUNCIÓN DE TABLA CON FORMATO POR COLUMNA
 # ==============================
-def build_table(df, metrics_dict):
+def build_table(df, metrics_dict, title):
     df_local = df[["Match"] + list(metrics_dict.values())].copy()
     df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
     df_local = df_local.round(2)
 
-    # Aplicar gradiente por columna (manteniendo independencia de cada métrica)
+    st.markdown(f"### 🟧 {title}")
     styled_df = df_local.style
     for col in metrics_dict.keys():
-        styled_df = styled_df.background_gradient(cmap=CIBAO_ORANGE, subset=[col])
+        styled_df = styled_df.background_gradient(cmap="cibao_orange", subset=[col])
 
-    styled_df = (
-        styled_df.set_properties(
-            **{
-                "text-align": "center",
-                "font-size": "12px",
-                "border-color": "#2b2b2b",
-                "border-width": "1px",
-                "border-style": "solid",
-            }
-        )
-        .format(precision=2)
-    )
-    return styled_df, df_local
+    styled_df = styled_df.set_properties(
+        **{
+            "text-align": "center",
+            "font-size": "12px",
+            "border-color": "#2b2b2b",
+            "border-width": "1px",
+            "border-style": "solid",
+        }
+    ).format(precision=2)
+
+    st.dataframe(styled_df, use_container_width=True, height=280)
+    return df_local
 
 # ==============================
-# 🧩 BLOQUES VERTICALES (UNO DEBAJO DEL OTRO)
+# 📊 BLOQUES (UNO DEBAJO DEL OTRO)
 # ==============================
 if not df_base.empty:
-
-    # Bloque Ofensivo
-    st.markdown("### 🔶 Bloque Ofensivo")
-    styled_off, df_off = build_table(df_base, metrics_blocks["Ofensivas"])
-    st.dataframe(styled_off, use_container_width=True, height=300)
+    st.divider()
+    df_off = build_table(df_base, metrics_blocks["Ofensivas"], "Bloque Ofensivo")
 
     st.divider()
-
-    # Bloque Construcción y Pase
-    st.markdown("### 🔶 Bloque Construcción y Pase")
-    styled_pass, df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"])
-    st.dataframe(styled_pass, use_container_width=True, height=300)
+    df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"], "Bloque Construcción y Pase")
 
     st.divider()
-
-    # Bloque Defensivo
-    st.markdown("### 🔶 Bloque Defensivo")
-    styled_def, df_def = build_table(df_base, metrics_blocks["Defensivas"])
-    st.dataframe(styled_def, use_container_width=True, height=300)
+    df_def = build_table(df_base, metrics_blocks["Defensivas"], "Bloque Defensivo")
 
     # ==============================
     # 📥 DESCARGA EN EXCEL
     # ==============================
-    import io
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df_off.to_excel(writer, sheet_name="Ofensivo", index=False)
@@ -914,10 +922,11 @@ if not df_base.empty:
     )
 
     st.markdown(
-        f"**Insight general:** Se muestran los últimos {len(df_base)} partidos disponibles según los filtros. "
+        f"**Insight general:** Se muestran los últimos {len(df_base)} partidos disponibles según los filtros globales. "
         "Cada bloque utiliza una escala de tonos naranjas institucionales, resaltando los valores más altos "
-        "de rendimiento dentro de cada columna de forma independiente."
+        "de rendimiento dentro de cada columna."
     )
+
 
 # ==============================
 # FIGURA DE KPIs PARA EL PDF (a partir del último partido filtrado)
