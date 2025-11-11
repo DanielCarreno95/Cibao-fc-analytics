@@ -929,6 +929,131 @@ if not df_base.empty:
         "de rendimiento dentro de cada columna."
     )
 
+
+
+# =========================================================  COPA
+
+
+
+
+# =========================================================
+# 📊 ANÁLISIS DE MÉTRICAS EN COPA CONCACAF
+# =========================================================
+
+from src.data.load_concacaf_matchstats_data import load_concacaf_matchstats_data
+from src.data.metrics_dictionary_concacaf import METRICS_CONCACAF, METRIC_GROUPS_CONCACAF
+
+st.markdown(
+    f"""
+    <h1 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
+    Análisis de Métricas — Copa Concacaf
+    </h1>
+    <p style='text-align:center; color:{CIBAO_GRAY}; font-size:17px;'>
+    Exploración de métricas clave del Cibao FC durante la Copa Concacaf, incluyendo desempeño ofensivo, defensivo y de construcción.
+    </p>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ==============================
+# 📂 Carga de datos de Copa
+# ==============================
+
+try:
+    df_copa_merged, df_copa_cibao, df_copa_rivales = load_concacaf_matchstats_data()
+except Exception as e:
+    st.error(f"⚠️ Error al cargar los datos de Copa Concacaf: {e}")
+    st.stop()
+
+if df_copa_cibao.empty:
+    st.warning("No hay registros de partidos de Copa Concacaf disponibles.")
+else:
+    # ==============================
+    # 🧩 BLOQUE 0 — ANÁLISIS RÁPIDO CIBAO VS RIVAL (Copa)
+    # ==============================
+    st.markdown(
+        f"""
+        <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
+        Comparativa Copa (Cibao vs Rival)
+        </h2>
+        <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
+        Evalúa el rendimiento del Cibao FC frente a sus rivales en Copa Concacaf, considerando métricas ofensivas y defensivas clave.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.2, 1])
+
+    team_options_copa = sorted(
+        {
+            str(t)
+            for t in df_copa_cibao["rival"].dropna().unique()
+            if str(t).strip().lower() != "cibao"
+        }
+    )
+
+    if not team_options_copa:
+        st.info("No hay rivales disponibles en el dataset de Copa Concacaf.")
+    else:
+        opponent_copa = col_sel1.selectbox("Selecciona rival de Copa", team_options_copa)
+
+        metric_labels_copa = list(METRICS_CONCACAF.keys())
+
+        # Valores por defecto (si existen las métricas)
+        x_default_copa = (
+            metric_labels_copa.index("Goles") if "Goles" in metric_labels_copa else 0
+        )
+        y_default_copa = (
+            metric_labels_copa.index("Goles Recibidos")
+            if "Goles Recibidos" in metric_labels_copa
+            else min(1, len(metric_labels_copa) - 1)
+        )
+
+        x_choice_copa = col_sel2.selectbox(
+            "Métrica ofensiva (eje X)",
+            metric_labels_copa,
+            index=x_default_copa if metric_labels_copa else 0,
+        )
+
+        y_choice_copa = col_sel3.selectbox(
+            "Métrica defensiva (eje Y)",
+            metric_labels_copa,
+            index=y_default_copa if metric_labels_copa else 0,
+        )
+
+        # Mapeo de nombres en español → columnas reales
+        x_column_copa = METRICS_CONCACAF.get(x_choice_copa)
+        y_column_copa = METRICS_CONCACAF.get(y_choice_copa)
+
+        if x_column_copa is None or y_column_copa is None:
+            st.error("No se encontró la métrica seleccionada en el dataset de Copa.")
+        else:
+            # Usa la misma función make_team_scatter si ya existe
+            fig_copa, resumen_copa, _ = make_team_scatter(
+                df_copa_cibao,
+                primary_team="Cibao",
+                opponent=opponent_copa,
+                x_metric=x_column_copa,
+                y_metric=y_column_copa,
+                x_label=x_choice_copa,
+                y_label=y_choice_copa,
+                title=f"Copa Concacaf — {x_choice_copa} vs {y_choice_copa}",
+                filters=None,
+            )
+
+            st.plotly_chart(
+                fig_copa, use_container_width=True, config={"displayModeBar": True}
+            )
+
+            if resumen_copa:
+                st.caption(f"Resumen: {resumen_copa}")
+
+
+
+
+
+
 # ==============================
 # FIGURA DE KPIs PARA EL PDF (a partir del último partido filtrado)
 # ==============================
