@@ -243,22 +243,26 @@ PALETTE_CIBAO = [CIBAO_ORANGE, "#F78E1E", "#2F2F2F", "#777777"]
 st.markdown(
     f"""
     <style>
-    /* ============================
+        /* ============================
        🎯 Filtros (Multiselects)
        ============================ */
     div[data-baseweb="tag"] {{
-        background-color: {CIBAO_ORANGE_LIGHT} !important; /* Chips naranjas */
+        background-color: {CIBAO_ORANGE_LIGHT} !important; /* Naranja claro */
         color: white !important;
-        border-radius: 6px !important;
-        font-size: 11px !important;       /* 🔹 Texto dentro de las etiquetas */
-        padding: 2px 5px !important;      /* 🔹 Tamaño compacto de chips */
+        border-radius: 4px !important;       /* 🔹 Bordes más compactos */
+        font-size: 10px !important;          /* 🔹 Texto más pequeño */
+        font-weight: 500 !important;
+        padding: 1px 4px !important;         /* 🔹 Menos alto y ancho */
+        margin: 1px 3px 1px 0px !important;  /* 🔹 Espaciado entre chips */
+        height: 20px !important;             /* 🔹 Altura fija más baja */
+        line-height: 16px !important;        /* 🔹 Centrado vertical del texto */
     }}
     div[data-baseweb="select"] > div {{
         background-color: {CIBAO_DARKGRAY} !important;
         border: 1px solid {CIBAO_ORANGE} !important;
-        border-radius: 8px !important;
-        font-size: 11px !important;       /* 🔹 Texto dentro del cuadro del filtro */
-        padding: 2px 6px !important;
+        border-radius: 6px !important;
+        font-size: 11px !important;          /* 🔹 Texto de las opciones desplegables */
+        padding: 1px 4px !important;
     }}
     div[role="option"]:hover {{
         background-color: {CIBAO_ORANGE}33 !important; /* Hover naranja translúcido */
