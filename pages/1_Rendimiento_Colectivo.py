@@ -238,56 +238,62 @@ CIBAO_DARKGRAY = "#2B2B2B"       # Contenedores oscuros
 PALETTE_CIBAO = [CIBAO_ORANGE, "#F78E1E", "#2F2F2F", "#777777"]
 
 # ==============================
-# 🎨 ESTILO GLOBAL ARMONIZADO — CIBAO FC
+# 🎨 ESTILO GLOBAL — UNIFICADO BLOQUE 0 Y BLOQUES 1–2
 # ==============================
 st.markdown(
     f"""
     <style>
 
     /* ============================
-       🎯 Filtros (Multiselects estilo Bloque 0)
+       🎯 Filtros (Select + Multiselect)
        ============================ */
+
+    /* Fondo y borde principal */
     div[data-baseweb="select"] > div {{
-        background-color: #1B1B1B !important;    /* Fondo gris oscuro */
+        background-color: #1B1B1B !important;       /* Gris oscuro */
         border: 1px solid {CIBAO_ORANGE} !important;
         border-radius: 8px !important;
         color: {CIBAO_GRAY} !important;
         font-size: 13px !important;
-        padding: 2px 6px !important;
         height: 38px !important;
         min-height: 38px !important;
+        padding: 0 8px !important;
+        align-items: center !important;
     }}
 
-    /* Chips de métricas seleccionadas */
-    div[data-baseweb="tag"] {{
-        background-color: #2B2B2B !important;
+    /* Para igualar tamaño de texto en ambas */
+    div[data-testid="stSelectbox"] label, 
+    div[data-testid="stMultiSelect"] label {{
+        font-size: 13px !important;
         color: {CIBAO_GRAY} !important;
-        border-radius: 5px !important;
-        font-size: 12px !important;
-        padding: 2px 6px !important;
-        margin: 2px 3px 2px 0px !important;
-        height: 22px !important;
-        line-height: 18px !important;
+        margin-bottom: 4px !important;
     }}
 
-    /* Hover sobre las opciones */
+    /* Chips de multiselect: color gris, sin fondo rojo */
+    div[data-baseweb="tag"] {{
+        background-color: #1B1B1B !important;
+        border: 1px solid {CIBAO_ORANGE_LIGHT} !important;
+        color: {CIBAO_GRAY} !important;
+        border-radius: 6px !important;
+        font-size: 12px !important;
+        padding: 0 6px !important;
+        height: 22px !important;
+        line-height: 20px !important;
+        margin: 2px 4px 2px 0px !important;
+    }}
+
+    /* Hover del dropdown */
     div[role="option"]:hover {{
         background-color: {CIBAO_ORANGE}33 !important;
         color: white !important;
     }}
 
-    /* Opciones del menú desplegable */
+    /* Opciones en lista desplegable */
     div[data-baseweb="option"] {{
         background-color: #1B1B1B !important;
         color: {CIBAO_GRAY} !important;
-        font-size: 12px !important;
-        padding: 4px 8px !important;
-    }}
-
-    /* Etiquetas y textos */
-    label, p {{
         font-size: 13px !important;
-        color: {CIBAO_GRAY} !important;
+        padding: 4px 8px !important;
     }}
 
     /* ============================
@@ -296,7 +302,7 @@ st.markdown(
     h2 {{
         color: {CIBAO_ORANGE} !important;
         font-weight: 900 !important;
-        font-size: 26px !important;   /* Títulos principales */
+        font-size: 26px !important;
         text-align: center !important;
         margin-bottom: 4px !important;
     }}
@@ -304,20 +310,20 @@ st.markdown(
     h3 {{
         color: {CIBAO_ORANGE} !important;
         font-weight: 900 !important;
-        font-size: 22px !important;   /* Títulos de bloque */
+        font-size: 22px !important;
         text-align: center !important;
         margin-top: 5px !important;
         margin-bottom: 2px !important;
     }}
 
     p, label {{
-        font-size: 13px !important;   /* Subtítulos, captions */
+        font-size: 13px !important;
         color: {CIBAO_GRAY} !important;
         line-height: 1.4em !important;
     }}
 
     /* ============================
-       🧱 Ajustes visuales extra
+       ⚙️ Ajustes visuales menores
        ============================ */
     .stMarkdown p {{
         margin-bottom: 0.3em !important;
@@ -327,7 +333,7 @@ st.markdown(
         font-size: 13px !important;
     }}
 
-    /* Bordes suaves y consistencia visual */
+    /* Bordes suaves */
     .stMultiSelect, .stSelectbox {{
         border-radius: 8px !important;
     }}
