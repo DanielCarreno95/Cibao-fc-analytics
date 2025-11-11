@@ -801,7 +801,7 @@ st.caption(
 # 🎨 PALETA ÚNICA CIBAO (NARANJA)
 # ==============================
 CIBAO_ORANGE = LinearSegmentedColormap.from_list(
-    "cibao_orange", ["#3d1a00", "#7a3000", "#b84700", "#ff7b00", "#ffb347"]
+    "cibao_orange", ["#ff6600", "#ff7a00", "#ff8c1a", "#ffa733", "#ffcc66"]
 )
 
 # ==============================
