@@ -781,6 +781,41 @@ with col1:
 with col2:
     bloque_distribucion_tactica(df_filtrado)
 
+# ==============================
+# 📋 DICCIONARIO DE MÉTRICAS POR BLOQUE
+# ==============================
+metrics_blocks = {
+    "Ofensivas": {
+        "Goles por partido": "goals",
+        "xG (Goles esperados)": "xg",
+        "Disparos por partido": "shots",
+        "Disparos a puerta por partido": "shots_on_target",
+        "Contraataques por 90": "counter_attacks",
+        "Penaltis por 90": "penalties",
+        "Centros por 90": "crosses",
+        "Precisión de centros (%)": "crosses_accurate_percent",
+        "Corners por 90": "corners",
+    },
+    "Construcción y Pase": {
+        "Precisión de pase (%)": "passes_accurate_percent",
+        "Precisión hacia adelante (%)": "forward_passes_accurate_percent",
+        "Precisión pases largos (%)": "long_passes_accurate_percent",
+        "Precisión al último tercio (%)": "passes_to_final_third_accurate_percent",
+        "Precisión pases inteligentes (%)": "smart_passes_accurate_percent",
+    },
+    "Defensivas": {
+        "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
+        "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
+        "Intercepciones por 90": "interceptions",
+        "Despejes por 90": "clearances",
+        "Recuperaciones por 90": "recoveries",
+        "Pérdidas de balón por 90": "losses",
+        "PPDA": "ppda",
+        "Disparos en contra por 90": "shots_against",
+        "Disparos en contra a puerta por 90": "shots_against_on_target",
+        "Eficiencia rival (%)": "shots_against_on_target_percent",
+    },
+}
 
 # ==============================
 # 🔍 DATOS FILTRADOS (usa los filtros globales del sidebar)
