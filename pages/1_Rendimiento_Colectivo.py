@@ -243,16 +243,7 @@ PALETTE_CIBAO = [CIBAO_ORANGE, "#F78E1E", "#2F2F2F", "#777777"]
 st.markdown(
     f"""
     <style>
-    st.markdown(
-    f"""
-    <style>
-   # ==============================
-# 🎨 Estilo para filtros (igual al Bloque 0)
-# ==============================
 
-st.markdown(
-    f"""
-    <style>
     /* ============================
        🎯 Filtros (Multiselects estilo Bloque 0)
        ============================ */
@@ -298,25 +289,29 @@ st.markdown(
         font-size: 13px !important;
         color: {CIBAO_GRAY} !important;
     }}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 
     /* ============================
        🧭 Tipografía general
        ============================ */
+    h2 {{
+        color: {CIBAO_ORANGE} !important;
+        font-weight: 900 !important;
+        font-size: 26px !important;   /* Títulos principales */
+        text-align: center !important;
+        margin-bottom: 4px !important;
+    }}
+
     h3 {{
         color: {CIBAO_ORANGE} !important;
         font-weight: 900 !important;
-        font-size: 24px !important;       /* 🔹 Títulos grandes y destacados */
-        letter-spacing: 0.5px !important;
-        text-transform: none !important;
-        margin-top: 10px !important;
-        margin-bottom: 5px !important;
+        font-size: 22px !important;   /* Títulos de bloque */
+        text-align: center !important;
+        margin-top: 5px !important;
+        margin-bottom: 2px !important;
     }}
+
     p, label {{
-        font-size: 13px !important;       /* 🔹 Subtítulos, captions y etiquetas */
+        font-size: 13px !important;   /* Subtítulos, captions */
         color: {CIBAO_GRAY} !important;
         line-height: 1.4em !important;
     }}
@@ -327,13 +322,16 @@ st.markdown(
     .stMarkdown p {{
         margin-bottom: 0.3em !important;
     }}
+
     div[data-testid="stMarkdownContainer"] > p {{
         font-size: 13px !important;
     }}
-    /* Bordes suaves para armonizar */
+
+    /* Bordes suaves y consistencia visual */
     .stMultiSelect, .stSelectbox {{
         border-radius: 8px !important;
     }}
+
     </style>
     """,
     unsafe_allow_html=True,
