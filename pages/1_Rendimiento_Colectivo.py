@@ -243,30 +243,58 @@ PALETTE_CIBAO = [CIBAO_ORANGE, "#F78E1E", "#2F2F2F", "#777777"]
 st.markdown(
     f"""
     <style>
-        /* ============================
-       🎯 Filtros (Multiselects)
+    st.markdown(
+    f"""
+    <style>
+    /* ============================
+       🎯 Filtros (Multiselects estilo Bloque 0)
        ============================ */
-    div[data-baseweb="tag"] {{
-        background-color: {CIBAO_ORANGE_LIGHT} !important; /* Naranja claro */
-        color: white !important;
-        border-radius: 4px !important;       /* 🔹 Bordes más compactos */
-        font-size: 10px !important;          /* 🔹 Texto más pequeño */
-        font-weight: 500 !important;
-        padding: 1px 4px !important;         /* 🔹 Menos alto y ancho */
-        margin: 1px 3px 1px 0px !important;  /* 🔹 Espaciado entre chips */
-        height: 20px !important;             /* 🔹 Altura fija más baja */
-        line-height: 16px !important;        /* 🔹 Centrado vertical del texto */
-    }}
     div[data-baseweb="select"] > div {{
-        background-color: {CIBAO_DARKGRAY} !important;
+        background-color: #1B1B1B !important;    /* Mismo fondo que bloque 0 */
         border: 1px solid {CIBAO_ORANGE} !important;
-        border-radius: 6px !important;
-        font-size: 11px !important;          /* 🔹 Texto de las opciones desplegables */
-        padding: 1px 4px !important;
+        border-radius: 8px !important;
+        color: {CIBAO_GRAY} !important;
+        font-size: 13px !important;
+        padding: 2px 6px !important;
+        height: 38px !important;                /* Altura similar a los selectbox */
+        min-height: 38px !important;
     }}
+
+    /* Chips dentro del multiselect (para métricas seleccionadas) */
+    div[data-baseweb="tag"] {{
+        background-color: #2B2B2B !important;   /* Gris oscuro, no rojo */
+        color: {CIBAO_GRAY} !important;
+        border-radius: 5px !important;
+        font-size: 12px !important;
+        padding: 2px 6px !important;
+        margin: 2px 3px 2px 0px !important;
+        height: 22px !important;
+        line-height: 18px !important;
+    }}
+
+    /* Hover sobre opciones del dropdown */
     div[role="option"]:hover {{
-        background-color: {CIBAO_ORANGE}33 !important; /* Hover naranja translúcido */
+        background-color: {CIBAO_ORANGE}33 !important;
+        color: white !important;
     }}
+
+    /* Opciones dentro del menú desplegable */
+    div[data-baseweb="option"] {{
+        background-color: #1B1B1B !important;
+        color: {CIBAO_GRAY} !important;
+        font-size: 12px !important;
+        padding: 4px 8px !important;
+    }}
+
+    /* Texto de etiquetas y títulos de los filtros */
+    label, p {{
+        font-size: 13px !important;
+        color: {CIBAO_GRAY} !important;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
     /* ============================
        🧭 Tipografía general
