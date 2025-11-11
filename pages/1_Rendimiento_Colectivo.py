@@ -783,66 +783,31 @@ with col2:
 
 
 # ==============================
-# 🟧 ANÁLISIS COMPARATIVO POR BLOQUES — ESTILO CIBAO (VERTICAL + UN SOLO COLOR)
-# ==============================
-
-import pandas as pd
-import io
-from matplotlib.colors import LinearSegmentedColormap
-
-st.subheader("Análisis Comparativo por Bloques")
-st.caption(
-    "Visualiza y compara los indicadores clave del rendimiento colectivo en tres fases del juego: "
-    "**ofensiva**, **construcción/pase** y **defensiva**. "
-    "El diseño usa una única paleta institucional naranja del Cibao FC, con intensidad creciente según el rendimiento."
-)
-
-# ==============================
-# 🎨 PALETA ÚNICA CIBAO (NARANJA)
-# ==============================
-CIBAO_ORANGE = LinearSegmentedColormap.from_list(
-    "cibao_orange", ["#ff6600", "#ff7a00", "#ff8c1a", "#ffa733", "#ffcc66"]
-)
-
-# ==============================
-# 📊 BLOQUES DE MÉTRICAS
-# ==============================
-metrics_blocks = {
-    "Ofensivas": {
-        "Goles por partido": "goals",
-        "xG (Goles esperados)": "xg",
-        "Disparos por partido": "shots",
-        "Disparos a puerta por partido": "shots_on_target",
-        "Contraataques por 90": "counter_attacks",
-        "Centros por 90": "crosses",
-        "Precisión de centros (%)": "crosses_accurate_percent",
-    },
-    "Construcción y Pase": {
-        "Precisión de pase (%)": "passes_accurate_percent",
-        "Precisión hacia adelante (%)": "forward_passes_accurate_percent",
-        "Precisión pases largos (%)": "long_passes_accurate_percent",
-        "Pases al último tercio (%)": "passes_to_final_third_accurate_percent",
-        "Pases inteligentes (%)": "smart_passes_accurate_percent",
-    },
-    "Defensivas": {
-        "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
-        "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
-        "Intercepciones por 90": "interceptions",
-        "Despejes por 90": "clearances",
-        "Recuperaciones por 90": "recoveries",
-        "PPDA": "ppda",
-        "Disparos en contra por 90": "shots_against",
-    },
-}
-
-# ==============================
 # 🔍 DATOS FILTRADOS (usa los filtros globales del sidebar)
 # ==============================
+
 df_base = df_filtrado.copy()
+
 if df_base.empty:
     st.info("No hay datos disponibles para los filtros seleccionados.")
 else:
-    df_base = df_base.sort_values("Date", ascending=False).head(5)
+    # Ordenar por fecha (más recientes primero)
+    df_base = df_base.sort_values("Date", ascending=False)
+
+    # Calcular número de partidos seleccionados
+    partidos_sel = df_base["Match"].nunique()
+
+    # Mostrar 3 por defecto, pero permitir hasta 5 máximo según filtros seleccionados
+    if partidos_sel <= 3:
+        df_base = df_base.head(3)
+    else:
+        df_base = df_base.head(min(partidos_sel, 5))
+
+    # Mostrar una nota informativa debajo de las tablas
+    st.caption(
+        f"Mostrando los últimos {len(df_base)} partidos seleccionados "
+        "(máximo 5 por visualización)."
+    )
 
 # ==============================
 # ⚙️ FUNCIÓN PARA CONSTRUIR TABLA CON FORMATO COLUMNA A COLUMNA
@@ -852,7 +817,7 @@ def build_table(df, metrics_dict):
     df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
     df_local = df_local.round(2)
 
-    # Aplicar gradiente por columna (manteniendo la independencia de cada métrica)
+    # Aplicar gradiente por columna (manteniendo independencia de cada métrica)
     styled_df = df_local.style
     for col in metrics_dict.keys():
         styled_df = styled_df.background_gradient(cmap=CIBAO_ORANGE, subset=[col])
@@ -879,25 +844,26 @@ if not df_base.empty:
     # Bloque Ofensivo
     st.markdown("### 🔶 Bloque Ofensivo")
     styled_off, df_off = build_table(df_base, metrics_blocks["Ofensivas"])
-    st.dataframe(styled_off, use_container_width=True, height=320)
+    st.dataframe(styled_off, use_container_width=True, height=300)
 
     st.divider()
 
     # Bloque Construcción y Pase
     st.markdown("### 🔶 Bloque Construcción y Pase")
     styled_pass, df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"])
-    st.dataframe(styled_pass, use_container_width=True, height=320)
+    st.dataframe(styled_pass, use_container_width=True, height=300)
 
     st.divider()
 
     # Bloque Defensivo
     st.markdown("### 🔶 Bloque Defensivo")
     styled_def, df_def = build_table(df_base, metrics_blocks["Defensivas"])
-    st.dataframe(styled_def, use_container_width=True, height=320)
+    st.dataframe(styled_def, use_container_width=True, height=300)
 
     # ==============================
     # 📥 DESCARGA EN EXCEL
     # ==============================
+    import io
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df_off.to_excel(writer, sheet_name="Ofensivo", index=False)
