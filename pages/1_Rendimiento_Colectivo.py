@@ -547,250 +547,179 @@ with col2:
     bloque_construccion_pases(df_filtrado)
 
 # ==============================
-# 🛡️ BLOQUE A — DEFENSA Y EFICIENCIA (1x2 — COLUMNA IZQUIERDA)
+# BLOQUE 1 — DEFENSA Y EFICIENCIA (Horizontal)
 # ==============================
 def bloque_defensa_eficiencia(df_filtrado):
-    import plotly.graph_objects as go
-    import math
-
-    st.markdown(
-        f"""
-        <h3 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
-            Defensa y Eficiencia
-        </h3>
-        <p style='text-align:center; color:{CIBAO_GRAY}; font-size:14px;'>
-            Compara por partido las métricas defensivas clave: duelos ganados, intercepciones, recuperaciones, despejes y pérdidas.
-        </p>
-        """,
-        unsafe_allow_html=True,
+    st.markdown("<h3 style='text-align:center;'>Defensa y Eficiencia</h3>", unsafe_allow_html=True)
+    st.caption(
+        "Evalúa la efectividad defensiva del Cibao FC analizando métricas como duelos ganados, intercepciones, recuperaciones, despejes y pérdidas de balón."
     )
 
-    defense_summary_metrics = {
+    defense_metrics = {
         "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
+        "Intercepciones por 90": "interceptions",
+        "Recuperaciones por 90": "recoveries",
+        "Despejes por 90": "clearances",
+        "Pérdidas de balón por 90": "losses",
         "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
         "Éxito en entradas (%)": "sliding_tackles_successful_percent",
-        "Intercepciones por 90": "interceptions",
-        "Despejes por 90": "clearances",
-        "Duelos ofensivos por 90": "offensive_duels",
-        "Recuperaciones por 90": "recoveries",
-        "Pérdidas de balón por 90": "losses",
-        "Intensidad de presión (PPDA)": "ppda",
-        "Disparos en contra por 90": "shots_against",
-        "Disparos en contra a puerta por 90": "shots_against_on_target",
-        "Eficiencia rival (disparos a puerta %)": "shots_against_on_target_percent",
     }
 
-    # Filtros compactos
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        jornadas_sel = styled_multiselect(
-            "Selecciona jornadas (máx 5)",
-            sorted(df_filtrado["Jornada"].unique().tolist()),
-            sorted(df_filtrado["Jornada"].unique().tolist())[-3:],
-            key="def_jornadas",
-        )
-    with c2:
-        partidos_sel = styled_multiselect(
-            "Selecciona partidos (máx 5)",
-            df_filtrado["Match"].unique().tolist(),
-            df_filtrado.sort_values("Date")["Match"].unique().tolist()[:3],
-            key="def_partidos",
-        )
-
-    metrics_sel = styled_multiselect(
+    metrics_sel = st.multiselect(
         "Selecciona métricas defensivas (máx 5)",
-        list(defense_summary_metrics.keys()),
-        [
+        list(defense_metrics.keys()),
+        default=[
             "Duelos defensivos ganados (%)",
             "Intercepciones por 90",
             "Recuperaciones por 90",
             "Despejes por 90",
             "Pérdidas de balón por 90",
         ],
+        max_selections=5,
         key="def_metrics",
     )
 
-    if not jornadas_sel or not partidos_sel or not metrics_sel:
-        st.info("Selecciona jornadas, partidos y al menos una métrica defensiva.")
-        return
-
     df_def = df_filtrado[
-        (df_filtrado["Jornada"].isin(jornadas_sel)) &
         (df_filtrado["Match"].isin(partidos_sel))
+        & (df_filtrado["Jornada"].isin(jornadas_sel))
     ].copy()
+
     if df_def.empty:
-        st.warning("No hay datos disponibles para la selección actual.")
+        st.warning("No hay datos disponibles.")
         return
 
-    # 2 tarjetas por fila
-    n_cols = 2
-    n_rows = math.ceil(len(partidos_sel) / n_cols)
-    for i in range(n_rows):
-        row = st.columns(n_cols)
-        for j in range(n_cols):
-            k = i * n_cols + j
-            if k >= len(partidos_sel):
-                continue
-            match = partidos_sel[k]
-            d = df_def[df_def["Match"] == match]
-            if d.empty:
-                continue
-
-            values = [
-                float(d.iloc[0].get(defense_summary_metrics[m], 0)) for m in metrics_sel
-            ]
-
-            fig = go.Figure(go.Bar(
-                x=values,
-                y=metrics_sel,
-                orientation="h",
-                text=[f"{v:.1f}" for v in values],
-                textposition="outside",
-                marker_color=CIBAO_ORANGE,
-                hovertemplate="%{y}: %{x}<extra></extra>",
-            ))
-            fig.update_layout(
-                template="plotly_dark",
-                height=320,
-                margin=dict(l=20, r=20, t=30, b=20),
-                title=dict(text=match, font=dict(size=14, color=CIBAO_GRAY)),
-                xaxis=dict(title="Valor", gridcolor="#2a2a2a", color=CIBAO_GRAY),
-                yaxis=dict(title=None, color=CIBAO_GRAY),
-                font=dict(size=11, color=CIBAO_GRAY),
-            )
-            with row[j]:
-                st.plotly_chart(fig, use_container_width=True)
-
-
-# ==============================
-# 🧭 BLOQUE B — DISTRIBUCIÓN TÁCTICA (1x2 — COLUMNA DERECHA)
-# ==============================
-def bloque_distribucion_tactica(df_filtrado):
-    import plotly.express as px
-    import math
-
-    st.markdown(
-        f"""
-        <h3 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
-            Distribución Táctica — Presión y Recuperaciones
-        </h3>
-        <p style='text-align:center; color:{CIBAO_GRAY}; font-size:14px;'>
-            Visualiza la intensidad de la presión (pérdidas estimadas) y la frecuencia de recuperaciones por zonas del campo.
-        </p>
-        """,
-        unsafe_allow_html=True,
+    df_long = df_def.melt(
+        id_vars=["Match"],
+        value_vars=[
+            defense_metrics[m]
+            for m in metrics_sel
+            if defense_metrics[m] in df_def.columns
+        ],
+        var_name="metric",
+        value_name="value",
+    )
+    df_long["metric_label"] = df_long["metric"].map(
+        {v: k for k, v in defense_metrics.items()}
     )
 
-    pressure_metrics = {
+    fig = px.bar(
+        df_long,
+        x="value",
+        y="Match",
+        color="metric_label",
+        orientation="h",
+        barmode="group",
+        color_discrete_sequence=PALETTE_CIBAO,
+        template="plotly_dark",
+        text_auto=".1f",
+    )
+    fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
+    fig.update_layout(
+        height=260,
+        plot_bgcolor=CIBAO_BLACK,
+        paper_bgcolor=CIBAO_BLACK,
+        font=dict(color=CIBAO_GRAY, size=12),
+        xaxis_title="Valor",
+        yaxis_title=None,
+        legend_title="Métrica defensiva",
+        legend=dict(font=dict(size=11)),
+        bargap=0.25,
+        margin=dict(l=40, r=30, t=30, b=20),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+# ==============================
+# BLOQUE 2 — DISTRIBUCIÓN TÁCTICA (Horizontal)
+# ==============================
+def bloque_distribucion_tactica(df_filtrado):
+    st.markdown("<h3 style='text-align:center;'>Distribución Táctica — Presión y Recuperaciones</h3>", unsafe_allow_html=True)
+    st.caption(
+        "Analiza la intensidad de la presión y la frecuencia de recuperaciones en distintas zonas del campo, visualizando el comportamiento táctico del equipo."
+    )
+
+    tactical_metrics = {
         "Presión alta (estimada)": "losses_high",
         "Presión media (estimada)": "losses_medium",
         "Presión baja (estimada)": "losses_low",
-    }
-    recovery_metrics = {
         "Recuperaciones altas por 90": "recoveries_high",
         "Recuperaciones medias por 90": "recoveries_medium",
         "Recuperaciones bajas por 90": "recoveries_low",
     }
 
-    # Filtros compactos
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        jornadas_sel = styled_multiselect(
-            "Selecciona jornadas (máx 5)",
-            sorted(df_filtrado["Jornada"].unique().tolist()),
-            sorted(df_filtrado["Jornada"].unique().tolist())[-3:],
-            key="tact_jornadas",
-        )
-    with c2:
-        partidos_sel = styled_multiselect(
-            "Selecciona partidos (máx 5)",
-            df_filtrado["Match"].unique().tolist(),
-            df_filtrado.sort_values("Date")["Match"].unique().tolist()[:3],
-            key="tact_partidos",
-        )
+    metrics_sel = st.multiselect(
+        "Selecciona métricas tácticas (máx 5)",
+        list(tactical_metrics.keys()),
+        default=[
+            "Presión alta (estimada)",
+            "Presión media (estimada)",
+            "Recuperaciones altas por 90",
+            "Recuperaciones medias por 90",
+            "Recuperaciones bajas por 90",
+        ],
+        max_selections=5,
+        key="tact_metrics",
+    )
 
-    if not jornadas_sel or not partidos_sel:
-        st.info("Selecciona jornadas y partidos para visualizar los mapas.")
-        return
-
-    df_view = df_filtrado[
-        (df_filtrado["Jornada"].isin(jornadas_sel)) &
+    df_tact = df_filtrado[
         (df_filtrado["Match"].isin(partidos_sel))
+        & (df_filtrado["Jornada"].isin(jornadas_sel))
     ].copy()
-    if df_view.empty:
-        st.warning("No hay datos disponibles para la selección actual.")
+
+    if df_tact.empty:
+        st.warning("No hay datos disponibles.")
         return
 
-    # Paletas
-    PRESSURE_COLORS = [[0.0, "#1E1E1E"], [0.3, "#403020"], [0.6, "#A85C00"], [1.0, "#FF8C00"]]
-    RECOVERY_COLORS = [[0.0, "#1E1E1E"], [0.3, "#1F3A2E"], [0.6, "#228B22"], [1.0, "#22C55E"]]
+    df_long_tact = df_tact.melt(
+        id_vars=["Match"],
+        value_vars=[
+            tactical_metrics[m]
+            for m in metrics_sel
+            if tactical_metrics[m] in df_tact.columns
+        ],
+        var_name="metric",
+        value_name="value",
+    )
+    df_long_tact["metric_label"] = df_long_tact["metric"].map(
+        {v: k for k, v in tactical_metrics.items()}
+    )
 
-    jornadas_unicas = sorted(df_view["Jornada"].unique())[:3]
-    n_cols = min(3, len(jornadas_unicas))
-
-    # Presión
-    st.markdown("<p style='color:#D3D3D3; margin:6px 0 0 2px;'>Presión — pérdidas estimadas</p>", unsafe_allow_html=True)
-    cols_top = st.columns(n_cols)
-    for i, jor in enumerate(jornadas_unicas):
-        with cols_top[i]:
-            d = df_view[df_view["Jornada"] == jor]
-            dfp = d.melt(value_vars=list(pressure_metrics.values()),
-                         var_name="Zona", value_name="Valor")
-            dfp["Zona"] = dfp["Zona"].map({v: k for k, v in pressure_metrics.items()})
-
-            fig = px.imshow(
-                [dfp["Valor"]],
-                x=dfp["Zona"],
-                color_continuous_scale=PRESSURE_COLORS,
-                aspect="auto",
-                text_auto=".1f",
-            )
-            fig.update_layout(
-                template="plotly_dark", height=220,
-                margin=dict(t=10, b=10, l=10, r=10),
-                coloraxis_colorbar=dict(title="Intensidad", tickfont=dict(size=10)),
-                font=dict(size=11, color=CIBAO_GRAY),
-                title=dict(text=f"Jornada {jor}", font=dict(size=12, color=CIBAO_GRAY)),
-            )
-            fig.update_xaxes(title=None, tickfont=dict(size=10))
-            st.plotly_chart(fig, use_container_width=True)
-
-    # Recuperaciones
-    st.markdown("<p style='color:#D3D3D3; margin:10px 0 0 2px;'>Recuperaciones — por zonas</p>", unsafe_allow_html=True)
-    cols_bot = st.columns(n_cols)
-    for i, jor in enumerate(jornadas_unicas):
-        with cols_bot[i]:
-            d = df_view[df_view["Jornada"] == jor]
-            dfr = d.melt(value_vars=list(recovery_metrics.values()),
-                         var_name="Zona", value_name="Valor")
-            dfr["Zona"] = dfr["Zona"].map({v: k for k, v in recovery_metrics.items()})
-
-            fig = px.imshow(
-                [dfr["Valor"]],
-                x=dfr["Zona"],
-                color_continuous_scale=RECOVERY_COLORS,
-                aspect="auto",
-                text_auto=".1f",
-            )
-            fig.update_layout(
-                template="plotly_dark", height=220,
-                margin=dict(t=10, b=10, l=10, r=10),
-                coloraxis_colorbar=dict(title="Frecuencia", tickfont=dict(size=10)),
-                font=dict(size=11, color=CIBAO_GRAY),
-                title=dict(text=f"Jornada {jor}", font=dict(size=12, color=CIBAO_GRAY)),
-            )
-            fig.update_xaxes(title=None, tickfont=dict(size=10))
-            st.plotly_chart(fig, use_container_width=True)
+    fig = px.bar(
+        df_long_tact,
+        x="value",
+        y="Match",
+        color="metric_label",
+        orientation="h",
+        barmode="group",
+        color_discrete_sequence=PALETTE_CIBAO,
+        template="plotly_dark",
+        text_auto=".1f",
+    )
+    fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
+    fig.update_layout(
+        height=260,
+        plot_bgcolor=CIBAO_BLACK,
+        paper_bgcolor=CIBAO_BLACK,
+        font=dict(color=CIBAO_GRAY, size=12),
+        xaxis_title="Valor",
+        yaxis_title=None,
+        legend_title="Métrica táctica",
+        legend=dict(font=dict(size=11)),
+        bargap=0.25,
+        margin=dict(l=40, r=30, t=30, b=20),
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 
 # ==============================
-# 🧱 LAYOUT 1×2 (LLÁMALO DONDE QUIERAS RENDERIZARLOS)
+# LAYOUT 1x2 (Horizontal)
 # ==============================
-col_izq, col_der = st.columns(2, gap="large")
-with col_izq:
+col1, col2 = st.columns(2)
+with col1:
     bloque_defensa_eficiencia(df_filtrado)
-with col_der:
+with col2:
     bloque_distribucion_tactica(df_filtrado)
+
 
 
 # ==============================
