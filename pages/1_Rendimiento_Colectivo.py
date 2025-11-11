@@ -265,79 +265,80 @@ else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
 
 # ==============================
-# EFICIENCIA Y ATAQUE — VARIACIÓN POR PARTIDO
+# EFICIENCIA Y ATAQUE — ANÁLISIS CONTEXTUAL CIBAO FC
 # ==============================
 
 import numpy as np
 import plotly.express as px
+import streamlit as st
+import pandas as pd
 
-st.subheader("Eficiencia y Ataque — Comparativa por Partido")
-st.caption(
-    "Analiza cómo varían las métricas ofensivas entre distintos partidos o rivales. "
-    "Permite detectar patrones de finalización, efectividad y generación de peligro."
+# --- 🎨 Paleta institucional ---
+CIBAO_COLORS = {
+    "orange": "#FF8C00",
+    "orange_light": "#FFA94D",
+    "gray_dark": "#0B0F17",
+    "gray_mid": "#1E1E1E",
+    "gray_text": "#E5E7EB",
+}
+
+st.markdown(
+    f"""
+    <div style='background:{CIBAO_COLORS["gray_mid"]};
+                padding:18px 28px;
+                border-radius:18px;
+                border:1px solid {CIBAO_COLORS["orange"]};
+                box-shadow:0 0 12px rgba(255,140,0,0.3);
+                margin-bottom:15px;'>
+        <h2 style='color:{CIBAO_COLORS["orange"]}; text-align:center;'>
+            ⚽ Eficiencia y Ataque — Comparativa Contextual
+        </h2>
+        <p style='color:{CIBAO_COLORS["gray_text"]}; text-align:center;'>
+            Evalúa la capacidad ofensiva de Cibao FC en relación a sus rivales o la media de la liga.<br>
+            Este módulo identifica las métricas de ataque más determinantes en el rendimiento colectivo.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 # --- Métricas ofensivas disponibles ---
 offensive_metrics = {
     "Goles por partido": "goals",
-    "Goles en contra por partido": "conceded_goals",
     "xG (Goles esperados)": "xg",
     "Disparos por partido": "shots",
     "Disparos a puerta por partido": "shots_on_target",
     "Contraataques por 90": "counter_attacks",
-    "Contraataques con disparo (%)": "counter_attacks_with_shots_percent",
-    "Corners por 90": "corners",
-    "Corners con disparo (%)": "corners_with_shots_percent",
-    "Faltas directas por 90": "free_kicks",
-    "Faltas directas con disparo (%)": "free_kicks_with_shots_percent",
-    "Penaltis por 90": "penalties",
-    "Conversión de penaltis (%)": "penalties_converted_percent",
     "Entradas al área por 90": "penalty_area_entries",
-    "Distancia media de disparo": "average_shot_distance",
 }
 
-# ==============================
-# 🔍 FILTROS — JORNADA Y PARTIDO
-# ==============================
-
-cols_filtros = st.columns(2)
-
-# --- Últimas 3 jornadas automáticas ---
-ultimas_jornadas = (
-    sorted(df_filtrado["Jornada"].unique())[-3:]
-    if len(df_filtrado["Jornada"].unique()) >= 3
-    else sorted(df_filtrado["Jornada"].unique())
-)
-
-with cols_filtros[0]:
-    jornadas_sel = st.multiselect(
-        "Selecciona jornadas (máx 5)",
-        options=sorted(df_filtrado["Jornada"].unique().tolist()),
-        default=ultimas_jornadas,
-        key="offensive_jornadas",
-        max_selections=5,
+# --- Filtros ---
+with st.container():
+    cols_filtros = st.columns(2)
+    ultimas_jornadas = (
+        sorted(df_filtrado["Jornada"].unique())[-3:]
+        if len(df_filtrado["Jornada"].unique()) >= 3
+        else sorted(df_filtrado["Jornada"].unique())
     )
 
-# --- Partidos por defecto según jornadas seleccionadas ---
-partidos_default = (
-    df_filtrado[df_filtrado["Jornada"].isin(ultimas_jornadas)]
-    .sort_values("Date")["Match"]
-    .unique()
-    .tolist()[:3]
-)
+    with cols_filtros[0]:
+        jornadas_sel = st.multiselect(
+            "Selecciona jornadas (máx 5)",
+            options=sorted(df_filtrado["Jornada"].unique().tolist()),
+            default=ultimas_jornadas,
+            key="offensive_jornadas",
+            max_selections=5,
+            help="Filtra por las últimas jornadas jugadas.",
+        )
 
-with cols_filtros[1]:
-    partidos_sel = st.multiselect(
-        "Selecciona partidos para comparar (máx 4)",
-        options=df_filtrado["Match"].unique().tolist(),
-        default=partidos_default,
-        key="offensive_matches",
-        max_selections=4,
-    )
-
-# ==============================
-# 📊 FILTRO DE MÉTRICAS
-# ==============================
+    with cols_filtros[1]:
+        partidos_sel = st.multiselect(
+            "Selecciona partidos para comparar (máx 4)",
+            options=df_filtrado["Match"].unique().tolist(),
+            default=df_filtrado[df_filtrado["Jornada"].isin(ultimas_jornadas)]["Match"].unique().tolist()[:3],
+            key="offensive_matches",
+            max_selections=4,
+        )
 
 metrics_sel = st.multiselect(
     "Selecciona métricas ofensivas (máx 5)",
@@ -347,11 +348,7 @@ metrics_sel = st.multiselect(
     key="offensive_metrics",
 )
 
-# ==============================
-# 📈 DATOS Y VISUALIZACIÓN
-# ==============================
-
-# --- Subconjunto de datos ---
+# --- Datos filtrados ---
 df_off = df_filtrado[
     (df_filtrado["Match"].isin(partidos_sel)) & (df_filtrado["Jornada"].isin(jornadas_sel))
 ].copy()
@@ -359,70 +356,85 @@ df_off = df_filtrado[
 if df_off.empty:
     st.warning("No hay datos disponibles para las jornadas o partidos seleccionados.")
 else:
-    # --- Transformar datos al formato largo ---
-    metric_cols = [
-        offensive_metrics[m]
-        for m in metrics_sel
-        if offensive_metrics[m] in df_off.columns
-    ]
-    df_long = df_off.melt(
-        id_vars=["Match", "Date"],
-        value_vars=metric_cols,
-        var_name="metric",
-        value_name="value",
-    )
-    df_long["metric_label"] = df_long["metric"].map(
-        {v: k for k, v in offensive_metrics.items()}
-    )
+    metric_cols = [offensive_metrics[m] for m in metrics_sel if offensive_metrics[m] in df_off.columns]
+    df_long = df_off.melt(id_vars=["Match", "Date"], value_vars=metric_cols,
+                          var_name="metric", value_name="value")
+    df_long["metric_label"] = df_long["metric"].map({v: k for k, v in offensive_metrics.items()})
     df_long = df_long.dropna(subset=["value"])
 
-    # --- Gráfico de barras horizontales con etiquetas ---
-    PALETTE = ["#FF8C00", "#3B82F6", "#22C55E", "#EF4444", "#F59E0B"]
+    # --- Contexto liga o rivales ---
+    df_context = df_rivales.copy() if "df_rivales" in globals() else None
+    if df_context is not None and not df_context.empty:
+        df_ref = df_context[metric_cols].mean().to_dict()
+    else:
+        df_ref = {m: df_long[df_long["metric"] == m]["value"].mean() for m in metric_cols}
 
+    # --- Comparación porcentual ---
+    df_insight = (
+        df_long.groupby("metric")["value"].mean().reset_index()
+        .assign(ref=lambda d: d["metric"].map(df_ref))
+    )
+    df_insight["diff_%"] = 100 * (df_insight["value"] - df_insight["ref"]) / df_insight["ref"]
+    df_insight["metric_label"] = df_insight["metric"].map({v: k for k, v in offensive_metrics.items()})
+
+    # --- Gráfico principal ---
+    palette = [CIBAO_COLORS["orange"], "#FACC15", "#3B82F6", "#22C55E", "#EF4444"]
     fig_off = px.bar(
         df_long,
-        x="value",
-        y="metric_label",
+        x="value", y="metric_label",
         color="Match",
         orientation="h",
         barmode="group",
-        color_discrete_sequence=PALETTE,
+        color_discrete_sequence=palette,
         template="plotly_dark",
         text=df_long["value"].map(lambda v: f"{v:.1f}"),
         hover_data={"value": ":.2f", "Match": True, "metric_label": False},
     )
-
     fig_off.update_traces(
         textposition="outside",
-        textfont=dict(size=11, color="#F3F4F6", family="Arial"),
+        textfont=dict(size=11, color=CIBAO_COLORS["gray_text"], family="Arial"),
         cliponaxis=False,
     )
-
-    # ✅ Altura dinámica según nº de métricas seleccionadas
-    dynamic_height = 280 + 40 * len(metrics_sel)
     fig_off.update_layout(
-        height=dynamic_height,
+        height=300 + 40 * len(metrics_sel),
         xaxis_title="Valor",
         yaxis_title="Métrica ofensiva",
         legend_title="Partido",
         bargap=0.25,
         bargroupgap=0.15,
+        plot_bgcolor=CIBAO_COLORS["gray_dark"],
+        paper_bgcolor=CIBAO_COLORS["gray_dark"],
+        font=dict(color=CIBAO_COLORS["gray_text"]),
     )
     st.plotly_chart(fig_off, use_container_width=True)
 
-    # --- Insight automático ---
-    resumen = (
-        df_long.groupby("metric_label")["value"]
-        .mean()
-        .sort_values(ascending=False)
-        .head(3)
-    )
-    mejores = ", ".join([f"{m} ({v:.2f})" for m, v in resumen.items()])
-    st.markdown(
-        f"**Insight:** el equipo mostró un mejor rendimiento ofensivo en métricas como {mejores}. "
-        f"Analiza si esta tendencia se mantiene frente a distintos rivales o contextos tácticos."
-    )
+    # --- Insight contextual ---
+    insights = []
+    for _, row in df_insight.iterrows():
+        sign = "🔺" if row["diff_%"] > 5 else "🔻" if row["diff_%"] < -5 else "⚪"
+        insights.append(
+            f"{sign} {row['metric_label']}: {row['value']:.2f} ({row['diff_%']:+.1f}% vs liga)"
+        )
+    insight_text = "<br>".join(insights)
 
+    st.markdown(
+        f"""
+        <div style='background:{CIBAO_COLORS["gray_mid"]};
+                    border-left:5px solid {CIBAO_COLORS["orange"]};
+                    border-radius:10px;
+                    padding:15px 20px;
+                    margin-top:10px;'>
+            <b style='color:{CIBAO_COLORS["orange"]};'>📊 Interpretación táctica:</b><br>
+            <p style='color:{CIBAO_COLORS["gray_text"]}; font-size:0.95rem;'>
+                {insight_text}<br>
+                <br>
+                Estas métricas reflejan la eficiencia de Cibao FC frente al promedio de la liga, 
+                identificando los aspectos ofensivos más destacados o con margen de mejora.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ==============================
 # CONSTRUCCIÓN Y PASES — PRECISIÓN POR PARTIDO
