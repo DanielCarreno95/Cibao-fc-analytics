@@ -547,12 +547,12 @@ with col2:
     bloque_construccion_pases(df_filtrado)
 
 # ==============================
-# BLOQUE 1 — DEFENSA Y EFICIENCIA (Horizontal — Barras)
+# BLOQUE 1 — DEFENSA Y EFICIENCIA (Barras horizontales)
 # ==============================
 def bloque_defensa_eficiencia(df_filtrado):
     st.markdown("<h3 style='text-align:center;'>Defensa y Eficiencia</h3>", unsafe_allow_html=True)
     st.caption(
-        "Evalúa la efectividad defensiva del Cibao FC analizando métricas como duelos ganados, intercepciones, recuperaciones, despejes y pérdidas de balón."
+        "Evalúa el rendimiento defensivo del Cibao FC mediante métricas como duelos ganados, intercepciones, recuperaciones, despejes y pérdidas por partido."
     )
 
     defense_metrics = {
@@ -561,8 +561,6 @@ def bloque_defensa_eficiencia(df_filtrado):
         "Recuperaciones por 90": "recoveries",
         "Despejes por 90": "clearances",
         "Pérdidas de balón por 90": "losses",
-        "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
-        "Éxito en entradas (%)": "sliding_tackles_successful_percent",
     }
 
     metrics_sel = st.multiselect(
@@ -576,7 +574,7 @@ def bloque_defensa_eficiencia(df_filtrado):
             "Pérdidas de balón por 90",
         ],
         max_selections=5,
-        key="def_metrics",
+        key="def_eff_metrics",
     )
 
     df_def = df_filtrado[
@@ -613,6 +611,7 @@ def bloque_defensa_eficiencia(df_filtrado):
         template="plotly_dark",
         text_auto=".1f",
     )
+
     fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
     fig.update_layout(
         height=260,
@@ -626,28 +625,26 @@ def bloque_defensa_eficiencia(df_filtrado):
         bargap=0.25,
         margin=dict(l=40, r=30, t=30, b=20),
     )
+
     st.plotly_chart(fig, use_container_width=True)
 
 
 # ==============================
-# BLOQUE 2 — DISTRIBUCIÓN TÁCTICA (Horizontal — Heatmaps)
+# BLOQUE 2 — DISTRIBUCIÓN TÁCTICA (Barras agrupadas, estilo corporativo)
 # ==============================
 def bloque_distribucion_tactica(df_filtrado):
-    import plotly.express as px
-    import math
-
     st.markdown("<h3 style='text-align:center;'>Distribución Táctica — Presión y Recuperaciones</h3>", unsafe_allow_html=True)
     st.caption(
-        "Analiza la distribución de las pérdidas y recuperaciones del equipo según la altura del campo. "
-        "Cada gráfico muestra la intensidad de la presión (arriba) y la frecuencia de recuperaciones (abajo)."
+        "Analiza la distribución estimada de las pérdidas y recuperaciones del equipo según la altura del campo. "
+        "Compara la presión ejercida y la efectividad de las recuperaciones entre zonas altas, medias y bajas."
     )
 
-    # === Métricas ===
     pressure_metrics = {
         "Presión alta (estimada)": "losses_high",
         "Presión media (estimada)": "losses_medium",
         "Presión baja (estimada)": "losses_low",
     }
+
     recovery_metrics = {
         "Recuperaciones altas por 90": "recoveries_high",
         "Recuperaciones medias por 90": "recoveries_medium",
@@ -663,92 +660,79 @@ def bloque_distribucion_tactica(df_filtrado):
         st.warning("No hay datos disponibles para la selección actual.")
         return
 
-    # === Paletas personalizadas ===
-    PRESSURE_COLORS = [
-        [0.0, "#1E1E1E"],
-        [0.3, "#403020"],
-        [0.6, "#A85C00"],
-        [1.0, "#FF8C00"],
-    ]
-    RECOVERY_COLORS = [
-        [0.0, "#1E1E1E"],
-        [0.3, "#1F3A2E"],
-        [0.6, "#228B22"],
-        [1.0, "#22C55E"],
-    ]
+    # === 📊 PRESIÓN POR ZONA ===
+    df_pressure = df_view.melt(
+        id_vars=["Match"],
+        value_vars=list(pressure_metrics.values()),
+        var_name="metric",
+        value_name="value",
+    )
+    df_pressure["Zona"] = df_pressure["metric"].map({v: k for k, v in pressure_metrics.items()})
 
-    jornadas_unicas = sorted(df_view["Jornada"].unique())[:3]
-    n_cols = min(3, len(jornadas_unicas))
+    fig_pressure = px.bar(
+        df_pressure,
+        x="value",
+        y="Match",
+        color="Zona",
+        orientation="h",
+        barmode="group",
+        color_discrete_sequence=PALETTE_CIBAO,
+        template="plotly_dark",
+        text_auto=".1f",
+    )
+    fig_pressure.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
+    fig_pressure.update_layout(
+        height=230,
+        title=dict(text="🔶 Presión — Pérdidas estimadas", font=dict(size=14, color=CIBAO_ORANGE)),
+        plot_bgcolor=CIBAO_BLACK,
+        paper_bgcolor=CIBAO_BLACK,
+        font=dict(color=CIBAO_GRAY, size=12),
+        xaxis_title="Valor",
+        yaxis_title=None,
+        legend_title="Zona del campo",
+        legend=dict(font=dict(size=11)),
+        bargap=0.25,
+        margin=dict(l=40, r=30, t=40, b=20),
+    )
 
-    # === Presión (heatmaps superiores) ===
-    st.markdown("##### 🔶 Presión — Pérdidas estimadas")
-    cols_top = st.columns(n_cols)
-    for i, jornada in enumerate(jornadas_unicas):
-        with cols_top[i]:
-            df_jornada = df_view[df_view["Jornada"] == jornada]
-            df_pressure = df_jornada.melt(
-                value_vars=list(pressure_metrics.values()),
-                var_name="Zona",
-                value_name="Valor",
-            )
-            df_pressure["Zona"] = df_pressure["Zona"].map(
-                {v: k for k, v in pressure_metrics.items()}
-            )
+    st.plotly_chart(fig_pressure, use_container_width=True)
 
-            fig_pressure = px.imshow(
-                [df_pressure["Valor"]],
-                x=df_pressure["Zona"],
-                color_continuous_scale=PRESSURE_COLORS,
-                aspect="auto",
-                text_auto=".1f",
-            )
-            fig_pressure.update_layout(
-                template="plotly_dark",
-                height=220,
-                margin=dict(t=10, b=10, l=10, r=10),
-                coloraxis_colorbar=dict(
-                    title="Intensidad", tickfont=dict(size=10, color=CIBAO_GRAY)
-                ),
-                font=dict(size=11, color=CIBAO_GRAY),
-                title=dict(text=f"Jornada {jornada}", font=dict(size=12, color=CIBAO_GRAY)),
-            )
-            fig_pressure.update_xaxes(title=None, tickfont=dict(size=10))
-            st.plotly_chart(fig_pressure, use_container_width=True)
+    # === 📊 RECUPERACIONES POR ZONA ===
+    df_recovery = df_view.melt(
+        id_vars=["Match"],
+        value_vars=list(recovery_metrics.values()),
+        var_name="metric",
+        value_name="value",
+    )
+    df_recovery["Zona"] = df_recovery["metric"].map({v: k for k, v in recovery_metrics.items()})
 
-    # === Recuperaciones (heatmaps inferiores) ===
-    st.markdown("##### 🟢 Recuperaciones — Por zonas del campo")
-    cols_bottom = st.columns(n_cols)
-    for i, jornada in enumerate(jornadas_unicas):
-        with cols_bottom[i]:
-            df_jornada = df_view[df_view["Jornada"] == jornada]
-            df_recovery = df_jornada.melt(
-                value_vars=list(recovery_metrics.values()),
-                var_name="Zona",
-                value_name="Valor",
-            )
-            df_recovery["Zona"] = df_recovery["Zona"].map(
-                {v: k for k, v in recovery_metrics.items()}
-            )
+    fig_recovery = px.bar(
+        df_recovery,
+        x="value",
+        y="Match",
+        color="Zona",
+        orientation="h",
+        barmode="group",
+        color_discrete_sequence=PALETTE_CIBAO,
+        template="plotly_dark",
+        text_auto=".1f",
+    )
+    fig_recovery.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
+    fig_recovery.update_layout(
+        height=230,
+        title=dict(text="🟠 Recuperaciones — Por zonas del campo", font=dict(size=14, color=CIBAO_ORANGE)),
+        plot_bgcolor=CIBAO_BLACK,
+        paper_bgcolor=CIBAO_BLACK,
+        font=dict(color=CIBAO_GRAY, size=12),
+        xaxis_title="Valor",
+        yaxis_title=None,
+        legend_title="Zona del campo",
+        legend=dict(font=dict(size=11)),
+        bargap=0.25,
+        margin=dict(l=40, r=30, t=40, b=20),
+    )
 
-            fig_recovery = px.imshow(
-                [df_recovery["Valor"]],
-                x=df_recovery["Zona"],
-                color_continuous_scale=RECOVERY_COLORS,
-                aspect="auto",
-                text_auto=".1f",
-            )
-            fig_recovery.update_layout(
-                template="plotly_dark",
-                height=220,
-                margin=dict(t=10, b=10, l=10, r=10),
-                coloraxis_colorbar=dict(
-                    title="Frecuencia", tickfont=dict(size=10, color=CIBAO_GRAY)
-                ),
-                font=dict(size=11, color=CIBAO_GRAY),
-                title=dict(text=f"Jornada {jornada}", font=dict(size=12, color=CIBAO_GRAY)),
-            )
-            fig_recovery.update_xaxes(title=None, tickfont=dict(size=10))
-            st.plotly_chart(fig_recovery, use_container_width=True)
+    st.plotly_chart(fig_recovery, use_container_width=True)
 
 
 # ==============================
@@ -759,6 +743,7 @@ with col1:
     bloque_defensa_eficiencia(df_filtrado)
 with col2:
     bloque_distribucion_tactica(df_filtrado)
+
 
 # ==============================
 # ANÁLISIS COMPARATIVO — TABLAS OFENSIVA, CONSTRUCCIÓN Y DEFENSIVA (PALETAS PERSONALIZADAS)
