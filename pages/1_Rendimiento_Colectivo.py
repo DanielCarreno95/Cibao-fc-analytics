@@ -146,47 +146,6 @@ with cols_reset[1]:  # columna derecha
         st.toast("Filtros restablecidos a los valores por defecto ✅", icon="🔄")
         st.rerun()  # ✅ Nueva función en lugar de st.experimental_rerun()
 
-# --- Separador visual antes de los KPIs ---
-st.markdown("<br>", unsafe_allow_html=True)
-
-# ---------- ANÁLISIS RÁPIDO CIBAO VS RIVAL ----------
-if not df_liga_mayor.empty:
-    st.markdown("## Comparativa liga (Cibao vs próximo rival)")
-    col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.2, 1])
-    team_options = sorted({str(t) for t in df_liga_mayor['Team'].dropna().unique() if str(t).strip().lower() != 'cibao'})
-    if not team_options:
-        st.info("No hay rivales disponibles en el dataset de Liga Mayor.")
-    else:
-        opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
-        metric_labels = list(METRIC_OPTIONS.keys())
-        x_default = metric_labels.index("Goles por 90") if "Goles por 90" in metric_labels else 0
-        y_default = metric_labels.index("Goles en contra por 90") if "Goles en contra por 90" in metric_labels else min(1, len(metric_labels) - 1)
-        x_choice = col_sel2.selectbox("Métrica ofensiva (eje X)", metric_labels, index=x_default if metric_labels else 0)
-        y_choice = col_sel3.selectbox("Métrica defensiva (eje Y)", metric_labels, index=y_default if metric_labels else 0)
-        filters = {"Competition": lambda s: s.str.contains("Liga", case=False, na=False)}
-        x_column = METRIC_OPTIONS.get(x_choice)
-        y_column = METRIC_OPTIONS.get(y_choice)
-        if x_column is None or y_column is None:
-            st.error("No se encontró la métrica seleccionada en el dataset.")
-        else:
-            fig_radar, resumen_radar, _ = make_team_scatter(
-                df_liga_mayor,
-                primary_team="Cibao",
-                opponent=opponent_choice,
-                x_metric=x_column,
-                y_metric=y_column,
-                x_label=x_choice,
-                y_label=y_choice,
-                title=f"Liga Mayor — {x_choice} vs {y_choice}",
-                filters=filters,
-            )
-            st.plotly_chart(fig_radar, use_container_width=True, config={"displayModeBar": True})
-            if resumen_radar:
-                st.caption(f"Resumen: {resumen_radar}")
-else:
-    st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
-
-
 # ---------- KPIs ----------
 st.markdown("### Indicadores del último partido")
 
@@ -265,6 +224,45 @@ for (label, val), c in zip(kpi_numericos, cols_num):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# --- Separador visual antes de los KPIs ---
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ---------- ANÁLISIS RÁPIDO CIBAO VS RIVAL ----------
+if not df_liga_mayor.empty:
+    st.markdown("## Comparativa liga (Cibao vs próximo rival)")
+    col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.2, 1])
+    team_options = sorted({str(t) for t in df_liga_mayor['Team'].dropna().unique() if str(t).strip().lower() != 'cibao'})
+    if not team_options:
+        st.info("No hay rivales disponibles en el dataset de Liga Mayor.")
+    else:
+        opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
+        metric_labels = list(METRIC_OPTIONS.keys())
+        x_default = metric_labels.index("Goles por 90") if "Goles por 90" in metric_labels else 0
+        y_default = metric_labels.index("Goles en contra por 90") if "Goles en contra por 90" in metric_labels else min(1, len(metric_labels) - 1)
+        x_choice = col_sel2.selectbox("Métrica ofensiva (eje X)", metric_labels, index=x_default if metric_labels else 0)
+        y_choice = col_sel3.selectbox("Métrica defensiva (eje Y)", metric_labels, index=y_default if metric_labels else 0)
+        filters = {"Competition": lambda s: s.str.contains("Liga", case=False, na=False)}
+        x_column = METRIC_OPTIONS.get(x_choice)
+        y_column = METRIC_OPTIONS.get(y_choice)
+        if x_column is None or y_column is None:
+            st.error("No se encontró la métrica seleccionada en el dataset.")
+        else:
+            fig_radar, resumen_radar, _ = make_team_scatter(
+                df_liga_mayor,
+                primary_team="Cibao",
+                opponent=opponent_choice,
+                x_metric=x_column,
+                y_metric=y_column,
+                x_label=x_choice,
+                y_label=y_choice,
+                title=f"Liga Mayor — {x_choice} vs {y_choice}",
+                filters=filters,
+            )
+            st.plotly_chart(fig_radar, use_container_width=True, config={"displayModeBar": True})
+            if resumen_radar:
+                st.caption(f"Resumen: {resumen_radar}")
+else:
+    st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
 
 # ==============================
 # EFICIENCIA Y ATAQUE — VARIACIÓN POR PARTIDO
