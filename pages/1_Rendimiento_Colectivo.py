@@ -998,7 +998,7 @@ else:
 
         metric_labels_copa = list(METRICS_CONCACAF.keys())
 
-        # Valores por defecto (si existen las métricas)
+        # Valores por defecto
         x_default_copa = (
             metric_labels_copa.index("Goles") if "Goles" in metric_labels_copa else 0
         )
@@ -1027,10 +1027,10 @@ else:
         if x_column_copa is None or y_column_copa is None:
             st.error("No se encontró la métrica seleccionada en el dataset de Copa.")
         else:
-            # --- ✨ ADAPTAR df_copa_cibao al esquema que requiere make_team_scatter
+            # --- ✨ Preparar dataset completo de Copa
             df_copa_adapter = df_copa_cibao.copy()
 
-            # Crear columnas estándar
+            # Estandarización de columnas
             df_copa_adapter["Team"] = df_copa_adapter["team"]
             df_copa_adapter["Opponent"] = df_copa_adapter.apply(
                 lambda r: r["away_team"]
@@ -1046,21 +1046,18 @@ else:
             if "Jornada" not in df_copa_adapter.columns:
                 df_copa_adapter["Jornada"] = df_copa_adapter.get("stage", "Copa")
 
-            # Convertir a numérico las métricas seleccionadas
+            # Convertir métricas seleccionadas a numérico
             for col_num in [x_column_copa, y_column_copa]:
                 if col_num in df_copa_adapter.columns:
                     df_copa_adapter[col_num] = pd.to_numeric(
                         df_copa_adapter[col_num], errors="coerce"
                     )
 
-            # ✅ Filtrar solo los partidos donde participe Cibao o el rival
-            df_copa_view = df_copa_adapter[
-                df_copa_adapter["Team"].astype(str).str.contains("Cibao", case=False, na=False)
-                | df_copa_adapter["Team"].astype(str).str.contains(str(opponent_copa), case=False, na=False)
-            ].copy()
+            # ✅ Usar todos los equipos para mantener los rankings
+            df_copa_view = df_copa_adapter.copy()
 
             if df_copa_view.empty:
-                st.info("No hay registros de Copa para el rival seleccionado.")
+                st.info("No hay registros disponibles para el análisis de Copa.")
             else:
                 try:
                     fig_copa, resumen_copa, _ = make_team_scatter(
@@ -1082,7 +1079,7 @@ else:
                     if resumen_copa:
                         st.caption(f"Resumen: {resumen_copa}")
 
-                except KeyError as e:
+                except Exception as e:
                     st.warning(
                         f"No se pudo usar make_team_scatter ({e}). Se muestra un scatter básico."
                     )
@@ -1097,7 +1094,6 @@ else:
                         template="plotly_dark",
                     )
                     st.plotly_chart(fig_basic, use_container_width=True)
-
 
 
 
