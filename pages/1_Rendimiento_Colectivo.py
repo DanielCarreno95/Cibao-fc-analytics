@@ -934,6 +934,31 @@ if not df_base.empty:
 # =========================================================  COPA
 
 
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+
+def _ensure_numeric(df, cols):
+    for c in cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+    return df
+
+def _map_metrics(names):
+    """Devuelve lista de columnas reales a partir de nombres del diccionario."""
+    cols = []
+    for n in names:
+        col = METRICS_CONCACAF.get(n)
+        if col:
+            cols.append(col)
+    return cols
+
+
+
+
+
+
+
 # =========================================================
 # 📊 ANÁLISIS DE MÉTRICAS EN COPA CONCACAF
 # =========================================================
@@ -1114,6 +1139,156 @@ else:
                         title_font=dict(size=20),
                     )
                     st.plotly_chart(fig_basic, use_container_width=True)
+
+
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+
+def _ensure_numeric(df, cols):
+    for c in cols:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+    return df
+
+def _map_metrics(names):
+    """Devuelve lista de columnas reales a partir de nombres del diccionario."""
+    cols = []
+    for n in names:
+        col = METRICS_CONCACAF.get(n)
+        if col:
+            cols.append(col)
+    return cols
+
+
+# =========================================================
+# 🔶 BLOQUE 1–2 — ATAQUE Y PASES (COPA CONCACAF)
+# =========================================================
+
+st.markdown(
+    f"""
+    <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
+    Bloques 1 – 2 · Ataque y Pases — Copa Concacaf
+    </h2>
+    <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
+    Métricas ofensivas y de construcción de juego del Cibao FC en la Copa Concacaf.
+    </p>
+    """,
+    unsafe_allow_html=True,
+)
+
+col1, col2 = st.columns(2)
+
+# --- ATAQUE ---
+with col1:
+    ataque_names = METRIC_GROUPS_CONCACAF["Ataque"]
+    ataque_cols  = [METRICS_CONCACAF[m] for m in ataque_names if m in METRICS_CONCACAF]
+
+    df_a = _ensure_numeric(df_copa_cibao.copy(), ataque_cols)
+    avg_a = df_a[ataque_cols].mean().rename(index={v:k for k,v in METRICS_CONCACAF.items()})
+    avg_a = avg_a.reindex(ataque_names)
+
+    fig_a = px.bar(
+        x=avg_a.index, y=avg_a.values,
+        title="⚽ Ataque — Promedios por partido",
+        labels={"x":"Métrica","y":"Promedio"},
+        color_discrete_sequence=[CIBAO_ORANGE],
+    )
+    fig_a.update_layout(
+        template="plotly_dark",
+        margin=dict(t=80, b=60, l=60, r=40),
+        height=450
+    )
+    st.plotly_chart(fig_a, use_container_width=True)
+
+# --- PASES ---
+with col2:
+    pase_names = METRIC_GROUPS_CONCACAF["Pases"]
+    pase_cols  = [METRICS_CONCACAF[m] for m in pase_names if m in METRICS_CONCACAF]
+
+    df_p = _ensure_numeric(df_copa_cibao.copy(), pase_cols)
+    df_p["pass_accuracy_%"] = (
+        (df_p.get("accuratePass",0) / df_p.get("totalPass",1)).replace([np.inf,np.nan],0)*100
+    )
+    avg_p = df_p[["totalPass","accuratePass","pass_accuracy_%"]].mean()
+    avg_p.index = ["Total de Pases","Pases Precisos","Precisión (%)"]
+
+    fig_p = px.bar(
+        x=avg_p.index, y=avg_p.values,
+        title="🎯 Pases — Volumen y precisión",
+        labels={"x":"Métrica","y":"Promedio"},
+        color_discrete_sequence=["#1E90FF"],
+    )
+    fig_p.update_layout(
+        template="plotly_dark",
+        margin=dict(t=80, b=60, l=60, r=40),
+        height=450
+    )
+    st.plotly_chart(fig_p, use_container_width=True)
+
+
+# =========================================================
+# 🔶 BLOQUE 3–4 — DEFENSIVO Y SET PIECES (COPA CONCACAF)
+# =========================================================
+
+st.markdown(
+    f"""
+    <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
+    Bloques 3 – 4 · Defensivo y Set Pieces — Copa Concacaf
+    </h2>
+    <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
+    Métricas de solidez defensiva y efectividad en jugadas a balón parado.
+    </p>
+    """,
+    unsafe_allow_html=True,
+)
+
+col3, col4 = st.columns(2)
+
+# --- DEFENSIVO ---
+with col3:
+    def_names = METRIC_GROUPS_CONCACAF["Defensivo"]
+    def_cols  = [METRICS_CONCACAF[m] for m in def_names if m in METRICS_CONCACAF]
+
+    df_d = _ensure_numeric(df_copa_cibao.copy(), def_cols)
+    avg_d = df_d[def_cols].mean().rename(index={v:k for k,v in METRICS_CONCACAF.items()})
+    avg_d = avg_d.reindex(def_names)
+
+    fig_d = px.bar(
+        x=avg_d.index, y=avg_d.values,
+        title="🛡️ Defensa — Promedios por partido",
+        labels={"x":"Métrica","y":"Promedio"},
+        color_discrete_sequence=["#DC143C"],
+    )
+    fig_d.update_layout(
+        template="plotly_dark",
+        margin=dict(t=80, b=60, l=60, r=40),
+        height=450
+    )
+    st.plotly_chart(fig_d, use_container_width=True)
+
+# --- SET PIECES ---
+with col4:
+    sp_names = METRIC_GROUPS_CONCACAF["Set Pieces"]
+    sp_cols  = [METRICS_CONCACAF[m] for m in sp_names if m in METRICS_CONCACAF]
+
+    df_s = _ensure_numeric(df_copa_cibao.copy(), sp_cols)
+    avg_s = df_s[sp_cols].mean().rename(index={v:k for k,v in METRICS_CONCACAF.items()})
+    avg_s = avg_s.reindex(sp_names)
+
+    fig_s = px.bar(
+        x=avg_s.index, y=avg_s.values,
+        title="🧩 Set Pieces — Promedios por partido",
+        labels={"x":"Métrica","y":"Promedio"},
+        color_discrete_sequence=["#FFD700"],
+    )
+    fig_s.update_layout(
+        template="plotly_dark",
+        margin=dict(t=80, b=60, l=60, r=40),
+        height=450
+    )
+    st.plotly_chart(fig_s, use_container_width=True)
+
 
 
 
