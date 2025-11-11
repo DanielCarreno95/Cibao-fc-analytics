@@ -782,7 +782,7 @@ with col2:
     bloque_distribucion_tactica(df_filtrado)
 
 # ==============================
-# ANÁLISIS COMPARATIVO — TABLAS OFENSIVA, CONSTRUCCIÓN Y DEFENSIVA (CIBAO ORANGE)
+# ANÁLISIS COMPARATIVO — TABLAS CON ALTURA DINÁMICA Y PALETA CIBAO
 # ==============================
 
 import pandas as pd
@@ -794,8 +794,8 @@ st.subheader("Análisis Comparativo por Bloques")
 st.caption(
     "Visualiza y compara los indicadores clave del rendimiento colectivo en tres fases del juego: "
     "**ofensiva**, **construcción/pase** y **defensiva**. "
-    "El formato condicional usa una paleta cromática institucional en tonos **naranja Cibao FC**, "
-    "donde los valores más altos indican mejor rendimiento."
+    "Cada bloque usa una escala cromática en tonos **naranja Cibao FC**, "
+    "resaltando los valores más altos dentro de cada métrica."
 )
 
 # ==============================
@@ -866,7 +866,7 @@ else:
     )
 
 # ==============================
-# ⚙️ FUNCIÓN DE TABLA CON FORMATO POR COLUMNA
+# ⚙️ FUNCIÓN DE TABLA CON FORMATO POR COLUMNA Y ALTURA AJUSTABLE
 # ==============================
 def build_table(df, metrics_dict, title):
     df_local = df[["Match"] + list(metrics_dict.values())].copy()
@@ -888,7 +888,9 @@ def build_table(df, metrics_dict, title):
         }
     ).format(precision=2)
 
-    st.dataframe(styled_df, use_container_width=True, height=280)
+    # Altura dinámica: 45px por fila + margen superior
+    height = max(180, len(df_local) * 45 + 80)
+    st.dataframe(styled_df, use_container_width=True, height=height)
     return df_local
 
 # ==============================
@@ -926,7 +928,6 @@ if not df_base.empty:
         "Cada bloque utiliza una escala de tonos naranjas institucionales, resaltando los valores más altos "
         "de rendimiento dentro de cada columna."
     )
-
 
 # ==============================
 # FIGURA DE KPIs PARA EL PDF (a partir del último partido filtrado)
