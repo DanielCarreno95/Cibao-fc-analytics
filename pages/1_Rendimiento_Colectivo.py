@@ -547,369 +547,251 @@ with col2:
     bloque_construccion_pases(df_filtrado)
 
 # ==============================
-# DEFENSA Y EFICIENCIA — RESUMEN POR PARTIDO (GRÁFICOS CIRCULARES)
+# 🛡️ BLOQUE A — DEFENSA Y EFICIENCIA (1x2 — COLUMNA IZQUIERDA)
 # ==============================
+def bloque_defensa_eficiencia(df_filtrado):
+    import plotly.graph_objects as go
+    import math
 
-import plotly.graph_objects as go
-import math
-
-st.subheader("Defensa y Eficiencia — Resumen por Partido")
-st.caption(
-    "Selecciona las métricas defensivas que deseas visualizar y compara su distribución entre partidos. "
-    "Cada gráfico circular representa un partido, mostrando la efectividad y volumen de las acciones defensivas."
-)
-
-# --- Métricas defensivas disponibles ---
-defense_summary_metrics = {
-    "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
-    "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
-    "Éxito en entradas (%)": "sliding_tackles_successful_percent",
-    "Intercepciones por 90": "interceptions",
-    "Despejes por 90": "clearances",
-    "Duelos ofensivos por 90": "offensive_duels",
-    "Recuperaciones por 90": "recoveries",
-    "Pérdidas de balón por 90": "losses",
-    "Intensidad de presión (PPDA)": "ppda",
-    "Disparos en contra por 90": "shots_against",
-    "Disparos en contra a puerta por 90": "shots_against_on_target",
-    "Eficiencia rival (disparos a puerta %)": "shots_against_on_target_percent",
-}
-
-# ==============================
-# 🔍 FILTROS INTERACTIVOS
-# ==============================
-
-cols_sel = st.columns(2)
-
-# --- Últimas 3 jornadas automáticas ---
-ultimas_jornadas = (
-    sorted(df_filtrado["Jornada"].unique())[-3:]
-    if len(df_filtrado["Jornada"].unique()) >= 3
-    else sorted(df_filtrado["Jornada"].unique())
-)
-
-with cols_sel[0]:
-    jornadas_sel = st.multiselect(
-        "Selecciona jornadas (máx 5)",
-        options=sorted(df_filtrado["Jornada"].unique().tolist()),
-        default=ultimas_jornadas,
-        key="def_efficiency_jornadas",
-        max_selections=5,
+    st.markdown(
+        f"""
+        <h3 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
+            Defensa y Eficiencia
+        </h3>
+        <p style='text-align:center; color:{CIBAO_GRAY}; font-size:14px;'>
+            Compara por partido las métricas defensivas clave: duelos ganados, intercepciones, recuperaciones, despejes y pérdidas.
+        </p>
+        """,
+        unsafe_allow_html=True,
     )
 
-# --- Partidos correspondientes a las jornadas seleccionadas ---
-partidos_defecto = (
-    df_filtrado[df_filtrado["Jornada"].isin(ultimas_jornadas)]
-    .sort_values("Date")["Match"]
-    .unique()
-    .tolist()[:3]
-)
+    defense_summary_metrics = {
+        "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
+        "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
+        "Éxito en entradas (%)": "sliding_tackles_successful_percent",
+        "Intercepciones por 90": "interceptions",
+        "Despejes por 90": "clearances",
+        "Duelos ofensivos por 90": "offensive_duels",
+        "Recuperaciones por 90": "recoveries",
+        "Pérdidas de balón por 90": "losses",
+        "Intensidad de presión (PPDA)": "ppda",
+        "Disparos en contra por 90": "shots_against",
+        "Disparos en contra a puerta por 90": "shots_against_on_target",
+        "Eficiencia rival (disparos a puerta %)": "shots_against_on_target_percent",
+    }
 
-with cols_sel[1]:
-    partidos_sel = st.multiselect(
-        "Selecciona partidos para comparar (máx 5)",
-        options=df_filtrado["Match"].unique().tolist(),
-        default=partidos_defecto,
-        key="def_efficiency_partidos",
-        max_selections=5,
+    # Filtros compactos
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        jornadas_sel = styled_multiselect(
+            "Selecciona jornadas (máx 5)",
+            sorted(df_filtrado["Jornada"].unique().tolist()),
+            sorted(df_filtrado["Jornada"].unique().tolist())[-3:],
+            key="def_jornadas",
+        )
+    with c2:
+        partidos_sel = styled_multiselect(
+            "Selecciona partidos (máx 5)",
+            df_filtrado["Match"].unique().tolist(),
+            df_filtrado.sort_values("Date")["Match"].unique().tolist()[:3],
+            key="def_partidos",
+        )
+
+    metrics_sel = styled_multiselect(
+        "Selecciona métricas defensivas (máx 5)",
+        list(defense_summary_metrics.keys()),
+        [
+            "Duelos defensivos ganados (%)",
+            "Intercepciones por 90",
+            "Recuperaciones por 90",
+            "Despejes por 90",
+            "Pérdidas de balón por 90",
+        ],
+        key="def_metrics",
     )
 
-# --- Selección de métricas ---
-metrics_sel = st.multiselect(
-    "Selecciona métricas defensivas (mín 5, máx 7)",
-    options=list(defense_summary_metrics.keys()),
-    default=[
-        "Duelos defensivos ganados (%)",
-        "Intercepciones por 90",
-        "Recuperaciones por 90",
-        "Despejes por 90",
-        "Pérdidas de balón por 90",
-    ],
-    max_selections=7,
-    key="def_efficiency_metrics",
-)
+    if not jornadas_sel or not partidos_sel or not metrics_sel:
+        st.info("Selecciona jornadas, partidos y al menos una métrica defensiva.")
+        return
 
-# ==============================
-# 🧩 GENERACIÓN DE GRÁFICOS
-# ==============================
-
-if len(metrics_sel) < 5:
-    st.warning("Selecciona al menos 5 métricas defensivas para generar los gráficos.")
-elif not partidos_sel:
-    st.info("Selecciona al menos un partido para mostrar el resumen defensivo.")
-else:
-    # Filtrar el DataFrame
     df_def = df_filtrado[
-        (df_filtrado["Match"].isin(partidos_sel)) & (df_filtrado["Jornada"].isin(jornadas_sel))
+        (df_filtrado["Jornada"].isin(jornadas_sel)) &
+        (df_filtrado["Match"].isin(partidos_sel))
     ].copy()
-
     if df_def.empty:
-        st.warning("No hay datos disponibles para las jornadas o partidos seleccionados.")
-    else:
-        # Layout 3x3 (hasta 9 gráficos)
-        n_partidos = len(partidos_sel)
-        n_cols = 3
-        n_rows = math.ceil(n_partidos / n_cols)
+        st.warning("No hay datos disponibles para la selección actual.")
+        return
 
-        # Iterar por filas y columnas
-        for i in range(n_rows):
-            cols = st.columns(n_cols)
-            for j in range(n_cols):
-                idx = i * n_cols + j
-                if idx < n_partidos:
-                    match = partidos_sel[idx]
-                    df_match = df_def[df_def["Match"] == match]
-                    if df_match.empty:
-                        continue
+    # 2 tarjetas por fila
+    n_cols = 2
+    n_rows = math.ceil(len(partidos_sel) / n_cols)
+    for i in range(n_rows):
+        row = st.columns(n_cols)
+        for j in range(n_cols):
+            k = i * n_cols + j
+            if k >= len(partidos_sel):
+                continue
+            match = partidos_sel[k]
+            d = df_def[df_def["Match"] == match]
+            if d.empty:
+                continue
 
-                    with cols[j]:
-                        st.markdown(f"**{match}**")
+            values = [
+                float(d.iloc[0].get(defense_summary_metrics[m], 0)) for m in metrics_sel
+            ]
 
-                        labels = metrics_sel
-                        values = [
-                            df_match.iloc[0][defense_summary_metrics[m]]
-                            if defense_summary_metrics[m] in df_match.columns
-                            else 0
-                            for m in metrics_sel
-                        ]
-
-                        # --- Gráfico circular con formato profesional ---
-                        fig_pie = go.Figure(
-                            data=[
-                                go.Pie(
-                                    labels=labels,
-                                    values=values,
-                                    text=[f"{v:.1f}" for v in values],
-                                    textinfo="label+text",
-                                    textfont=dict(size=12, color="#F5F5F5"),
-                                    insidetextorientation="radial",
-                                    marker=dict(
-                                        colors=[
-                                            "#FF8C00", "#3B82F6", "#22C55E",
-                                            "#EF4444", "#F59E0B", "#8B5CF6", "#14B8A6"
-                                        ][: len(metrics_sel)],
-                                        line=dict(color="rgba(255,255,255,0.2)", width=1),
-                                    ),
-                                )
-                            ]
-                        )
-
-                        fig_pie.update_layout(
-                            template="plotly_dark",
-                            height=420,
-                            margin=dict(t=15, b=15, l=15, r=15),
-                            showlegend=False,
-                        )
-
-                        st.plotly_chart(fig_pie, use_container_width=True)
+            fig = go.Figure(go.Bar(
+                x=values,
+                y=metrics_sel,
+                orientation="h",
+                text=[f"{v:.1f}" for v in values],
+                textposition="outside",
+                marker_color=CIBAO_ORANGE,
+                hovertemplate="%{y}: %{x}<extra></extra>",
+            ))
+            fig.update_layout(
+                template="plotly_dark",
+                height=320,
+                margin=dict(l=20, r=20, t=30, b=20),
+                title=dict(text=match, font=dict(size=14, color=CIBAO_GRAY)),
+                xaxis=dict(title="Valor", gridcolor="#2a2a2a", color=CIBAO_GRAY),
+                yaxis=dict(title=None, color=CIBAO_GRAY),
+                font=dict(size=11, color=CIBAO_GRAY),
+            )
+            with row[j]:
+                st.plotly_chart(fig, use_container_width=True)
 
 
 # ==============================
-# DISTRIBUCIÓN TÁCTICA — PRESIÓN Y RECUPERACIONES (LAYOUT 3x3)
+# 🧭 BLOQUE B — DISTRIBUCIÓN TÁCTICA (1x2 — COLUMNA DERECHA)
 # ==============================
+def bloque_distribucion_tactica(df_filtrado):
+    import plotly.express as px
+    import math
 
-import plotly.express as px
-import math
-
-st.subheader("Distribución Táctica — Presión y Recuperaciones")
-st.caption(
-    "Analiza la distribución de las pérdidas y recuperaciones del equipo según la altura del campo. "
-    "Cada columna representa una jornada o partido, mostrando la intensidad de la presión (arriba) "
-    "y la frecuencia de recuperaciones (abajo)."
-)
-
-# --- Métricas ---
-pressure_metrics = {
-    "Presión alta (estimada)": "losses_high",
-    "Presión media (estimada)": "losses_medium",
-    "Presión baja (estimada)": "losses_low",
-}
-
-recovery_metrics = {
-    "Recuperaciones altas por 90": "recoveries_high",
-    "Recuperaciones medias por 90": "recoveries_medium",
-    "Recuperaciones bajas por 90": "recoveries_low",
-}
-
-# ==============================
-# 🔍 FILTROS DE JORNADA Y PARTIDO
-# ==============================
-
-cols_filters = st.columns(2)
-
-# Últimas 3 jornadas automáticas
-ultimas_jornadas = (
-    sorted(df_filtrado["Jornada"].unique())[-3:]
-    if len(df_filtrado["Jornada"].unique()) >= 3
-    else sorted(df_filtrado["Jornada"].unique())
-)
-
-with cols_filters[0]:
-    jornadas_sel = st.multiselect(
-        "Selecciona jornadas (máx 5)",
-        options=sorted(df_filtrado["Jornada"].unique().tolist()),
-        default=ultimas_jornadas,
-        key="tactical_heatmap_jornadas",
-        max_selections=5,
+    st.markdown(
+        f"""
+        <h3 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
+            Distribución Táctica — Presión y Recuperaciones
+        </h3>
+        <p style='text-align:center; color:{CIBAO_GRAY}; font-size:14px;'>
+            Visualiza la intensidad de la presión (pérdidas estimadas) y la frecuencia de recuperaciones por zonas del campo.
+        </p>
+        """,
+        unsafe_allow_html=True,
     )
 
-# Partidos por defecto según jornadas
-partidos_default = (
-    df_filtrado[df_filtrado["Jornada"].isin(ultimas_jornadas)]
-    .sort_values("Date")["Match"]
-    .unique()
-    .tolist()[:3]
-)
+    pressure_metrics = {
+        "Presión alta (estimada)": "losses_high",
+        "Presión media (estimada)": "losses_medium",
+        "Presión baja (estimada)": "losses_low",
+    }
+    recovery_metrics = {
+        "Recuperaciones altas por 90": "recoveries_high",
+        "Recuperaciones medias por 90": "recoveries_medium",
+        "Recuperaciones bajas por 90": "recoveries_low",
+    }
 
-with cols_filters[1]:
-    partidos_sel = st.multiselect(
-        "Selecciona partidos (máx 5)",
-        options=df_filtrado["Match"].unique().tolist(),
-        default=partidos_default,
-        key="tactical_heatmap_partidos",
-        max_selections=5,
-    )
+    # Filtros compactos
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        jornadas_sel = styled_multiselect(
+            "Selecciona jornadas (máx 5)",
+            sorted(df_filtrado["Jornada"].unique().tolist()),
+            sorted(df_filtrado["Jornada"].unique().tolist())[-3:],
+            key="tact_jornadas",
+        )
+    with c2:
+        partidos_sel = styled_multiselect(
+            "Selecciona partidos (máx 5)",
+            df_filtrado["Match"].unique().tolist(),
+            df_filtrado.sort_values("Date")["Match"].unique().tolist()[:3],
+            key="tact_partidos",
+        )
 
-# --- Filtrar dataset final ---
-df_view = df_filtrado[
-    (df_filtrado["Jornada"].isin(jornadas_sel)) & (df_filtrado["Match"].isin(partidos_sel))
-].copy()
+    if not jornadas_sel or not partidos_sel:
+        st.info("Selecciona jornadas y partidos para visualizar los mapas.")
+        return
 
-if df_view.empty:
-    st.warning("No hay datos disponibles para las jornadas o partidos seleccionados.")
-else:
-    # ==============================
-    # 🎨 Colores personalizados
-    # ==============================
-    PRESSURE_COLORS = [
-        [0.0, "#1E1E1E"],
-        [0.3, "#403020"],
-        [0.6, "#A85C00"],
-        [1.0, "#FF8C00"],
-    ]
-    RECOVERY_COLORS = [
-        [0.0, "#1E1E1E"],
-        [0.3, "#1F3A2E"],
-        [0.6, "#228B22"],
-        [1.0, "#22C55E"],
-    ]
+    df_view = df_filtrado[
+        (df_filtrado["Jornada"].isin(jornadas_sel)) &
+        (df_filtrado["Match"].isin(partidos_sel))
+    ].copy()
+    if df_view.empty:
+        st.warning("No hay datos disponibles para la selección actual.")
+        return
 
-    # ==============================
-    # 📊 Layout 3x3: presión arriba, recuperación abajo
-    # ==============================
+    # Paletas
+    PRESSURE_COLORS = [[0.0, "#1E1E1E"], [0.3, "#403020"], [0.6, "#A85C00"], [1.0, "#FF8C00"]]
+    RECOVERY_COLORS = [[0.0, "#1E1E1E"], [0.3, "#1F3A2E"], [0.6, "#228B22"], [1.0, "#22C55E"]]
 
-    jornadas_unicas = sorted(df_view["Jornada"].unique())[:3]  # máx 3 visibles por fila
-    n_cols = min(3, len(jornadas_unicas))  # ajusta columnas según cantidad
-    n_rows = math.ceil(len(jornadas_unicas) / n_cols)
+    jornadas_unicas = sorted(df_view["Jornada"].unique())[:3]
+    n_cols = min(3, len(jornadas_unicas))
 
-    st.markdown("### 🔶 Presión — Pérdidas estimadas")
+    # Presión
+    st.markdown("<p style='color:#D3D3D3; margin:6px 0 0 2px;'>Presión — pérdidas estimadas</p>", unsafe_allow_html=True)
     cols_top = st.columns(n_cols)
-
-    for i, jornada in enumerate(jornadas_unicas):
+    for i, jor in enumerate(jornadas_unicas):
         with cols_top[i]:
-            df_jornada = df_view[df_view["Jornada"] == jornada]
-            partido = (
-                df_jornada["Match"].iloc[-1]
-                if not df_jornada.empty
-                else f"Jornada {jornada}"
-            )
+            d = df_view[df_view["Jornada"] == jor]
+            dfp = d.melt(value_vars=list(pressure_metrics.values()),
+                         var_name="Zona", value_name="Valor")
+            dfp["Zona"] = dfp["Zona"].map({v: k for k, v in pressure_metrics.items()})
 
-            st.markdown(f"**{partido}**")
-
-            df_pressure = df_jornada.melt(
-                value_vars=list(pressure_metrics.values()),
-                var_name="Zona",
-                value_name="Valor",
-            )
-            df_pressure["Zona"] = df_pressure["Zona"].map(
-                {v: k for k, v in pressure_metrics.items()}
-            )
-
-            fig_pressure = px.imshow(
-                [df_pressure["Valor"]],
-                x=df_pressure["Zona"],
+            fig = px.imshow(
+                [dfp["Valor"]],
+                x=dfp["Zona"],
                 color_continuous_scale=PRESSURE_COLORS,
                 aspect="auto",
                 text_auto=".1f",
             )
-            fig_pressure.update_layout(
-                template="plotly_dark",
-                title=dict(
-                    text=f"Presión (Jornada {jornada})",
-                    font=dict(size=13, color="#E5E7EB"),
-                ),
-                height=300,
-                margin=dict(t=35, b=20, l=15, r=15),
-                coloraxis_colorbar=dict(
-                    title=dict(text="Intensidad", font=dict(color="#D1D5DB", size=11)),
-                    tickfont=dict(color="#D1D5DB", size=10),
-                ),
+            fig.update_layout(
+                template="plotly_dark", height=220,
+                margin=dict(t=10, b=10, l=10, r=10),
+                coloraxis_colorbar=dict(title="Intensidad", tickfont=dict(size=10)),
+                font=dict(size=11, color=CIBAO_GRAY),
+                title=dict(text=f"Jornada {jor}", font=dict(size=12, color=CIBAO_GRAY)),
             )
-            fig_pressure.update_xaxes(title=None, tickfont=dict(size=10, color="#E5E7EB"))
-            st.plotly_chart(fig_pressure, use_container_width=True)
+            fig.update_xaxes(title=None, tickfont=dict(size=10))
+            st.plotly_chart(fig, use_container_width=True)
 
-    st.markdown("### 🟢 Recuperaciones — Por zonas del campo")
-    cols_bottom = st.columns(n_cols)
+    # Recuperaciones
+    st.markdown("<p style='color:#D3D3D3; margin:10px 0 0 2px;'>Recuperaciones — por zonas</p>", unsafe_allow_html=True)
+    cols_bot = st.columns(n_cols)
+    for i, jor in enumerate(jornadas_unicas):
+        with cols_bot[i]:
+            d = df_view[df_view["Jornada"] == jor]
+            dfr = d.melt(value_vars=list(recovery_metrics.values()),
+                         var_name="Zona", value_name="Valor")
+            dfr["Zona"] = dfr["Zona"].map({v: k for k, v in recovery_metrics.items()})
 
-    for i, jornada in enumerate(jornadas_unicas):
-        with cols_bottom[i]:
-            df_jornada = df_view[df_view["Jornada"] == jornada]
-            partido = (
-                df_jornada["Match"].iloc[-1]
-                if not df_jornada.empty
-                else f"Jornada {jornada}"
-            )
-
-            df_recovery = df_jornada.melt(
-                value_vars=list(recovery_metrics.values()),
-                var_name="Zona",
-                value_name="Valor",
-            )
-            df_recovery["Zona"] = df_recovery["Zona"].map(
-                {v: k for k, v in recovery_metrics.items()}
-            )
-
-            fig_recovery = px.imshow(
-                [df_recovery["Valor"]],
-                x=df_recovery["Zona"],
+            fig = px.imshow(
+                [dfr["Valor"]],
+                x=dfr["Zona"],
                 color_continuous_scale=RECOVERY_COLORS,
                 aspect="auto",
                 text_auto=".1f",
             )
-            fig_recovery.update_layout(
-                template="plotly_dark",
-                title=dict(
-                    text=f"Recuperaciones (Jornada {jornada})",
-                    font=dict(size=13, color="#E5E7EB"),
-                ),
-                height=300,
-                margin=dict(t=35, b=20, l=15, r=15),
-                coloraxis_colorbar=dict(
-                    title=dict(text="Frecuencia", font=dict(color="#D1D5DB", size=11)),
-                    tickfont=dict(color="#D1D5DB", size=10),
-                ),
+            fig.update_layout(
+                template="plotly_dark", height=220,
+                margin=dict(t=10, b=10, l=10, r=10),
+                coloraxis_colorbar=dict(title="Frecuencia", tickfont=dict(size=10)),
+                font=dict(size=11, color=CIBAO_GRAY),
+                title=dict(text=f"Jornada {jor}", font=dict(size=12, color=CIBAO_GRAY)),
             )
-            fig_recovery.update_xaxes(title=None, tickfont=dict(size=10, color="#E5E7EB"))
-            st.plotly_chart(fig_recovery, use_container_width=True)
+            fig.update_xaxes(title=None, tickfont=dict(size=10))
+            st.plotly_chart(fig, use_container_width=True)
 
-    # ==============================
-    # 💡 Insight automático
-    # ==============================
-    if not df_view.empty:
-        ultima_jornada = max(jornadas_sel)
-        ultimo_partido = partidos_sel[-1] if partidos_sel else None
-        df_last = df_view[
-            (df_view["Jornada"] == ultima_jornada)
-            & (df_view["Match"] == ultimo_partido)
-        ]
-        if not df_last.empty:
-            press_high = df_last[pressure_metrics["Presión alta (estimada)"]].mean()
-            rec_high = df_last[recovery_metrics["Recuperaciones altas por 90"]].mean()
-            st.markdown(
-                f"**Insight:** En la jornada **{ultima_jornada}**, partido **{ultimo_partido}**, "
-                f"la presión alta media fue de **{press_high:.1f}** y las recuperaciones altas promedio **{rec_high:.1f}**. "
-                "Esto refleja el grado de agresividad e intensidad del bloque en la recuperación tras pérdida."
-            )
+
+# ==============================
+# 🧱 LAYOUT 1×2 (LLÁMALO DONDE QUIERAS RENDERIZARLOS)
+# ==============================
+col_izq, col_der = st.columns(2, gap="large")
+with col_izq:
+    bloque_defensa_eficiencia(df_filtrado)
+with col_der:
+    bloque_distribucion_tactica(df_filtrado)
+
 
 # ==============================
 # ANÁLISIS COMPARATIVO — TABLAS OFENSIVA, CONSTRUCCIÓN Y DEFENSIVA (PALETAS PERSONALIZADAS)
