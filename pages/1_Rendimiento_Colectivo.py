@@ -231,14 +231,14 @@ st.markdown("<br>", unsafe_allow_html=True)
 # 🎨 PALETA INSTITUCIONAL CIBAO FC
 # ==============================
 CIBAO_ORANGE = "#FF8C00"         # Naranja principal
-CIBAO_ORANGE_LIGHT = "#FFA64D"   # Naranja claro (chips seleccionados)
+CIBAO_ORANGE_LIGHT = "#FFA64D"   # Naranja claro
 CIBAO_BLACK = "#111111"          # Fondo general
 CIBAO_GRAY = "#D3D3D3"           # Texto neutro
 CIBAO_DARKGRAY = "#2B2B2B"       # Contenedores oscuros
 PALETTE_CIBAO = [CIBAO_ORANGE, "#F78E1E", "#2F2F2F", "#777777"]
 
 # ==============================
-# 🎨 ESTILO GLOBAL — UNIFICADO BLOQUE 0 Y BLOQUES 1–2
+# 🎨 ESTILO GLOBAL — UNIFICADO Y COMPACTO
 # ==============================
 st.markdown(
     f"""
@@ -248,9 +248,9 @@ st.markdown(
        🎯 Filtros (Select + Multiselect)
        ============================ */
 
-    /* Fondo y borde principal */
+    /* Contenedor base */
     div[data-baseweb="select"] > div {{
-        background-color: #1B1B1B !important;       /* Gris oscuro */
+        background-color: #1B1B1B !important;
         border: 1px solid {CIBAO_ORANGE} !important;
         border-radius: 8px !important;
         color: {CIBAO_GRAY} !important;
@@ -259,36 +259,59 @@ st.markdown(
         min-height: 38px !important;
         padding: 0 8px !important;
         align-items: center !important;
+        overflow-x: auto !important;          /* 🔹 Scroll horizontal */
+        white-space: nowrap !important;       /* 🔹 Todo en una línea */
     }}
 
-    /* Para igualar tamaño de texto en ambas */
-    div[data-testid="stSelectbox"] label, 
+    /* Ocultar scrollbar hasta que se necesite */
+    div[data-baseweb="select"] > div::-webkit-scrollbar {{
+        height: 4px !important;
+    }}
+    div[data-baseweb="select"] > div::-webkit-scrollbar-thumb {{
+        background-color: {CIBAO_ORANGE_LIGHT}66 !important;
+        border-radius: 10px !important;
+    }}
+
+    /* Label de texto */
+    div[data-testid="stSelectbox"] label,
     div[data-testid="stMultiSelect"] label {{
         font-size: 13px !important;
         color: {CIBAO_GRAY} !important;
         margin-bottom: 4px !important;
     }}
 
-    /* Chips de multiselect: color gris, sin fondo rojo */
+    /* Chips del multiselect */
     div[data-baseweb="tag"] {{
         background-color: #1B1B1B !important;
         border: 1px solid {CIBAO_ORANGE_LIGHT} !important;
         color: {CIBAO_GRAY} !important;
         border-radius: 6px !important;
         font-size: 12px !important;
-        padding: 0 6px !important;
-        height: 22px !important;
-        line-height: 20px !important;
+        padding: 0px 6px !important;
+        height: 24px !important;
+        line-height: 22px !important;
         margin: 2px 4px 2px 0px !important;
+        text-transform: none !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        flex-shrink: 0 !important;
     }}
 
-    /* Hover del dropdown */
+    /* Ícono “x” dentro del chip */
+    div[data-baseweb="tag"] svg {{
+        color: {CIBAO_ORANGE_LIGHT} !important;
+        width: 10px !important;
+        height: 10px !important;
+        margin-left: 4px !important;
+    }}
+
+    /* Hover del menú desplegable */
     div[role="option"]:hover {{
         background-color: {CIBAO_ORANGE}33 !important;
         color: white !important;
     }}
 
-    /* Opciones en lista desplegable */
+    /* Opciones en la lista */
     div[data-baseweb="option"] {{
         background-color: #1B1B1B !important;
         color: {CIBAO_GRAY} !important;
@@ -328,12 +351,9 @@ st.markdown(
     .stMarkdown p {{
         margin-bottom: 0.3em !important;
     }}
-
     div[data-testid="stMarkdownContainer"] > p {{
         font-size: 13px !important;
     }}
-
-    /* Bordes suaves */
     .stMultiSelect, .stSelectbox {{
         border-radius: 8px !important;
     }}
