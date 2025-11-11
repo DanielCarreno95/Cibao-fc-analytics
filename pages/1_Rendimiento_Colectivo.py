@@ -246,23 +246,30 @@ st.markdown(
     st.markdown(
     f"""
     <style>
+   # ==============================
+# 🎨 Estilo para filtros (igual al Bloque 0)
+# ==============================
+
+st.markdown(
+    f"""
+    <style>
     /* ============================
        🎯 Filtros (Multiselects estilo Bloque 0)
        ============================ */
     div[data-baseweb="select"] > div {{
-        background-color: #1B1B1B !important;    /* Mismo fondo que bloque 0 */
+        background-color: #1B1B1B !important;    /* Fondo gris oscuro */
         border: 1px solid {CIBAO_ORANGE} !important;
         border-radius: 8px !important;
         color: {CIBAO_GRAY} !important;
         font-size: 13px !important;
         padding: 2px 6px !important;
-        height: 38px !important;                /* Altura similar a los selectbox */
+        height: 38px !important;
         min-height: 38px !important;
     }}
 
-    /* Chips dentro del multiselect (para métricas seleccionadas) */
+    /* Chips de métricas seleccionadas */
     div[data-baseweb="tag"] {{
-        background-color: #2B2B2B !important;   /* Gris oscuro, no rojo */
+        background-color: #2B2B2B !important;
         color: {CIBAO_GRAY} !important;
         border-radius: 5px !important;
         font-size: 12px !important;
@@ -272,13 +279,13 @@ st.markdown(
         line-height: 18px !important;
     }}
 
-    /* Hover sobre opciones del dropdown */
+    /* Hover sobre las opciones */
     div[role="option"]:hover {{
         background-color: {CIBAO_ORANGE}33 !important;
         color: white !important;
     }}
 
-    /* Opciones dentro del menú desplegable */
+    /* Opciones del menú desplegable */
     div[data-baseweb="option"] {{
         background-color: #1B1B1B !important;
         color: {CIBAO_GRAY} !important;
@@ -286,7 +293,7 @@ st.markdown(
         padding: 4px 8px !important;
     }}
 
-    /* Texto de etiquetas y títulos de los filtros */
+    /* Etiquetas y textos */
     label, p {{
         font-size: 13px !important;
         color: {CIBAO_GRAY} !important;
