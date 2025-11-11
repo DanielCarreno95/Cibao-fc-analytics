@@ -238,46 +238,72 @@ CIBAO_DARKGRAY = "#2B2B2B"       # Contenedores oscuros
 PALETTE_CIBAO = [CIBAO_ORANGE, "#F78E1E", "#2F2F2F", "#777777"]
 
 # ==============================
-# 🎯 ESTILO GLOBAL (CSS)
+# 🎨 ESTILO GLOBAL ARMONIZADO — CIBAO FC
 # ==============================
 st.markdown(
     f"""
     <style>
-    /* Chips de multiselect */
+    /* ============================
+       🎯 Filtros (Multiselects)
+       ============================ */
     div[data-baseweb="tag"] {{
-        background-color: {CIBAO_ORANGE_LIGHT} !important;
+        background-color: {CIBAO_ORANGE_LIGHT} !important; /* Chips naranjas */
         color: white !important;
-        border-radius: 8px !important;
-        font-size: 13px !important;
-        padding: 3px 8px !important;
+        border-radius: 6px !important;
+        font-size: 11px !important;       /* 🔹 Texto dentro de las etiquetas */
+        padding: 2px 5px !important;      /* 🔹 Tamaño compacto de chips */
     }}
-    /* Contenedor del multiselect */
     div[data-baseweb="select"] > div {{
         background-color: {CIBAO_DARKGRAY} !important;
         border: 1px solid {CIBAO_ORANGE} !important;
-        border-radius: 10px !important;
-        font-size: 13px !important;
+        border-radius: 8px !important;
+        font-size: 11px !important;       /* 🔹 Texto dentro del cuadro del filtro */
+        padding: 2px 6px !important;
     }}
-    /* Hover en opciones */
     div[role="option"]:hover {{
-        background-color: {CIBAO_ORANGE}33 !important;
+        background-color: {CIBAO_ORANGE}33 !important; /* Hover naranja translúcido */
     }}
-    /* Títulos */
+
+    /* ============================
+       🧭 Tipografía general
+       ============================ */
     h3 {{
         color: {CIBAO_ORANGE} !important;
         font-weight: 900 !important;
-        font-size: 20px !important;
+        font-size: 24px !important;       /* 🔹 Títulos grandes y destacados */
+        letter-spacing: 0.5px !important;
+        text-transform: none !important;
+        margin-top: 10px !important;
+        margin-bottom: 5px !important;
     }}
     p, label {{
-        font-size: 13px !important;
+        font-size: 13px !important;       /* 🔹 Subtítulos, captions y etiquetas */
         color: {CIBAO_GRAY} !important;
+        line-height: 1.4em !important;
+    }}
+
+    /* ============================
+       🧱 Ajustes visuales extra
+       ============================ */
+    .stMarkdown p {{
+        margin-bottom: 0.3em !important;
+    }}
+    div[data-testid="stMarkdownContainer"] > p {{
+        font-size: 13px !important;
+    }}
+    /* Bordes suaves para armonizar */
+    .stMultiSelect, .stSelectbox {{
+        border-radius: 8px !important;
     }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# ---------- ANÁLISIS RÁPIDO CIBAO VS RIVAL ----------
+# ==============================
+# Bloque 0 ANÁLISIS RÁPIDO CIBAO VS RIVAL
+# ==============================
+
 if not df_liga_mayor.empty:
     st.markdown(
         f"""
