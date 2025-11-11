@@ -91,14 +91,60 @@ with st.sidebar:
         st.session_state["filtros_reset"] = True
         st.experimental_rerun()  # 🔁 Recargar para aplicar los valores por defecto
 
-# ---------- FILTRADO DE DATOS ----------
+# ===============================================
+# 🔍 FILTRADO DE DATOS — con selección automática de últimas 3 jornadas
+# ===============================================
 df_filtrado = df_cibao.copy()
 
-# Si hay selección de jornadas
+# --------------------------
+# 1️⃣ Detectar las últimas 3 jornadas disponibles
+# --------------------------
+if "Jornada" in df_cibao.columns:
+    jornadas_unicas = sorted(df_cibao["Jornada"].unique())
+    ultimas_jornadas = jornadas_unicas[-3:] if len(jornadas_unicas) >= 3 else jornadas_unicas
+else:
+    ultimas_jornadas = []
+
+# --------------------------
+# 2️⃣ Valores por defecto en los selectores
+# --------------------------
+default_jornadas = ultimas_jornadas
+default_partidos = (
+    df_cibao[df_cibao["Jornada"].isin(default_jornadas)]
+    .sort_values("Date")["Match"]
+    .unique()
+    .tolist()[:5]  # por si hay más de 5 partidos
+)
+
+# --------------------------
+# 3️⃣ Selectores interactivos con estado persistente
+# --------------------------
+cols_filtros = st.columns(2)
+
+with cols_filtros[0]:
+    jornadas_sel = st.multiselect(
+        "Selecciona jornadas (máx 5)",
+        options=sorted(df_cibao["Jornada"].unique().tolist()),
+        default=default_jornadas,
+        key="global_jornadas",
+        max_selections=5,
+    )
+
+with cols_filtros[1]:
+    partidos_sel = st.multiselect(
+        "Selecciona partidos (máx 5)",
+        options=df_cibao["Match"].unique().tolist(),
+        default=default_partidos,
+        key="global_partidos",
+        max_selections=5,
+    )
+
+# --------------------------
+# 4️⃣ Aplicar filtrado dinámico
+# --------------------------
 if jornadas_sel and "Jornada" in df_filtrado.columns:
     df_filtrado = df_filtrado[df_filtrado["Jornada"].isin(jornadas_sel)]
 
-# Si hay selección de partidos
 if partidos_sel:
     df_filtrado = df_filtrado[df_filtrado["Match"].isin(partidos_sel)]
 
@@ -106,7 +152,9 @@ if partidos_sel:
 if (not jornadas_sel) and (not partidos_sel):
     df_filtrado = df_cibao.copy()
 
-# ---------- HELPERS ----------
+# --------------------------
+# 5️⃣ Funciones auxiliares (helpers)
+# --------------------------
 def col_from(metric_name: str):
     """Devuelve nombre de columna real según METRICS_DICT si existe en df."""
     if not metric_name:
@@ -131,11 +179,13 @@ def warn_missing(metrics, titulo: str):
     if missing:
         st.info(f"ℹ️ {titulo}: faltan columnas para {', '.join(missing)}")
 
-# ---------- BOTÓN GLOBAL DE REINICIO DE FILTROS Y MÉTRICAS (arriba a la derecha) ----------
-cols_reset = st.columns([4, 1])  # proporción: contenido principal / botón
-with cols_reset[1]:  # columna derecha
+# --------------------------
+# 6️⃣ Botón global de reinicio de filtros
+# --------------------------
+cols_reset = st.columns([4, 1])
+with cols_reset[1]:
     if st.button("Restablecer filtros de la página", use_container_width=True):
-        # Eliminar todos los estados de filtros y selecciones
+        # Eliminar estados previos de filtros
         for key in list(st.session_state.keys()):
             if any(x in key for x in [
                 "jornadas", "matches", "partidos", "metricas", "filtros",
@@ -144,7 +194,7 @@ with cols_reset[1]:  # columna derecha
                 del st.session_state[key]
 
         st.toast("Filtros restablecidos a los valores por defecto ✅", icon="🔄")
-        st.rerun()  # ✅ Nueva función en lugar de st.experimental_rerun()
+        st.rerun()
 
 # ---------- KPIs ----------
 st.markdown("### Indicadores del último partido")
@@ -547,7 +597,7 @@ with col2:
     bloque_construccion_pases(df_filtrado)
 
 # ==============================
-# BLOQUE 1 — DEFENSA Y EFICIENCIA (Barras horizontales)
+# BLOQUE 1 — DEFENSA Y EFICIENCIA (Barras horizontales, 3 por defecto, máx 5)
 # ==============================
 def bloque_defensa_eficiencia(df_filtrado):
     st.markdown("<h3 style='text-align:center;'>Defensa y Eficiencia</h3>", unsafe_allow_html=True)
@@ -563,6 +613,7 @@ def bloque_defensa_eficiencia(df_filtrado):
         "Pérdidas de balón por 90": "losses",
     }
 
+    # 🔹 Solo 3 por defecto, máximo 5
     metrics_sel = st.multiselect(
         "Selecciona métricas defensivas (máx 5)",
         list(defense_metrics.keys()),
@@ -570,8 +621,6 @@ def bloque_defensa_eficiencia(df_filtrado):
             "Duelos defensivos ganados (%)",
             "Intercepciones por 90",
             "Recuperaciones por 90",
-            "Despejes por 90",
-            "Pérdidas de balón por 90",
         ],
         max_selections=5,
         key="def_eff_metrics",
