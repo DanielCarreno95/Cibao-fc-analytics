@@ -1076,8 +1076,16 @@ else:
                         filters=None,
                     )
 
+                    # --- Ajuste visual: margen superior extra para evitar solapamiento del texto
+                    fig_copa.update_layout(
+                        margin=dict(t=120, b=60, l=60, r=40),
+                        title_pad=dict(t=80),
+                    )
+
                     st.plotly_chart(
-                        fig_copa, use_container_width=True, config={"displayModeBar": True}
+                        fig_copa,
+                        use_container_width=True,
+                        config={"displayModeBar": True},
                     )
 
                     if resumen_copa:
@@ -1096,6 +1104,10 @@ else:
                         hover_data=["Match", "Date"],
                         title=f"Copa Concacaf — {x_choice_copa} vs {y_choice_copa}",
                         template="plotly_dark",
+                    )
+                    fig_basic.update_layout(
+                        margin=dict(t=120, b=60, l=60, r=40),
+                        title_pad=dict(t=80),
                     )
                     st.plotly_chart(fig_basic, use_container_width=True)
 
