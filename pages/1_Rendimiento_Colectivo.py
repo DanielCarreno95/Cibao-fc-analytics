@@ -1030,35 +1030,38 @@ else:
             # --- ✨ ADAPTAR df_copa_cibao al esquema que requiere make_team_scatter
             df_copa_adapter = df_copa_cibao.copy()
 
-            # Crear las columnas esperadas por la función
-            df_copa_adapter["Team"] = "Cibao"
-            df_copa_adapter["Opponent"] = df_copa_adapter["rival"].fillna("Rival")
-            df_copa_adapter["Competition"] = "Copa Concacaf"
-            df_copa_adapter["Date"] = pd.to_datetime(df_copa_adapter.get("match_date"))
-            df_copa_adapter["Match"] = df_copa_adapter.apply(
-                lambda r: f"{r.get('equipo','Cibao')} vs {r.get('rival','Rival')}", axis=1
+            # Crear columnas estándar
+            df_copa_adapter["Team"] = df_copa_adapter["team"]
+            df_copa_adapter["Opponent"] = df_copa_adapter.apply(
+                lambda r: r["away_team"]
+                if r["team"] == r["home_team"]
+                else r["home_team"],
+                axis=1,
             )
-
-            # Crear columna “Jornada” si no existe
+            df_copa_adapter["Competition"] = "Copa Concacaf"
+            df_copa_adapter["Date"] = pd.to_datetime(df_copa_adapter["match_date"])
+            df_copa_adapter["Match"] = df_copa_adapter.apply(
+                lambda r: f"{r['home_team']} vs {r['away_team']}", axis=1
+            )
             if "Jornada" not in df_copa_adapter.columns:
                 df_copa_adapter["Jornada"] = df_copa_adapter.get("stage", "Copa")
 
-            # Convertir las métricas a numérico
+            # Convertir a numérico las métricas seleccionadas
             for col_num in [x_column_copa, y_column_copa]:
                 if col_num in df_copa_adapter.columns:
                     df_copa_adapter[col_num] = pd.to_numeric(
                         df_copa_adapter[col_num], errors="coerce"
                     )
 
-            # Filtrar por rival
+            # ✅ Filtrar solo los partidos donde participe Cibao o el rival
             df_copa_view = df_copa_adapter[
-                df_copa_adapter["Opponent"].astype(str) == str(opponent_copa)
+                df_copa_adapter["Team"].astype(str).str.contains("Cibao", case=False, na=False)
+                | df_copa_adapter["Team"].astype(str).str.contains(str(opponent_copa), case=False, na=False)
             ].copy()
 
             if df_copa_view.empty:
                 st.info("No hay registros de Copa para el rival seleccionado.")
             else:
-                # ✅ Llamada a make_team_scatter con columnas compatibles
                 try:
                     fig_copa, resumen_copa, _ = make_team_scatter(
                         df_copa_view,
@@ -1080,24 +1083,20 @@ else:
                         st.caption(f"Resumen: {resumen_copa}")
 
                 except KeyError as e:
-                    # 🔁 Fallback: scatter básico si la función exige más columnas
                     st.warning(
                         f"No se pudo usar make_team_scatter ({e}). Se muestra un scatter básico."
                     )
                     import plotly.express as px
-
                     fig_basic = px.scatter(
                         df_copa_view,
                         x=x_column_copa,
                         y=y_column_copa,
-                        color="Opponent",
+                        color="Team",
                         hover_data=["Match", "Date"],
                         title=f"Copa Concacaf — {x_choice_copa} vs {y_choice_copa}",
                         template="plotly_dark",
                     )
-
                     st.plotly_chart(fig_basic, use_container_width=True)
-
 
 
 
