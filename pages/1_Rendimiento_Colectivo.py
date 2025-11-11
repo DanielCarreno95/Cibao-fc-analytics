@@ -1054,10 +1054,7 @@ else:
                         .fillna(0)
                     )
 
-            # ✅ Rellenar todo el resto de columnas numéricas con 0 (evita errores int/NaN)
             df_copa_adapter = df_copa_adapter.fillna(0)
-
-            # ✅ Usar todos los equipos (así make_team_scatter puede calcular rankings)
             df_copa_view = df_copa_adapter.copy()
 
             if df_copa_view.empty:
@@ -1076,11 +1073,15 @@ else:
                         filters=None,
                     )
 
-                    # --- Ajuste visual: margen superior extra para evitar solapamiento del texto
+                    # --- Ajuste visual mejorado
                     fig_copa.update_layout(
-                        margin=dict(t=120, b=60, l=60, r=40),
-                        title_pad=dict(t=80),
+                        margin=dict(t=160, b=70, l=60, r=40),
+                        title_pad=dict(t=100),
+                        title_font=dict(size=20),
                     )
+
+                    # Pequeño espacio extra arriba para evitar cortes
+                    st.markdown("<div style='margin-top:25px'></div>", unsafe_allow_html=True)
 
                     st.plotly_chart(
                         fig_copa,
@@ -1106,10 +1107,13 @@ else:
                         template="plotly_dark",
                     )
                     fig_basic.update_layout(
-                        margin=dict(t=120, b=60, l=60, r=40),
-                        title_pad=dict(t=80),
+                        margin=dict(t=160, b=70, l=60, r=40),
+                        title_pad=dict(t=100),
+                        title_font=dict(size=20),
                     )
+                    st.markdown("<div style='margin-top:25px'></div>", unsafe_allow_html=True)
                     st.plotly_chart(fig_basic, use_container_width=True)
+
 
 
 
