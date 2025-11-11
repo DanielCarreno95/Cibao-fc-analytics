@@ -1170,21 +1170,34 @@ def _bar_from_means(pairs_name_col, df, title):
     """
     cols = [c for _, c in pairs_name_col]
     df = _ensure_numeric(df.copy(), cols)
-    means = []
-    labels = []
-    for display, col in pairs_name_col:
-        if col in df.columns:
-            v = float(df[col].mean()) if len(df) else 0.0
-        else:
-            v = 0.0
-        labels.append(display)
-        means.append(v)
 
-    # Evitar NaN
+    means, labels = [], []
+    for display, col in pairs_name_col:
+        val = 0.0
+        if col in df.columns and len(df):
+            try:
+                val = float(df[col].mean())
+            except Exception:
+                val = 0.0
+        labels.append(str(display))
+        means.append(val)
+
     means = list(np.nan_to_num(means, nan=0.0))
 
+    # 🔒 Color seguro (si la variable no existe o no es válida)
+    color_safe = (
+        CIBAO_ORANGE
+        if isinstance(CIBAO_ORANGE, str) and CIBAO_ORANGE.startswith("#")
+        else "#FF8C00"
+    )
+
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=labels, y=means, marker_color=CIBAO_ORANGE))
+    try:
+        fig.add_trace(go.Bar(x=labels, y=means, marker=dict(color=color_safe)))
+    except Exception:
+        # fallback si Plotly no acepta el color
+        fig.add_trace(go.Bar(x=labels, y=means, marker=dict(color="#FF8C00")))
+
     fig.update_layout(
         title=title,
         template="plotly_dark",
@@ -1194,6 +1207,7 @@ def _bar_from_means(pairs_name_col, df, title):
         yaxis_title="Promedio por partido",
     )
     return fig
+
 
 # =========================================================
 # Bloques 1 – 2 · Ataque y Pases (Copa Concacaf)
