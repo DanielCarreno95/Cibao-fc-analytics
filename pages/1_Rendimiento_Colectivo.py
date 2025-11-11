@@ -1027,127 +1027,97 @@ else:
         if x_column_copa is None or y_column_copa is None:
             st.error("No se encontró la métrica seleccionada en el dataset de Copa.")
         else:
-            # Usa la misma función make_team_scatter si ya existe
-            fig_copa, resumen_copa, _ = make_team_scatter(
-                df_copa_cibao,
-                primary_team="Cibao",
-                opponent=opponent_copa,
-                x_metric=x_column_copa,
-                y_metric=y_column_copa,
-                x_label=x_choice_copa,
-                y_label=y_choice_copa,
-                title=f"Copa Concacaf — {x_choice_copa} vs {y_choice_copa}",
-                filters=None,
+            # --- ✨ ADAPTAR df_copa_cibao al esquema que requiere make_team_scatter
+            df_copa_adapter = df_copa_cibao.copy()
+
+            # Crear las columnas esperadas por la función
+            df_copa_adapter["Team"] = "Cibao"
+            df_copa_adapter["Opponent"] = df_copa_adapter["rival"].fillna("Rival")
+            df_copa_adapter["Competition"] = "Copa Concacaf"
+            df_copa_adapter["Date"] = pd.to_datetime(df_copa_adapter.get("match_date"))
+            df_copa_adapter["Match"] = df_copa_adapter.apply(
+                lambda r: f"{r.get('equipo','Cibao')} vs {r.get('rival','Rival')}", axis=1
             )
 
-            st.plotly_chart(
-                fig_copa, use_container_width=True, config={"displayModeBar": True}
-            )
+            # Crear columna “Jornada” si no existe
+            if "Jornada" not in df_copa_adapter.columns:
+                df_copa_adapter["Jornada"] = df_copa_adapter.get("stage", "Copa")
 
-            if resumen_copa:
-                st.caption(f"Resumen: {resumen_copa}")
+            # Convertir las métricas a numérico
+            for col_num in [x_column_copa, y_column_copa]:
+                if col_num in df_copa_adapter.columns:
+                    df_copa_adapter[col_num] = pd.to_numeric(
+                        df_copa_adapter[col_num], errors="coerce"
+                    )
+
+            # Filtrar por rival
+            df_copa_view = df_copa_adapter[
+                df_copa_adapter["Opponent"].astype(str) == str(opponent_copa)
+            ].copy()
+
+            if df_copa_view.empty:
+                st.info("No hay registros de Copa para el rival seleccionado.")
+            else:
+                # ✅ Llamada a make_team_scatter con columnas compatibles
+                try:
+                    fig_copa, resumen_copa, _ = make_team_scatter(
+                        df_copa_view,
+                        primary_team="Cibao",
+                        opponent=opponent_copa,
+                        x_metric=x_column_copa,
+                        y_metric=y_column_copa,
+                        x_label=x_choice_copa,
+                        y_label=y_choice_copa,
+                        title=f"Copa Concacaf — {x_choice_copa} vs {y_choice_copa}",
+                        filters=None,
+                    )
+
+                    st.plotly_chart(
+                        fig_copa, use_container_width=True, config={"displayModeBar": True}
+                    )
+
+                    if resumen_copa:
+                        st.caption(f"Resumen: {resumen_copa}")
+
+                except KeyError as e:
+                    # 🔁 Fallback: scatter básico si la función exige más columnas
+                    st.warning(
+                        f"No se pudo usar make_team_scatter ({e}). Se muestra un scatter básico."
+                    )
+                    import plotly.express as px
+
+                    fig_basic = px.scatter(
+                        df_copa_view,
+                        x=x_column_copa,
+                        y=y_column_copa,
+                        color="Opponent",
+                        hover_data=["Match", "Date"],
+                        title=f"Copa Concacaf — {x_choice_copa} vs {y_choice_copa}",
+                        template="plotly_dark",
+                    )
+
+                    st.plotly_chart(fig_basic, use_container_width=True)
 
 
-# ==============================
-# FIGURA DE KPIs PARA EL PDF (a partir del último partido filtrado)
-# ==============================
-import plotly.graph_objects as go
-import numpy as np
-import pandas as pd
 
-def _fmt_percent(x):
-    if pd.isna(x): return "-"
-    try: return f"{float(x):.2f}%"
-    except: return str(x)
 
-def _fmt_num(x):
-    if pd.isna(x): return "-"
-    try: 
-        v = float(x)
-        # entero si no tiene decimales, si no 2 decimales
-        return f"{v:.0f}" if abs(v - round(v)) < 1e-9 else f"{v:.2f}"
-    except:
-        return str(x)
 
-def _fmt_text(x):
-    if pd.isna(x) or x == "": return "-"
-    return str(x)
 
-def build_fig_kpi(df_base: pd.DataFrame) -> go.Figure:
-    if df_base is None or df_base.empty:
-        # fallback a todo el dataset si el filtrado quedó vacío
-        df_use = df_cibao.copy()
-    else:
-        df_use = df_base.copy()
 
-    # último partido por fecha
-    if "Date" in df_use.columns:
-        df_use = df_use.sort_values("Date")
-    last = df_use.iloc[-1]
 
-    # extraer campos esperados (con fallback si no existen)
-    date_raw   = last.get("Date", "")
-    date_fmt   = pd.to_datetime(date_raw).strftime("%d-%m-%Y") if pd.notna(date_raw) and str(date_raw) != "" else "-"
-    jornada    = last.get("Jornada", "-")
-    match      = last.get("Match", "-")
-    final_res  = last.get("Final Result", last.get("Resultado Final", "-"))
-    alineacion = last.get("Alineacion", last.get("Alineación", "-"))
-    xg         = last.get("xg", last.get("xG", np.nan))
-    poss       = last.get("possession_percent", last.get("Posesión (%)", np.nan))
-    yc         = last.get("yellow_cards", last.get("tarjetas_amarillas", np.nan))
-    rc         = last.get("red_cards", last.get("tarjetas_rojas", np.nan))
 
-    # armar los KPIs clave (mismos que enseñaste)
-    labels = [
-        "Fecha", "Jornada", "Partido", "Resultado Final", "Alineación",
-        "Goles Esperados (xG)", "Posesión (%)", "Tarjetas amarillas", "Tarjetas rojas"
-    ]
-    values = [
-        _fmt_text(date_fmt),
-        _fmt_text(jornada),
-        _fmt_text(match),
-        _fmt_text(final_res),
-        _fmt_text(alineacion),
-        _fmt_num(xg),
-        _fmt_percent(poss),
-        _fmt_num(yc),
-        _fmt_num(rc),
-    ]
 
-    # tabla compacta para cabecera de PDF
-    fig = go.Figure(data=[
-        go.Table(
-            header=dict(
-                values=["<b>KPI</b>", "<b>Valor</b>"],
-                fill_color="#1D232F",
-                font=dict(color="#F3F4F6", size=16),
-                align="left",
-                height=34
-            ),
-            cells=dict(
-                values=[labels, values],
-                fill_color=[["#0B0F17"] * len(labels), ["#0B0F17"] * len(values)],
-                font=dict(color="#E5E7EB", size=15),
-                align="left",
-                height=30
-            )
-        )
-    ])
-    fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#0B0F17",
-        plot_bgcolor="#0B0F17",
-        margin=dict(l=10, r=10, t=10, b=10),
-        height=260,  # el exportador ajusta el width, aquí fijamos altura razonable
-    )
-    return fig
 
-# construir fig_kpi desde el df_filtrado actual (o dataset si quedó vacío)
-try:
-    fig_kpi = build_fig_kpi(df_filtrado if 'df_filtrado' in globals() else df_cibao)
-except Exception as e:
-    st.warning(f"No se pudo construir fig_kpi: {e}")
-    fig_kpi = None
+
+
+
+
+
+
+
+
+
+
 
 # ==============================
 # 📄 INFORME DE RENDIMIENTO COLECTIVO — PDF PROFESIONAL (2 PÁGINAS)
