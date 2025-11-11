@@ -934,14 +934,12 @@ if not df_base.empty:
 # =========================================================  COPA
 
 
-
-
 # =========================================================
 # 📊 ANÁLISIS DE MÉTRICAS EN COPA CONCACAF
 # =========================================================
 
-from src.data.load_concacaf_matchstats_data import load_concacaf_matchstats_data
-from src.data.metrics_dictionary_concacaf import METRICS_CONCACAF, METRIC_GROUPS_CONCACAF
+from src.data_processing.load_concacaf_matchstats_data import load_concacaf_matchstats_data
+from src.utils.metrics_dictionary_concacaf import METRICS_CONCACAF, METRIC_GROUPS_CONCACAF
 
 st.markdown(
     f"""
@@ -1048,10 +1046,6 @@ else:
 
             if resumen_copa:
                 st.caption(f"Resumen: {resumen_copa}")
-
-
-
-
 
 
 # ==============================
