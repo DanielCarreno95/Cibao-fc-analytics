@@ -55,106 +55,86 @@ Diseñado para soporte táctico del staff técnico — decisiones claras, con co
 """, unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ---------- SIDEBAR: Filtros (Jornada y Partido con botón de reinicio) ----------
+# ===============================================
+# 🎯 SIDEBAR + FILTROS GLOBALES (jornada / partido)
+# ===============================================
 with st.sidebar:
     st.subheader("Filtros")
 
-    # --- Listas de opciones ---
-    jornadas = sorted(df_cibao["Jornada"].dropna().unique()) if "Jornada" in df_cibao.columns else []
-    partidos = sorted(df_cibao["Match"].dropna().unique()) if "Match" in df_cibao.columns else []
+    # --------------------------
+    # 1️⃣ Detectar las últimas 3 jornadas disponibles
+    # --------------------------
+    if "Jornada" in df_cibao.columns:
+        jornadas_unicas = sorted(df_cibao["Jornada"].unique())
+        ultimas_jornadas = jornadas_unicas[-3:] if len(jornadas_unicas) >= 3 else jornadas_unicas
+    else:
+        ultimas_jornadas = []
 
-    # --- Estado inicial (para recordar y resetear) ---
-    if "filtros_reset" not in st.session_state:
-        st.session_state["jornadas_sel"] = []
-        st.session_state["partidos_sel"] = []
-        st.session_state["filtros_reset"] = False
+    # --------------------------
+    # 2️⃣ Calcular partidos correspondientes a esas jornadas
+    # --------------------------
+    default_partidos = (
+        df_cibao[df_cibao["Jornada"].isin(ultimas_jornadas)]
+        .sort_values("Date")["Match"]
+        .unique()
+        .tolist()[:5]
+    )
 
-    # --- Multiselects ---
+    # --------------------------
+    # 3️⃣ Inicializar valores en sesión (solo una vez)
+    # --------------------------
+    if "jornadas_sel" not in st.session_state:
+        st.session_state["jornadas_sel"] = ultimas_jornadas
+    if "partidos_sel" not in st.session_state:
+        st.session_state["partidos_sel"] = default_partidos
+
+    # --------------------------
+    # 4️⃣ Controles de selección
+    # --------------------------
     jornadas_sel = st.multiselect(
-        "Selecciona Jornadas",
-        options=jornadas,
-        default=st.session_state["jornadas_sel"] or jornadas,
+        "Selecciona Jornadas (máx 5)",
+        options=sorted(df_cibao["Jornada"].unique().tolist()),
+        default=st.session_state["jornadas_sel"],
         key="sidebar_jornadas",
+        max_selections=5,
     )
 
     partidos_sel = st.multiselect(
-        "Selecciona Partidos",
-        options=partidos,
-        default=st.session_state["partidos_sel"] or partidos,
+        "Selecciona Partidos (máx 5)",
+        options=df_cibao["Match"].unique().tolist(),
+        default=st.session_state["partidos_sel"],
         key="sidebar_partidos",
+        max_selections=5,
     )
 
-    # --- Botón de reinicio ---
-    if st.button("🔄 Borrar filtros"):
-        st.session_state["jornadas_sel"] = []
-        st.session_state["partidos_sel"] = []
-        st.session_state["filtros_reset"] = True
-        st.experimental_rerun()  # 🔁 Recargar para aplicar los valores por defecto
+    # --------------------------
+    # 5️⃣ Botón de reinicio (solo sidebar)
+    # --------------------------
+    if st.button("🔄 Borrar filtros", use_container_width=True):
+        st.session_state["jornadas_sel"] = ultimas_jornadas
+        st.session_state["partidos_sel"] = default_partidos
+        st.toast("Filtros restablecidos a las últimas 3 jornadas ✅", icon="🔄")
+        st.rerun()
 
 # ===============================================
-# 🔍 FILTRADO DE DATOS — con selección automática de últimas 3 jornadas
+# 🔍 FILTRADO DE DATOS
 # ===============================================
 df_filtrado = df_cibao.copy()
 
-# --------------------------
-# 1️⃣ Detectar las últimas 3 jornadas disponibles
-# --------------------------
-if "Jornada" in df_cibao.columns:
-    jornadas_unicas = sorted(df_cibao["Jornada"].unique())
-    ultimas_jornadas = jornadas_unicas[-3:] if len(jornadas_unicas) >= 3 else jornadas_unicas
-else:
-    ultimas_jornadas = []
+# Aplicar filtros dinámicos
+if st.session_state.get("sidebar_jornadas"):
+    df_filtrado = df_filtrado[df_filtrado["Jornada"].isin(st.session_state["sidebar_jornadas"])]
 
-# --------------------------
-# 2️⃣ Valores por defecto en los selectores
-# --------------------------
-default_jornadas = ultimas_jornadas
-default_partidos = (
-    df_cibao[df_cibao["Jornada"].isin(default_jornadas)]
-    .sort_values("Date")["Match"]
-    .unique()
-    .tolist()[:5]  # por si hay más de 5 partidos
-)
+if st.session_state.get("sidebar_partidos"):
+    df_filtrado = df_filtrado[df_filtrado["Match"].isin(st.session_state["sidebar_partidos"])]
 
-# --------------------------
-# 3️⃣ Selectores interactivos con estado persistente
-# --------------------------
-cols_filtros = st.columns(2)
-
-with cols_filtros[0]:
-    jornadas_sel = st.multiselect(
-        "Selecciona jornadas (máx 5)",
-        options=sorted(df_cibao["Jornada"].unique().tolist()),
-        default=default_jornadas,
-        key="global_jornadas",
-        max_selections=5,
-    )
-
-with cols_filtros[1]:
-    partidos_sel = st.multiselect(
-        "Selecciona partidos (máx 5)",
-        options=df_cibao["Match"].unique().tolist(),
-        default=default_partidos,
-        key="global_partidos",
-        max_selections=5,
-    )
-
-# --------------------------
-# 4️⃣ Aplicar filtrado dinámico
-# --------------------------
-if jornadas_sel and "Jornada" in df_filtrado.columns:
-    df_filtrado = df_filtrado[df_filtrado["Jornada"].isin(jornadas_sel)]
-
-if partidos_sel:
-    df_filtrado = df_filtrado[df_filtrado["Match"].isin(partidos_sel)]
-
-# Si no se selecciona nada (estado inicial o reset), mostrar todo
-if (not jornadas_sel) and (not partidos_sel):
+# Si no hay selecciones (caso inicial o reset completo)
+if (not st.session_state.get("sidebar_jornadas")) and (not st.session_state.get("sidebar_partidos")):
     df_filtrado = df_cibao.copy()
 
-# --------------------------
-# 5️⃣ Funciones auxiliares (helpers)
-# --------------------------
+# ===============================================
+# ⚙️ HELPERS AUXILIARES
+# ===============================================
 def col_from(metric_name: str):
     """Devuelve nombre de columna real según METRICS_DICT si existe en df."""
     if not metric_name:
@@ -179,20 +159,18 @@ def warn_missing(metrics, titulo: str):
     if missing:
         st.info(f"ℹ️ {titulo}: faltan columnas para {', '.join(missing)}")
 
-# --------------------------
-# 6️⃣ Botón global de reinicio de filtros
-# --------------------------
+# ===============================================
+# 🔁 BOTÓN GLOBAL DE REINICIO DE FILTROS (parte superior de la página)
+# ===============================================
 cols_reset = st.columns([4, 1])
 with cols_reset[1]:
     if st.button("Restablecer filtros de la página", use_container_width=True):
-        # Eliminar estados previos de filtros
         for key in list(st.session_state.keys()):
             if any(x in key for x in [
                 "jornadas", "matches", "partidos", "metricas", "filtros",
                 "tables", "efficiency", "passes", "offensive", "defensive", "tactical"
             ]):
                 del st.session_state[key]
-
         st.toast("Filtros restablecidos a los valores por defecto ✅", icon="🔄")
         st.rerun()
 
