@@ -1210,64 +1210,95 @@ def _bar_from_means(pairs_name_col, df, title):
 
 
 # =========================================================
-# Bloques 1 – 2 · Ataque y Pases (Copa Concacaf)
+# 🧩 BLOQUES 1–4 · COMPARATIVA CIBAO VS RIVAL — COPA CONCACAF
 # =========================================================
 st.markdown(
     f"""
     <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
-    Bloques 1 – 2 · Ataque y Pases — Copa Concacaf
+    Comparativa de Métricas — Copa Concacaf (Cibao vs Rival)
     </h2>
+    <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
+    Compara el rendimiento promedio del Cibao FC frente a un rival seleccionado
+    en cada grupo de métricas: ataque, pases, defensa y balón parado.
+    </p>
     """,
     unsafe_allow_html=True,
 )
 
-col1, col2 = st.columns(2)
+# --- Selección de rival única ---
+team_options_copa = sorted(
+    {
+        str(t)
+        for t in df_copa_cibao["rival"].dropna().unique()
+        if str(t).strip().lower() != "cibao"
+    }
+)
+if not team_options_copa:
+    st.warning("No hay rivales disponibles en el dataset de Copa Concacaf.")
+    st.stop()
 
-# --- ATAQUE ---
-with col1:
-    ataque_names = METRIC_GROUPS_CONCACAF.get("Ataque", [])
-    ataque_pairs = _dedup_names_by_column(ataque_names, METRICS_CONCACAF)
-    if not ataque_pairs:
-        st.info("No hay métricas mapeadas para Ataque.")
-    else:
-        fig_a = _bar_from_means(ataque_pairs, df_copa_cibao, title="Ataque — promedios por partido")
-        st.plotly_chart(fig_a, use_container_width=True)
+col_sel = st.columns([1])
+opponent_choice = col_sel[0].selectbox("Selecciona rival de Copa", team_options_copa)
 
-# --- PASES ---
-with col2:
-    pases_names = METRIC_GROUPS_CONCACAF.get("Pases", [])
-    # Para Pases queremos mostrar Total, Precisos y Precisión %
-    # Las dos primeras vienen del mapping; la precisión la calculamos aparte.
-    pases_pairs = _dedup_names_by_column([n for n in pases_names if n in ("Total de Pases","Pases Precisos")], METRICS_CONCACAF)
+# --- Función auxiliar de comparación Cibao vs Rival ---
+def make_comparison_bar(group_name, df, mapping_dict, group_dict, rival_name):
+    group_metrics = group_dict.get(group_name, [])
+    pairs = _dedup_names_by_column(group_metrics, mapping_dict)
+    cols = [c for _, c in pairs]
+    df = _ensure_numeric(df.copy(), cols)
 
-    df_p = df_copa_cibao.copy()
-    df_p = _ensure_numeric(df_p, ["totalPass","accuratePass"])
-    if "totalPass" in df_p.columns and "accuratePass" in df_p.columns and len(df_p):
-        acc = (df_p["accuratePass"] / df_p["totalPass"]).replace([np.inf, -np.inf], np.nan).fillna(0) * 100
-        pass_acc_mean = float(acc.mean())
-    else:
-        pass_acc_mean = 0.0
+    cibao_df = df[df["team"].str.contains("Cibao", case=False, na=False)]
+    rival_df = df[df["team"].str.contains(rival_name, case=False, na=False)]
 
-    # Construimos figura manual mezclando barras de volumen + barra de precisión
-    labels = [disp for disp, _ in pases_pairs] + ["Precisión (%)"]
-    values = []
-    for _, col in pases_pairs:
-        values.append(float(df_p[col].mean()) if col in df_p.columns and len(df_p) else 0.0)
-    values.append(pass_acc_mean)
+    cibao_means, rival_means, labels = [], [], []
+    for disp, col in pairs:
+        labels.append(disp)
+        cibao_means.append(float(cibao_df[col].mean()) if col in cibao_df.columns else 0)
+        rival_means.append(float(rival_df[col].mean()) if col in rival_df.columns else 0)
 
-    values = list(np.nan_to_num(values, nan=0.0))
-
-    fig_p = go.Figure()
-    fig_p.add_trace(go.Bar(x=labels, y=values, marker_color="#1E90FF"))
-    fig_p.update_layout(
-        title="Pases — volumen y precisión",
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=labels, y=cibao_means, name="Cibao", marker_color=CIBAO_ORANGE
+    ))
+    fig.add_trace(go.Bar(
+        x=labels, y=rival_means, name=rival_name, marker_color="#FFA500"
+    ))
+    fig.update_layout(
+        title=f"{group_name} — Promedio por partido (Cibao vs {rival_name})",
+        barmode="group",
         template="plotly_dark",
-        margin=dict(t=80, b=60, l=60, r=40),
         height=450,
+        margin=dict(t=70, b=60, l=60, r=40),
         xaxis_title="Métrica",
         yaxis_title="Promedio por partido",
     )
-    st.plotly_chart(fig_p, use_container_width=True)
+    return fig
+
+# --- FILA 1: ATAQUE + PASES ---
+col1, col2 = st.columns(2)
+with col1:
+    st.plotly_chart(
+        make_comparison_bar("Ataque", df_copa_cibao, METRICS_CONCACAF, METRIC_GROUPS_CONCACAF, opponent_choice),
+        use_container_width=True,
+    )
+with col2:
+    st.plotly_chart(
+        make_comparison_bar("Pases", df_copa_cibao, METRICS_CONCACAF, METRIC_GROUPS_CONCACAF, opponent_choice),
+        use_container_width=True,
+    )
+
+# --- FILA 2: DEFENSIVO + SET PIECES ---
+col3, col4 = st.columns(2)
+with col3:
+    st.plotly_chart(
+        make_comparison_bar("Defensivo", df_copa_cibao, METRICS_CONCACAF, METRIC_GROUPS_CONCACAF, opponent_choice),
+        use_container_width=True,
+    )
+with col4:
+    st.plotly_chart(
+        make_comparison_bar("Set Pieces", df_copa_cibao, METRICS_CONCACAF, METRIC_GROUPS_CONCACAF, opponent_choice),
+        use_container_width=True,
+    )
 
 # =========================================================
 # Bloques 3 – 4 · Defensivo y Set Pieces (Copa Concacaf)
