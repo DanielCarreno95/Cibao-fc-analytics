@@ -238,22 +238,22 @@ def main_hub():
         ("Rendimiento Individual", "pages/3_Rendimiento_Individual.py"),
     ]
 
-    cols_liga = st.columns(3, gap="large")
+        cols_liga = st.columns(3, gap="large")
     for i, (title, page) in enumerate(liga_modules):
         with cols_liga[i]:
             if st.button(f"**{title}**", use_container_width=True, key=f"liga_btn_{i}"):
                 st.switch_page(page)
 
     # ======== SEPARADOR ========
-st.markdown("<hr style='margin-top:25px; margin-bottom:10px; opacity:0.25;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin-top:25px; margin-bottom:10px; opacity:0.25;'>", unsafe_allow_html=True)
 
-# ======== SECCIÓN COPA ========
-st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:5px;'>ANÁLISIS COPA</h3>", unsafe_allow_html=True)
+    # ======== SECCIÓN COPA ========
+    st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:5px;'>ANÁLISIS COPA</h3>", unsafe_allow_html=True)
 
     copa_modules = [
-        ("Rendimiento Colectivo", "pages/4_RC_Copa.py"),
-        ("Análisis del Rival", "pages/5_AR_Copa.py"),
-        ("Rendimiento Individual", "pages/6_RI_Copa.py"),
+        ("Rendimiento Colectivo – Copa", "pages/4_RC_Copa.py"),
+        ("Análisis del Rival – Copa", "pages/5_AR_Copa.py"),
+        ("Rendimiento Individual – Copa", "pages/6_RI_Copa.py"),
     ]
 
     cols_copa = st.columns(3, gap="large")
@@ -261,7 +261,6 @@ st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:5px;'>ANÁL
         with cols_copa[i]:
             if st.button(f"**{title}**", use_container_width=True, key=f"copa_btn_{i}"):
                 st.switch_page(page)
-
 
 # ===========================================
 # CONTROL DE AUTENTICACIÓN
