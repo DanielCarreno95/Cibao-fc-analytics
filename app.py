@@ -171,6 +171,7 @@ def login_page():
 def main_hub():
     import streamlit.components.v1 as components
 
+    # ======== CSS GENERAL ========
     st.markdown("""
         <style>
         [data-testid="stSidebar"], [data-testid="stToolbar"], header[data-testid="stHeader"] {
@@ -220,6 +221,7 @@ def main_hub():
         </style>
     """, unsafe_allow_html=True)
 
+    # ======== LOGO Y TITULOS ========
     st.markdown("""
         <div style="text-align:center; margin-top:2vh;">
             <img src="https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png" width="120">
@@ -229,7 +231,9 @@ def main_hub():
     st.markdown("<div class='hub-title'>Cibao FC - Data Hub</div>", unsafe_allow_html=True)
     st.markdown("<div class='hub-subtitle'>Centro integral de análisis táctico y rendimiento basado en datos ⚽</div>", unsafe_allow_html=True)
 
-    # ======== SECCIÓN LIGA ========
+    # ===========================================
+    #                ANÁLISIS LIGA
+    # ===========================================
     st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:20px;'>ANÁLISIS LIGA</h3>", unsafe_allow_html=True)
 
     liga_modules = [
@@ -244,10 +248,12 @@ def main_hub():
             if st.button(f"**{title}**", use_container_width=True, key=f"liga_btn_{i}"):
                 st.switch_page(page)
 
-    # ======== SEPARADOR ========
-    st.markdown("<hr style='margin-top:25px; margin-bottom:10px; opacity:0.25;'>", unsafe_allow_html=True)
+    # Separador reducido
+    st.markdown("<hr style='margin-top:20px; margin-bottom:8px; opacity:0.25;'>", unsafe_allow_html=True)
 
-        # ======== SECCIÓN COPA ========
+    # ===========================================
+    #                ANÁLISIS COPA
+    # ===========================================
     st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:5px;'>ANÁLISIS COPA</h3>", unsafe_allow_html=True)
 
     copa_modules = [
@@ -261,6 +267,7 @@ def main_hub():
         with cols_copa[i]:
             if st.button(f"**{title}**", use_container_width=True, key=f"copa_btn_{i}"):
                 st.switch_page(page)
+
 
 # ===========================================
 # CONTROL DE AUTENTICACIÓN
