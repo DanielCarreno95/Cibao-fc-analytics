@@ -238,7 +238,7 @@ def main_hub():
         ("Rendimiento Individual", "pages/3_Rendimiento_Individual.py"),
     ]
 
-        cols_liga = st.columns(3, gap="large")
+    cols_liga = st.columns(3, gap="large")
     for i, (title, page) in enumerate(liga_modules):
         with cols_liga[i]:
             if st.button(f"**{title}**", use_container_width=True, key=f"liga_btn_{i}"):
