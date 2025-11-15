@@ -247,13 +247,13 @@ def main_hub():
     # ======== SEPARADOR ========
     st.markdown("<hr style='margin-top:25px; margin-bottom:10px; opacity:0.25;'>", unsafe_allow_html=True)
 
-    # ======== SECCIÓN COPA ========
+        # ======== SECCIÓN COPA ========
     st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:5px;'>ANÁLISIS COPA</h3>", unsafe_allow_html=True)
 
     copa_modules = [
-        ("Rendimiento Colectivo – Copa", "pages/4_RC_Copa.py"),
-        ("Análisis del Rival – Copa", "pages/5_AR_Copa.py"),
-        ("Rendimiento Individual – Copa", "pages/6_RI_Copa.py"),
+        ("Rendimiento Colectivo", "pages/4_RC_Copa.py"),
+        ("Análisis del Rival", "pages/5_AR_Copa.py"),
+        ("Rendimiento Individual", "pages/6_RI_Copa.py"),
     ]
 
     cols_copa = st.columns(3, gap="large")
