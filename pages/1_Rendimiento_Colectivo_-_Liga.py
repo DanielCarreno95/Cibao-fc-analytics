@@ -520,7 +520,7 @@ def generar_insights(serie, etiquetas, contexto):
 # 🔥 BLOQUE COMPLETO TAB 1 — EFICIENCIA Y ATAQUE
 # ============================================================
 
-def bloque_eficiencia_ataque(df_filtrado, partidos_sel, jornadas_sel):
+def bloque_eficiencia_ataque(df_filtrado):
 
     st.markdown("<h2 style='text-align:center; color:#ff7b00;'>Eficiencia y Ataque</h2>", unsafe_allow_html=True)
     st.caption("Análisis táctico del rendimiento ofensivo del Cibao FC, evaluando producción, progresión, balón parado y profundidad ofensiva.")
