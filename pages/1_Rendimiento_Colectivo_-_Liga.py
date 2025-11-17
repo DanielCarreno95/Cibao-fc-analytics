@@ -457,247 +457,150 @@ if not df_liga_mayor.empty:
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
 
-# ============================================================
-# 🔥 FUNCIÓN: Generar insights tácticos en formato bullets HTML
-# ============================================================
-
-def generar_insights(values, labels, contexto_bloque):
-    """
-    Produce conclusiones tácticas redactadas como un analista deportivo.
-    Salida: HTML con <ul><li> ... </li></ul>
-    """
-    import pandas as pd
-
-    serie = pd.Series(values, index=labels).dropna()
-    if serie.empty:
-        return "<ul><li>No hay suficientes datos para generar conclusiones.</li></ul>"
-
-    max_label = serie.idxmax()
-    max_val = float(serie.max())
-
-    min_label = serie.idxmin()
-    min_val = float(serie.min())
-
-    avg_val = float(serie.mean())
-
-    bullets = []
-
-    # Adaptación táctica según bloque
-    if "Producción ofensiva" in contexto_bloque:
-        bullets.append(
-            f"El indicador de mayor impacto es <b>{max_label}</b> ({max_val:.2f}), "
-            f"lo que refleja la principal vía de generación ofensiva del equipo."
-        )
-        bullets.append(
-            f"<b>{min_label}</b> ({min_val:.2f}) aparece como el recurso menos frecuente, "
-            f"lo cual indica un área con margen para incrementar volumen."
-        )
-        bullets.append(
-            f"El promedio general de <b>{avg_val:.2f}</b> evidencia una producción estable "
-            f"que sostiene el modelo ofensivo actual."
-        )
-
-    elif "Patrones de ataque" in contexto_bloque:
-        bullets.append(
-            f"El patrón más utilizado es <b>{max_label}</b> ({max_val:.2f}), "
-            f"indicando qué tipo de avance domina la estructura ofensiva."
-        )
-        bullets.append(
-            f"<b>{min_label}</b> ({min_val:.2f}) muestra menor participación, "
-            f"posible foco para ampliar variantes de ataque."
-        )
-        bullets.append(
-            f"Con una media de <b>{avg_val:.2f}</b>, el equipo mantiene un volumen "
-            f"competitivo de acciones que rompen líneas."
-        )
-
-    elif "Balón parado" in contexto_bloque:
-        bullets.append(
-            f"El balón parado destaca especialmente en <b>{max_label}</b> ({max_val:.2f}), "
-            f"mostrando una fase trabajada y productiva."
-        )
-        bullets.append(
-            f"<b>{min_label}</b> ({min_val:.2f}) es el punto más bajo del bloque, "
-            f"indicando margen de mejora en esa subfase."
-        )
-        bullets.append(
-            f"El promedio de <b>{avg_val:.2f}</b> confirma que las ABP generan "
-            f"una amenaza constante pero todavía optimizable."
-        )
-
-    elif "Juego exterior y profundidad" in contexto_bloque:
-        bullets.append(
-            f"La mayor aportación llega por <b>{max_label}</b> ({max_val:.2f}), "
-            f"mostrando que los ataques por banda generan profundidad."
-        )
-        bullets.append(
-            f"<b>{min_label}</b> ({min_val:.2f}) tiene menor incidencia, "
-            f"lo que señala una vía de evolución para aumentar presencia en área."
-        )
-        bullets.append(
-            f"Con una media de <b>{avg_val:.2f}</b>, el equipo mantiene un uso equilibrado "
-            f"de los mecanismos de progresión y centros."
-        )
-
-    else:
-        bullets.append(f"Mayor valor: <b>{max_label}</b> ({max_val:.2f})")
-        bullets.append(f"Menor valor: <b>{min_label}</b> ({min_val:.2f})")
-        bullets.append(f"Promedio general: <b>{avg_val:.2f}</b>")
-
-    html = "<ul>" + "".join(f"<li>{b}</li>" for b in bullets) + "</ul>"
-    return html
-
-
-
-# ============================================================
-# 🔥 FUNCIÓN PRINCIPAL: Pestaña EFICIENCIA Y ATAQUE (2×2)
-# ============================================================
-
 def bloque_eficiencia_ataque(df_filtrado):
-    """Bloque visual + táctico para la pestaña 'Eficiencia y Ataque'."""
+    """
+    Bloque táctico–analítico de Eficiencia y Ataque.
+    Incluye 4 gráficos (2 filas × 2 columnas):
+        1. Finalización
+        2. Producción ofensiva
+        3. Ataque posicional vs transiciones
+        4. Juego exterior y profundidad
+    """
 
     st.markdown(
-        "<h2 style='text-align:center; color:#ff7b00;'>Eficiencia y Ataque</h2>",
-        unsafe_allow_html=True
+        "<h3 style='text-align:center;'>Eficiencia y Ataque</h3>",
+        unsafe_allow_html=True,
     )
+    st.caption("Evaluación táctica del comportamiento ofensivo del Cibao FC en las últimas jornadas seleccionadas.")
 
-    st.caption(
-        "Evaluación del comportamiento ofensivo del Cibao FC: volumen, precisión, "
-        "tipos de ataque, balón parado y profundidad en campo rival."
-    )
+    # ===========================
+    # DEFINICIÓN DE GRUPOS (solo métricas REALES)
+    # ===========================
 
-    # ============================================================
-    # 📌 SELECCIÓN DE MÉTRICAS (priorizamos porcentajes)
-    # ============================================================
+    grupos = {
+        "Finalización y eficacia": {
+            "Goles por partido": "goals",
+            "xG por partido": "xg",
+            "Disparos por partido": "shots",
+            "Disparos a puerta (%)": "shots_on_target_percent",
+        },
 
-    # 1️⃣ Producción ofensiva (VERTICAL)
-    grupo1 = {
-        "xG (Goles esperados)": "xg",
-        "Goles por partido": "goals",
-        "Disparos por partido": "shots",
-        "Disparos a puerta (%)": "shots_on_target_percent",
+        "Producción ofensiva": {
+            "Ataques posicionales con disparo (%)": "positional_attacks_with_shots_percent",
+            "Contraataques con disparo (%)": "counter_attacks_with_shots_percent",
+            "Balones parados con disparo (%)": "set_pieces_with_shots_percent",
+            "Corners con disparo (%)": "corners_with_shots_percent",
+        },
+
+        "Ataque posicional vs transiciones": {
+            "Ataques posicionales por 90": "positional_attacks",
+            "Contraataques por 90": "counter_attacks",
+            "Entradas al área por 90": "penalty_area_entries",
+            "Toques en el área por 90": "touches_in_penalty_area",
+        },
+
+        "Juego exterior y profundidad": {
+            "Centros precisos (%)": "crosses_accurate_percent",
+            "Centros profundos completados": "deep_completed_crosses",
+            "Pases profundos completados": "deep_completed_passes",
+            "Entradas al área con centros": "penalty_area_entries_crosses",
+        },
     }
 
-    # 2️⃣ Patrones de ataque (HORIZONTAL)
-    grupo2 = {
-        "Ataques posicionales": "positional_attacks",
-        "Contraataques": "counter_attacks",
-        "Entradas al área": "penalty_area_entries",
-    }
+    # ===========================
+    # PALETA CIBAO
+    # ===========================
+    CIBAO_ORANGE = "#FF8C00"
+    CIBAO_BLACK = "#111111"
+    CIBAO_GRAY = "#D3D3D3"
+    PALETTE_CIBAO = ["#FF8C00", "#F78E1E", "#2F2F2F", "#777777"]
 
-    # 3️⃣ Balón parado (VERTICAL)
-    grupo3 = {
-        "Corners con disparo (%)": "corners_with_shots_percent",
-        "Faltas directas con disparo (%)": "free_kicks_with_shots_percent",
-        "Penaltis convertidos (%)": "penalties_converted_percent",
-    }
+    # ===========================
+    # FUNCIÓN PARA GRAFICAR GRUPO
+    # ===========================
 
-    # 4️⃣ Juego exterior y profundidad (HORIZONTAL)
-    grupo4 = {
-        "Centros precisos (%)": "crosses_accurate_percent",
-        "Pases profundos completados": "deep_completed_passes",
-        "Toques en el área": "touches_in_penalty_area",
-    }
+    def plot_group(nombre_grupo, mapping):
 
-    grupos = [
-        ("Producción ofensiva directa", grupo1, "vertical"),
-        ("Patrones de ataque", grupo2, "horizontal"),
-        ("Balón parado", grupo3, "vertical"),
-        ("Juego exterior y profundidad", grupo4, "horizontal"),
-    ]
+        df_plot = df_filtrado.copy()
 
-    # ============================================================
-    # 📌 LAYOUT 2×2 — Dos gráficas por fila
-    # ============================================================
+        columnas = [v for v in mapping.values() if v in df_plot.columns]
+        etiquetas = {v: k for k, v in mapping.items() if v in df_plot.columns}
 
-    for fila in range(0, len(grupos), 2):
-        col1, col2 = st.columns(2)
-        columnas = [col1, col2]
+        if len(columnas) == 0:
+            st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
+            return
 
-        for i, container in enumerate(columnas):
-            idx = fila + i
-            if idx >= len(grupos):
-                continue
+        # Promedios
+        df_mean = (
+            df_plot[columnas]
+            .mean()
+            .reset_index()
+            .rename(columns={"index": "metric", 0: "valor"})
+        )
+        df_mean["label"] = df_mean["metric"].map(etiquetas)
 
-            titulo, dicc, orientacion = grupos[idx]
+        # Ordenar
+        df_mean = df_mean.sort_values("valor", ascending=True)
 
-            with container:
-                st.markdown(
-                    f"<h3 style='color:#ff7b00; margin-top:20px;'>{titulo}</h3>",
-                    unsafe_allow_html=True,
-                )
+        fig = px.bar(
+            df_mean,
+            x="valor",
+            y="label",
+            orientation="h",
+            text_auto=".2f",
+            color_discrete_sequence=PALETTE_CIBAO,
+        )
 
-                cols_exist = [c for c in dicc.values() if c in df_filtrado.columns]
-                if not cols_exist:
-                    st.warning(f"No hay datos disponibles para {titulo}.")
-                    continue
+        fig.update_layout(
+            height=300,
+            template="plotly_dark",
+            plot_bgcolor=CIBAO_BLACK,
+            paper_bgcolor=CIBAO_BLACK,
+            font=dict(color=CIBAO_GRAY, size=12),
+            title=dict(text=nombre_grupo, font=dict(size=18, color=CIBAO_ORANGE)),
+            margin=dict(l=20, r=20, t=45, b=20),
+            showlegend=False,
+        )
 
-                df_avg = df_filtrado[cols_exist].mean().reset_index()
-                df_avg.columns = ["metric", "value"]
-                df_avg["label"] = df_avg["metric"].map({v: k for k, v in dicc.items()})
+        st.plotly_chart(fig, use_container_width=True)
 
-                # ----------- GRÁFICO -----------
-                if orientacion == "vertical":
-                    fig = px.bar(
-                        df_avg,
-                        x="label",
-                        y="value",
-                        color="label",
-                        text_auto=".2f",
-                        template="plotly_dark",
-                        color_discrete_sequence=PALETTE_CIBAO,
-                    )
-                    fig.update_layout(
-                        height=360,
-                        margin=dict(l=10, r=10, t=40, b=10),
-                        showlegend=False,
-                        xaxis_title=None,
-                        yaxis_title=None,
-                    )
-                else:
-                    fig = px.bar(
-                        df_avg,
-                        x="value",
-                        y="label",
-                        orientation="h",
-                        color="label",
-                        text_auto=".2f",
-                        template="plotly_dark",
-                        color_discrete_sequence=PALETTE_CIBAO,
-                    )
-                    fig.update_layout(
-                        height=360,
-                        margin=dict(l=10, r=10, t=40, b=10),
-                        showlegend=False,
-                        xaxis_title=None,
-                        yaxis_title=None,
-                    )
+        # --------- CONCLUSIONES TÁCTICAS ---------
+        max_row = df_mean.iloc[-1]
+        min_row = df_mean.iloc[0]
 
-                st.plotly_chart(fig, use_container_width=True)
+        st.markdown(
+            f"""
+            <div style='background:#111;padding:12px;border-left:3px solid #FF8C00;margin-top:-10px;margin-bottom:25px'>
+            <b>Conclusiones tácticas</b><br><br>
 
-                # ----------- CONCLUSIONES TÁCTICAS -----------
-                insights_html = generar_insights(
-                    df_avg["value"], df_avg["label"], titulo
-                )
+            • <b>Punto fuerte actual:</b> El equipo destaca en <b>{max_row["label"]}</b>, una acción que está aportando valor real al modelo ofensivo.<br><br>
 
-                st.markdown(
-                    f"""
-                    <div style='background:#111; padding:12px 16px;
-                                border-radius:8px; border:1px solid #333;
-                                margin-top:6px; margin-bottom:22px;'>
-                        <p style='color:#ff7b00; font-weight:700; margin-bottom:6px;'>
-                            Conclusiones tácticas
-                        </p>
-                        <div style='color:#ddd; font-size:13px;'>
-                            {insights_html}
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+            • <b>Aspecto a seguir mejorando:</b> <b>{min_row["label"]}</b> presenta menor impacto relativo, indicando margen de crecimiento en ese comportamiento.<br><br>
 
+            • <b>Lectura táctica:</b> El promedio ofensivo global del grupo sugiere que la tendencia del equipo está siendo 
+              <b>{"coherente con el modelo" if max_row["valor"] > min_row["valor"] else "inestable en la toma de decisiones"}</b>, 
+              especialmente en fases de progresión y finalización.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-# ============================================================
+    # ===========================
+    # LAYOUT 2 × 2
+    # ===========================
+
+    col1, col2 = st.columns(2)
+    with col1:
+        plot_group("Finalización y eficacia", grupos["Finalización y eficacia"])
+    with col2:
+        plot_group("Producción ofensiva", grupos["Producción ofensiva"])
+
+    col3, col4 = st.columns(2)
+    with col3:
+        plot_group("Ataque posicional vs transiciones", grupos["Ataque posicional vs transiciones"])
+    with col4:
+        plot_group("Juego exterior y profundidad", grupos["Juego exterior y profundidad"])
+=================
 # 🔶 CSS PARA PESTAÑAS TIPO CHROME
 # ============================================================
 
