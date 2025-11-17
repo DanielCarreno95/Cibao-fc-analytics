@@ -1,15 +1,11 @@
 # ===========================================
-# 1_Rendimiento_Colectivo.py — Cibao FC Data Hub
+# 1_Rendimiento_Colectivo_-_Liga.py — Cibao FC Data Hub
 # ===========================================
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-
-# 👉 Menú lateral personalizado (Liga / Copa)
-from sidebar_menu import sidebar_menu
-sidebar_menu()
 
 from src.data_processing.load_cibao_team_data import load_cibao_team_data
 from src.utils.metrics_dictionary import METRICS_DICT
@@ -21,7 +17,7 @@ from graficos_de_navaja_suiza import (
 )
 
 # ---------- CONFIG ----------
-st.set_page_config(page_title="Rendimiento Colectivo - Cibao FC", layout="wide")
+st.set_page_config(page_title="Rendimiento Colectivo - Liga", layout="wide")
 
 PALETTE = ["#FF8C00", "#FFA94D", "#FFD6A5", "#F1F5F9"]
 THEME_DARK = dict(
@@ -29,6 +25,13 @@ THEME_DARK = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)"
 )
+
+# ---------- ENCABEZADO VISUAL DEL SIDEBAR ----------
+with st.sidebar:
+    st.markdown("""
+    <h3 style='margin-top:0; color:#ff7b00;'>📊 Análisis Liga</h3>
+    <hr style='margin-top:6px; margin-bottom:20px; opacity:0.3;'>
+    """, unsafe_allow_html=True)
 
 # ---------- DATA ----------
 try:
@@ -50,10 +53,10 @@ except Exception as exc:
     st.error(f"❌ Error cargando Liga Mayor per 90: {exc}")
     df_liga_mayor = pd.DataFrame()
 
-# ---------- TITLES ----------
+# ---------- PAGE TITLE ----------
 st.markdown("""
 <h1 style='text-align:center; color:#FF8C00; text-shadow: 0 0 15px rgba(255,140,0,0.65); font-weight:900;'>
-Rendimiento Colectivo — Cibao FC
+Rendimiento Colectivo — Cibao FC (Liga)
 </h1>
 <p style='text-align:center; color:#D1D5DB; font-size:17px;'>
 Lectura de <b>modelo de juego</b>, <b>eficiencia por fases</b> y <b>tendencias competitivas</b>.<br>
@@ -66,6 +69,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ===============================================
 # 🎯 FILTROS GLOBALES (Sidebar + Aplicación completa)
 # ===============================================
+
 
 # --- Detectar últimas 3 jornadas automáticamente ---
 if "Jornada" in df_cibao.columns and not df_cibao.empty:
