@@ -28,35 +28,40 @@ html, body, [data-testid="stAppViewContainer"], .main {
     color: white !important;
 }
 
+/* Sidebar obligado oscuro */
+[data-testid="stSidebar"] {
+    background-color: #111111 !important;
+    color: white !important;
+    border-right: 1px solid #222 !important;
+}
+
+/* Fondo interno del sidebar */
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+    background-color: #111111 !important;
+}
+
 /* Evita que Chrome / Edge activen tema claro */
 :root {
     color-scheme: dark !important;
 }
 
-/* Evita ajustes automáticos */
+/* Evita cambios automáticos */
 html {
     forced-color-adjust: none !important;
 }
 
-/* Limpia fondos blancos de contenedores */
-[data-testid="stVerticalBlock"] {
+/* Limpia fondos blancos residuales */
+div, section, article {
     background-color: transparent !important;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-PALETTE = ["#FF8C00", "#FFA94D", "#FFD6A5", "#F1F5F9"]
-THEME_DARK = dict(
-    template="plotly_dark",
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)"
-)
-
 # ---------- ENCABEZADO VISUAL DEL SIDEBAR ----------
 with st.sidebar:
     st.markdown("""
-    <h3 style='margin-top:0; color:#ff7b00;'>📊 Análisis Liga</h3>
+    <h3 style='margin-top:0; color:#ff7b00;'> Análisis Liga</h3>
     <hr style='margin-top:6px; margin-bottom:20px; opacity:0.3;'>
     """, unsafe_allow_html=True)
 
