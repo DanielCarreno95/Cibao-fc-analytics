@@ -457,4 +457,67 @@ if not df_liga_mayor.empty:
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
 
+# ====== PESTAÑAS PERSONALIZADAS TIPO CHROME ======
+
+tabs_css = """
+<style>
+
+div[data-baseweb="tab-list"] {
+    gap: 6px !important;
+}
+
+div[role="tab"] {
+    background-color: #111 !important;
+    padding: 10px 20px !important;
+    border-radius: 8px 8px 0 0 !important;
+    color: #ccc !important;
+    border: 1px solid #333 !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+}
+
+div[role="tab"][aria-selected="true"] {
+    background-color: #ff7b00 !important;
+    color: black !important;
+    border-bottom: 1px solid #ff7b00 !important;
+}
+
+div[role="tabpanel"] {
+    border: 1px solid #333 !important;
+    padding: 20px !important;
+    border-radius: 0 8px 8px 8px !important;
+    background-color: #0a0a0a !important;
+}
+
+</style>
+"""
+
+st.markdown(tabs_css, unsafe_allow_html=True)
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Eficiencia y Ataque",
+    "Construcción y Pases",
+    "Defensa y Eficiencia",
+    "Distribución Táctica",
+    "Análisis Comparativo (Tablas)"
+])
+
+with tab1:
+    st.write("Contenido: Eficiencia y Ataque (pendiente por definir)")
+
+with tab2:
+    st.write("Contenido: Construcción y Pases (pendiente por definir)")
+
+with tab3:
+    st.write("Contenido: Defensa y Eficiencia (pendiente por definir)")
+
+with tab4:
+    st.write("Contenido: Distribución Táctica (pendiente por definir)")
+
+with tab5:
+    st.write("Contenido: Análisis Comparativo (pendiente por definir)")
+
+
+
+
 
