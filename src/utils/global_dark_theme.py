@@ -146,6 +146,25 @@ def inject_dark_theme():
             background-color:#111 !important;
         }
 
+        /* ======================================================= */
+        /*  FIX FINAL PARA QUE LA GRÁFICA SEA VISIBLE              */
+        /* ======================================================= */
+        
+        /* Fondo transparente del contenedor SVG */
+        .js-plotly-plot .main-svg {
+        background-color: transparent !important;
+        }
+        
+        /* Fondo transparente de la capa principal */
+        .js-plotly-plot rect.bg {
+        fill: transparent !important;
+        }
+        
+        /* Fondo interno que Plotly dibuja automáticamente */
+        .plotly .main-svg[style] {
+        background: transparent !important;
+        }
+        
         </style>
         """,
         unsafe_allow_html=True,
