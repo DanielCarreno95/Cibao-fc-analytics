@@ -16,8 +16,8 @@ from graficos_de_navaja_suiza import (
     DATA_FILE as LIGA_MAYOR_DATA_FILE,
 )
 
-# === IMPORTA EL TEMA OSCURO GLOBAL ===
-from src.utils.global_dark_theme import inject_dark_theme
+# === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
+from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
 
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Rendimiento Colectivo - Liga", layout="wide")
@@ -28,7 +28,7 @@ inject_dark_theme()
 # ---------- ENCABEZADO VISUAL DEL SIDEBAR ----------
 with st.sidebar:
     st.markdown("""
-    <h3 style='margin-top:0; color:#ff7b00;'>📊 Análisis Liga</h3>
+    <h3 style='margin-top:0; color:#ff7b00;'>Análisis Liga</h3>
     <hr style='margin-top:6px; margin-bottom:20px; opacity:0.3;'>
     """, unsafe_allow_html=True)
 
