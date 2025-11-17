@@ -14,3 +14,4 @@ fastparquet
 Seaborn
 python-dotenv
 reportlab
+playwright
