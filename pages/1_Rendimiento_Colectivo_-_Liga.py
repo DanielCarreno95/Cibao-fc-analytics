@@ -461,192 +461,172 @@ else:
 # 🔶 FUNCIÓN: Bloque — EFICIENCIA Y ATAQUE (Tab 1)
 # ============================================================
 
-def bloque_eficiencia_ataque(df_filtrado, partidos_sel, jornadas_sel):
-    """
-    Tab 1: Eficiencia y Ataque
-    Muestra varios gráficos:
-      1) Goles vs xG por partido
-      2) Volumen de disparos (totales, al arco, fuera, bloqueados)
-      3) Acciones de profundidad (contraataques y entradas al área por 90)
-    """
+def bloque_eficiencia_ataque(df):
+    st.markdown("<h3 style='text-align:center; color:#ff8c00;'>Eficiencia y Ataque</h3>", 
+                unsafe_allow_html=True)
 
-    st.markdown(
-        "<h3 style='text-align:center; color:#FF8C00;'>Eficiencia y Ataque</h3>",
-        unsafe_allow_html=True,
-    )
-    st.caption(
-        "Lectura rápida del rendimiento ofensivo del Cibao FC: conversión de goles, "
-        "calidad de las ocasiones (xG), volumen y precisión de disparos y agresividad "
-        "en ataques rápidos y entradas al área."
-    )
+    st.caption("Análisis detallado del rendimiento ofensivo del Cibao FC.")
 
-    # -------- PALETA ----------
-    try:
-        palette = PALETTE_CIBAO
-    except NameError:
-        palette = ["#FF8C00", "#FFA64D", "#F97316", "#FBBF77"]
+    # ============================
+    # Paleta Cibao FC
+    # ============================
+    PALETTE = ["#ff7b00", "#ffaa4d", "#4d4d4d"]
 
-    # -------- FILTRADO BASE ----------
-    df_off = df_filtrado.copy()
-    df_off = df_off[
-        (df_off["Match"].isin(partidos_sel)) &
-        (df_off["Jornada"].isin(jornadas_sel))
-    ]
-
-    if df_off.empty:
-        st.warning("No hay datos disponibles para estas métricas.")
+    # ============================
+    # Filtrar datos
+    # ============================
+    df = df.copy()
+    if df.empty:
+        st.warning("No hay datos disponibles.")
         return
 
-    # Ordenar partidos por fecha si existe
-    if "Date" in df_off.columns:
-        df_off = df_off.sort_values("Date")
-    df_off["Match_label"] = df_off["Match"]
+    # ======================================================
+    # 1) Goles vs xG (Scatter profesional)
+    # ======================================================
+    st.subheader("📌 Goles vs xG")
+
+    fig1 = px.scatter(
+        df,
+        x="xg",
+        y="goals",
+        color_discrete_sequence=[PALETTE[0]],
+        text="Match",
+        template="plotly_dark",
+    )
+
+    fig1.update_traces(textposition="top center")
+    fig1.update_layout(
+        height=350,
+        xaxis_title="xG",
+        yaxis_title="Goles",
+        plot_bgcolor="#000",
+        paper_bgcolor="#000",
+    )
+
+    st.plotly_chart(fig1, use_container_width=True)
 
     # ======================================================
-    # 1) GOLES vs xG — Comparación por partido
+    # 2) Volumen de disparos
     # ======================================================
-    col1, col2 = st.columns(2)
+    st.subheader("📌 Volumen de Disparos")
 
-    with col1:
-        cols_gxg = [c for c in ["goals", "xg"] if c in df_off.columns]
-        if len(cols_gxg) == 2:
-            df_gxg = df_off[["Match_label", "goals", "xg"]].melt(
-                id_vars="Match_label",
-                value_vars=["goals", "xg"],
-                var_name="Métrica",
-                value_name="Valor",
-            )
+    fig2 = px.bar(
+        df,
+        x="Match",
+        y=["shots", "shots_from_outside_penalty_area"],
+        barmode="group",
+        color_discrete_sequence=PALETTE[:2],
+        template="plotly_dark",
+    )
 
-            df_gxg["Métrica"] = df_gxg["Métrica"].map(
-                {"goals": "Goles por partido", "xg": "xG (Goles esperados)"}
-            )
+    fig2.update_layout(
+        height=350,
+        plot_bgcolor="#000",
+        paper_bgcolor="#000",
+        yaxis_title="Disparos",
+    )
 
-            fig_gxg = px.bar(
-                df_gxg,
-                x="Match_label",
-                y="Valor",
-                color="Métrica",
-                barmode="group",
-                color_discrete_sequence=palette[:2],
-                template="plotly_dark",
-                text_auto=".2f",
-            )
-            fig_gxg.update_layout(
-                title="Goles vs xG por partido",
-                xaxis_title="Partido",
-                yaxis_title="Goles / xG",
-                plot_bgcolor="#000000",
-                paper_bgcolor="#000000",
-                font=dict(color="#D3D3D3", size=11),
-                legend_title=None,
-                margin=dict(l=20, r=10, t=40, b=40),
-                height=360,
-            )
-            st.plotly_chart(fig_gxg, use_container_width=True)
-        else:
-            st.info("No se encontraron columnas de goles/xG para este bloque.")
+    st.plotly_chart(fig2, use_container_width=True)
 
     # ======================================================
-    # 2) VOLUMEN DE DISPAROS — Totales, al arco, fuera, bloqueados
+    # 3) Eficiencia en el tiro (%)
     # ======================================================
-    with col2:
-        shot_cols = {
-            "Disparos Totales": "totalScoringAtt",
-            "Disparos al Arco": "ontargetScoringAtt",
-            "Disparos Fuera": "shotOffTarget",
-            "Disparos Bloqueados": "blockedScoringAtt",
-        }
+    st.subheader("📌 Eficiencia de Disparo (%)")
 
-        cols_presentes = {
-            nombre: col for nombre, col in shot_cols.items() if col in df_off.columns
-        }
+    fig3 = px.line(
+        df,
+        x="Match",
+        y=["shots_on_target_percent", 
+           "shots_from_outside_penalty_area_on_target_percent"],
+        markers=True,
+        color_discrete_sequence=PALETTE[:2],
+        template="plotly_dark",
+    )
 
-        if cols_presentes:
-            df_shots = df_off[["Match_label"] + list(cols_presentes.values())].melt(
-                id_vars="Match_label",
-                value_vars=list(cols_presentes.values()),
-                var_name="metric",
-                value_name="Valor",
-            )
+    fig3.update_layout(
+        height=320,
+        plot_bgcolor="#000",
+        paper_bgcolor="#000",
+        yaxis_title="% de acierto",
+    )
 
-            inv_map = {v: k for k, v in cols_presentes.items()}
-            df_shots["Métrica"] = df_shots["metric"].map(inv_map)
-
-            fig_shots = px.bar(
-                df_shots,
-                x="Match_label",
-                y="Valor",
-                color="Métrica",
-                barmode="group",
-                template="plotly_dark",
-                color_discrete_sequence=palette,
-                text_auto=".1f",
-            )
-            fig_shots.update_layout(
-                title="Volumen de disparos por partido",
-                xaxis_title="Partido",
-                yaxis_title="Número de disparos",
-                plot_bgcolor="#000000",
-                paper_bgcolor="#000000",
-                font=dict(color="#D3D3D3", size=11),
-                legend_title=None,
-                margin=dict(l=20, r=10, t=40, b=40),
-                height=360,
-            )
-            st.plotly_chart(fig_shots, use_container_width=True)
-        else:
-            st.info("No se encontraron columnas de disparos para este bloque.")
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.plotly_chart(fig3, use_container_width=True)
 
     # ======================================================
-    # 3) ACCIONES DE PROFUNDIDAD — Contraataques y entradas al área
+    # 4) Tipos de ataque (posicional / contraataque)
     # ======================================================
-    depth_cols = {
-        "Contraataques por 90": "counter_attacks",
-        "Entradas al área por 90": "penalty_area_entries",
-    }
+    st.subheader("📌 Tipos de Ataque")
 
-    cols_depth_presentes = {
-        nombre: col for nombre, col in depth_cols.items() if col in df_off.columns
-    }
+    fig4 = px.bar(
+        df,
+        x="Match",
+        y=["positional_attacks", "counter_attacks"],
+        barmode="group",
+        color_discrete_sequence=PALETTE[:2],
+        template="plotly_dark",
+    )
 
-    if cols_depth_presentes:
-        df_depth = df_off[["Match_label"] + list(cols_depth_presentes.values())].melt(
-            id_vars="Match_label",
-            value_vars=list(cols_depth_presentes.values()),
-            var_name="metric",
-            value_name="Valor",
-        )
+    fig4.update_layout(
+        height=330,
+        plot_bgcolor="#000",
+        paper_bgcolor="#000",
+        yaxis_title="Acciones por 90",
+    )
 
-        inv_depth = {v: k for k, v in cols_depth_presentes.items()}
-        df_depth["Métrica"] = df_depth["metric"].map(inv_depth)
+    st.plotly_chart(fig4, use_container_width=True)
 
-        fig_depth = px.bar(
-            df_depth,
-            x="Valor",
-            y="Match_label",
-            color="Métrica",
-            orientation="h",
-            barmode="group",
-            template="plotly_dark",
-            color_discrete_sequence=palette[:2],
-            text_auto=".2f",
-        )
-        fig_depth.update_layout(
-            title="Acciones de profundidad (por 90 minutos)",
-            xaxis_title="Valor por 90",
-            yaxis_title="Partido",
-            plot_bgcolor="#000000",
-            paper_bgcolor="#000000",
-            font=dict(color="#D3D3D3", size=11),
-            legend_title=None,
-            margin=dict(l=80, r=20, t=40, b=40),
-            height=360,
-        )
-        st.plotly_chart(fig_depth, use_container_width=True)
-    else:
-        st.info("No se encontraron métricas de contraataques/entradas al área.")
+    # ======================================================
+    # 5) Balón parado (stacked)
+    # ======================================================
+    st.subheader("📌 Balón parado")
+
+    fig5 = px.bar(
+        df,
+        x="Match",
+        y=["set_pieces", "corners", "free_kicks"],
+        barmode="stack",
+        color_discrete_sequence=PALETTE,
+        template="plotly_dark",
+    )
+
+    fig5.update_layout(
+        height=330,
+        plot_bgcolor="#000",
+        paper_bgcolor="#000",
+    )
+
+    st.plotly_chart(fig5, use_container_width=True)
+
+    # ======================================================
+    # 6) Entradas al área + Centros profundos
+    # ======================================================
+    st.subheader("📌 Entradas al Área y Centros Profundos")
+
+    fig6 = go.Figure()
+
+    fig6.add_trace(go.Bar(
+        x=df["Match"],
+        y=df["penalty_area_entries"],
+        name="Entradas al área",
+        marker=dict(color=PALETTE[0])
+    ))
+
+    fig6.add_trace(go.Line(
+        x=df["Match"],
+        y=df["deep_completed_crosses"],
+        name="Centros profundos completados",
+        marker=dict(color=PALETTE[1])
+    ))
+
+    fig6.update_layout(
+        template="plotly_dark",
+        height=340,
+        plot_bgcolor="#000",
+        paper_bgcolor="#000",
+    )
+
+    st.plotly_chart(fig6, use_container_width=True)
+
 
 
 # ============================================================
@@ -687,7 +667,6 @@ div[role="tabpanel"] {
 """
 
 st.markdown(tabs_css, unsafe_allow_html=True)
-
 
 # ============================================================
 # 🔶 CREACIÓN DE LAS 5 PESTAÑAS
