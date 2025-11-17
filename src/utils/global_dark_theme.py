@@ -9,21 +9,21 @@ pio.templates.default = "plotly_dark"
 
 
 def inject_dark_theme():
-    """Tema oscuro completo, compatible con Chrome/Edge."""
+    """Tema oscuro completo y compatible con Chrome/Edge incluyendo selectbox/multiselect."""
 
     st.markdown(
         """
         <style>
 
-        /* ============================================ */
-        /* OCULTAR HEADER Y TOOLBAR                     */
-        /* ============================================ */
+        /* ------------------------------------------------ */
+        /*  OCULTAR HEADER STREAMLIT                        */
+        /* ------------------------------------------------ */
         header[data-testid="stHeader"] {display: none !important;}
         [data-testid="stToolbar"] {display: none !important;}
 
-        /* ============================================ */
-        /* FONDO GLOBAL                                 */
-        /* ============================================ */
+        /* ------------------------------------------------ */
+        /*  FONDO GLOBAL NEGRO REAL                         */
+        /* ------------------------------------------------ */
         html, body, [data-testid="stAppViewContainer"], .main {
             background-color: #000 !important;
             color: #fff !important;
@@ -32,57 +32,37 @@ def inject_dark_theme():
         :root { color-scheme: dark !important; }
         html { forced-color-adjust: none !important; }
 
-        /* ============================================ */
-        /* SIDEBAR                                      */
-        /* ============================================ */
+
+        /* ------------------------------------------------ */
+        /*  SIDEBAR                                         */
+        /* ------------------------------------------------ */
         [data-testid="stSidebar"] {
             background-color: #111 !important;
             border-right: 1px solid #222 !important;
         }
-
-        [data-testid="stSidebar"] * { 
-            color: white !important; 
+        [data-testid="stSidebar"] * {
+            color: #fff !important;
         }
 
-        /* ============================================ */
-        /* TITULOS                                       */
-        /* ============================================ */
-        h1, h2, h3 {
-            color: #ff8c00 !important;
-            text-shadow: 0 0 15px rgba(255,140,0,0.55);
-        }
 
-        /* ============================================ */
-        /* SELECTBOX & MULTISELECT – FIX COMPLETO        */
-        /* ============================================ */
+        /* ===================================================== */
+        /* 🔥 SELECTBOX + MULTISELECT (FULL FIX PARA CHROME/EDGE) */
+        /* ===================================================== */
 
-        /* Caja del select */
+        /* Contenedor visible */
         div[data-baseweb="select"] {
             background-color: #111 !important;
             border: 1px solid #ff7b00 !important;
             color: white !important;
         }
 
-        /* Naranja constante en borde */
-        div[data-baseweb="select"] > div {
-            border-color: #ff7b00 !important;
-        }
-
-        /* Flecha */
-        .stSelectbox svg { 
-            color: #ff7b00 !important; 
-        }
-
-        /* Tags Multiselect */
-        [data-baseweb="tag"] {
-            background-color: #ff7b00 !important;
+        /* Input interno */
+        div[data-baseweb="input"] {
+            background-color: #111 !important;
             color: white !important;
-            border-radius: 6px !important;
         }
 
-        [data-baseweb="tag"] svg { color: white !important; }
-
-        /* Menú desplegable */
+        /* Desplegable */
         ul[data-baseweb="menu"] {
             background-color: #111 !important;
             border: 1px solid #ff7b00 !important;
@@ -97,48 +77,85 @@ def inject_dark_theme():
             color: black !important;
         }
 
-        /* ============================================ */
-        /* TABLAS – ESTILO OSCURO                       */
-        /* ============================================ */
-        .dataframe, .stDataFrame, .stTable {
-            background-color: #000 !important;
+        /* TAG chips (multiselect) */
+        [data-baseweb="tag"] {
+            background-color: #ff7b00 !important;
+            color: white !important;
+            border-radius: 6px !important;
+        }
+        [data-baseweb="tag"] svg {
             color: white !important;
         }
 
-        .dataframe thead tr th {
-            background-color: #222 !important;
-            color: #ff8c00 !important;
+        /* Flecha */
+        .stSelectbox svg {
+            color: #ff7b00 !important;
         }
 
-        .dataframe tbody tr td {
+        /* CAPAS INTERNAS GENERADAS POR STREAMLIT */
+        [class*="st-ae"], [class*="st-af"], [class*="st-ag"],
+        [class*="st-ah"], [class*="st-ai"], [class*="st-aj"],
+        [class*="st-ak"], [class*="st-al"], [class*="st-am"],
+        [class*="st-an"], [class*="st-ao"], [class*="st-ap"],
+        [class*="st-aq"], [class*="st-ar"], [class*="st-as"],
+        [class*="st-at"], [class*="st-au"], [class*="st-av"],
+        [class*="st-aw"], [class*="st-ax"] {
             background-color: #111 !important;
             color: white !important;
         }
 
-        .dataframe td, .dataframe th {
-            border-color: #333 !important;
+
+        /* ------------------------------------------------ */
+        /*  BOTONES                                         */
+        /* ------------------------------------------------ */
+        button[kind="primary"] {
+            background-color: #ff7b00 !important;
+            color: black !important;
+            border-radius: 6px !important;
+            border: 1px solid #ff7b00 !important;
         }
 
-        /* ============================================ */
-        /* PLOTLY – FIX PARA QUE LAS GRÁFICAS SE VEAN   */
-        /* ============================================ */
-
-        /* Evita que Streamlit tape la gráfica */
-        [data-testid="stElementContainer"] {
-            background-color: transparent !important;
+        button[kind="secondary"] {
+            background-color: #222 !important;
+            color: white !important;
+            border-radius: 6px !important;
+            border: 1px solid #555 !important;
         }
 
-        /* Fondo transparente del canvas */
+        /* Botón genérico (algunos usan clases dinámicas) */
+        button {
+            background-color: #ff7b00 !important;
+            color: black !important;
+            border-radius: 6px !important;
+        }
+
+
+        /* ------------------------------------------------ */
+        /*  TABLAS                                          */
+        /* ------------------------------------------------ */
+        .dataframe, .stDataFrame, .stTable {
+            background-color: #000 !important;
+            color: #fff !important;
+        }
+
+        .dataframe th {
+            background-color: #222 !important;
+            color: #ff8c00 !important;
+        }
+
+        .dataframe td {
+            background-color: #111 !important;
+            color: #fff !important;
+        }
+
+
+        /* ------------------------------------------------ */
+        /*  PLOTLY - Fondo oscuro real                      */
+        /* ------------------------------------------------ */
+        .js-plotly-plot .plotly,
+        .js-plotly-plot .main-svg,
         .js-plotly-plot .plot-container {
-            background-color: transparent !important;
-        }
-
-        .js-plotly-plot .main-svg {
-            background-color: transparent !important;
-        }
-
-        .js-plotly-plot .plotly {
-            background-color: transparent !important;
+            background-color: #000 !important;
         }
 
         </style>
@@ -148,7 +165,6 @@ def inject_dark_theme():
 
 
 def titulo_naranja(texto):
-    """Título institucional centrado."""
     st.markdown(
         f"""
         <h1 style="
