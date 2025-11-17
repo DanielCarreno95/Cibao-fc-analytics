@@ -1,24 +1,14 @@
 # ===========================================
-# CONFIGURACIÓN GLOBAL – MODO OSCURO CIBAO FC (VERSION FINAL ESTABLE)
+# CONFIGURACIÓN GLOBAL – MODO OSCURO CIBAO FC (VERSIÓN FINAL REAL)
 # ===========================================
 import streamlit as st
 import plotly.io as pio
 
-# Tema Plotly oscuro (base)
+# Tema Plotly oscuro
 pio.templates.default = "plotly_dark"
 
 
 def inject_dark_theme():
-    """
-    Tema oscuro global – 100% compatible con Chrome, Edge, Firefox y Safari.
-    Arregla:
-        ✔ multiselect blanco
-        ✔ selectbox blanco
-        ✔ popovers blancos
-        ✔ menú de selección
-        ✔ tablas blancas
-        ✔ fondo de Plotly que tapa el gráfico en Chrome
-    """
 
     st.markdown(
         """
@@ -48,13 +38,12 @@ def inject_dark_theme():
             background-color: #111 !important;
             border-right: 1px solid #222 !important;
         }
-
         [data-testid="stSidebar"] * {
-            color: #ffffff !important;
+            color: white !important;
         }
 
         /* ============================================ */
-        /* TITULOS                                        */
+        /* TEXTOS / TITULOS                              */
         /* ============================================ */
         h1, h2, h3 {
             color: #ff8c00 !important;
@@ -62,14 +51,22 @@ def inject_dark_theme():
         }
 
         /* ============================================ */
-        /* MULTISELECT & SELECTBOX FIX CHROME/EDGE       */
+        /* SELECTBOX & MULTISELECT — FIX REAL CHROME     */
         /* ============================================ */
 
-        /* Caja principal */
+        /* Caja base */
         div[data-baseweb="select"] {
             background-color: #111 !important;
             border: 1px solid #ff7b00 !important;
             color: white !important;
+        }
+
+        /* Popover (Chrome lo deja blanco si no se fuerza) */
+        div[data-baseweb="popover"],
+        div[aria-expanded="true"] {
+            background-color: #111 !important;
+            color:#fff !important;
+            border: 1px solid #ff7b00 !important;
         }
 
         /* Flechas */
@@ -77,7 +74,7 @@ def inject_dark_theme():
             color: #ff7b00 !important;
         }
 
-        /* Menú desplegable */
+        /* Menú del selector */
         ul[data-baseweb="menu"] {
             background-color: #111 !important;
             border: 1px solid #ff7b00 !important;
@@ -86,7 +83,6 @@ def inject_dark_theme():
         ul[data-baseweb="menu"] li {
             background-color: #111 !important;
             color: white !important;
-            border-radius: 4px;
         }
 
         ul[data-baseweb="menu"] li:hover {
@@ -94,20 +90,13 @@ def inject_dark_theme():
             color: black !important;
         }
 
-        /* Multiselect container */
-        .stMultiSelect > div {
-            background-color: #111 !important;
-            border: 1px solid #ff7b00 !important;
-        }
-
-        /* Tags */
+        /* Tags de los multiselect */
         [data-baseweb="tag"] {
             background-color: #ff7b00 !important;
             color: white !important;
             border-radius: 6px !important;
         }
 
-        /* Icono "X" */
         [data-baseweb="tag"] svg {
             color: white !important;
         }
@@ -116,7 +105,6 @@ def inject_dark_theme():
         /* BOTONES                                       */
         /* ============================================ */
 
-        button[kind="secondary"], button[kind="primary"],
         .stButton button {
             background-color: #ff8c00 !important;
             color: black !important;
@@ -127,50 +115,49 @@ def inject_dark_theme():
 
         .stButton button:hover {
             background-color: #ffa64d !important;
-            color: black !important;
         }
 
         /* ============================================ */
         /* TABLAS                                        */
         /* ============================================ */
-
         .dataframe, .stDataFrame, .stTable {
             background-color: #000 !important;
-            color: #fff !important;
+            color:#fff !important;
         }
 
         .dataframe thead tr th {
-            background-color: #222 !important;
-            color: #ff8c00 !important;
+            background-color:#222 !important;
+            color:#ff8c00 !important;
         }
 
         .dataframe tbody tr td {
-            background-color: #111 !important;
-            color: white !important;
+            background-color:#111 !important;
+            color:#fff !important;
         }
 
         .dataframe td, .dataframe th {
-            border-color: #333 !important;
+            border-color:#333 !important;
         }
 
         /* ============================================ */
-        /* PLOTLY — FIX REAL PARA QUE SE VEA EL GRÁFICO */
+        /* PLOTLY — EL FIX QUE NECESITABAS               */
         /* ============================================ */
 
-        /* Evitamos que Chrome ponga fondo blanco */
+        /* NO TAPAR EL GRÁFICO (antes lo tapabas completo) */
+        .js-plotly-plot .cartesianlayer {
+            background: transparent !important;
+        }
+
+        /* Asegurar fondo oscuro detrás del gráfico sin cubrirlo */
         .js-plotly-plot .plot-container {
             background: transparent !important;
         }
 
-        /* Evitamos que Plotly sea ocultado por un div negro */
         .js-plotly-plot .main-svg {
             background: transparent !important;
         }
 
-        /* Capa interna donde viven ejes/grid */
-        .js-plotly-plot .cartesianlayer {
-            background-color: #111 !important;
-        }
+        /* ============================================ */
 
         </style>
         """,
@@ -179,7 +166,6 @@ def inject_dark_theme():
 
 
 def titulo_naranja(texto):
-    """Título central institucional Cibao FC."""
     st.markdown(
         f"""
         <h1 style="
