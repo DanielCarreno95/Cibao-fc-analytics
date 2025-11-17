@@ -7,6 +7,7 @@ import plotly.io as pio
 # Tema Plotly oscuro
 pio.templates.default = "plotly_dark"
 
+
 def inject_dark_theme():
     st.markdown(
         """
@@ -15,24 +16,25 @@ def inject_dark_theme():
         /* -------------------------------------------- */
         /* QUITAR HEADER / TOOLBAR */
         /* -------------------------------------------- */
-        header[data-testid="stHeader"] {display: none !important;}
-        [data-testid="stToolbar"] {display: none !important;}
+        header[data-testid="stHeader"] { display: none !important; }
+        [data-testid="stToolbar"] { display: none !important; }
 
         /* -------------------------------------------- */
-        /* FONDO GENERAL OSCURO (SIN ROMPER GRÁFICAS)   */
+        /* FONDO PRINCIPAL OSCURO (SIN ROMPER PLOTS)    */
         /* -------------------------------------------- */
         html, body, [data-testid="stAppViewContainer"], .main {
             background-color: #000 !important;
             color: #fff !important;
         }
 
-        /* NO aplicar a TODOS los <div> → esto rompía todo */
-        /* Evitar tema claro automático */
+        /* ⚠️ NO aplicar a TODOS los div → rompe gráficos
+        div { background:black !important; }  <-- NO HACER */
+        
         :root { color-scheme: dark !important; }
         html { forced-color-adjust: none !important; }
 
         /* -------------------------------------------- */
-        /* SIDEBAR */
+        /* SIDEBAR                                      */
         /* -------------------------------------------- */
         [data-testid="stSidebar"] {
             background-color: #111 !important;
@@ -43,15 +45,32 @@ def inject_dark_theme():
         }
 
         /* -------------------------------------------- */
-        /* TITULOS */
+        /* TITULOS CIBAO FC                             */
         /* -------------------------------------------- */
         h1, h2, h3 {
             color: #ff8c00 !important;
             text-shadow: 0 0 15px rgba(255,140,0,0.55) !important;
+            font-weight: 900 !important;
         }
 
         /* -------------------------------------------- */
-        /* MULTISELECT NARANJA */
+        /* BOTONES                                      */
+        /* -------------------------------------------- */
+        button[kind="primary"], .stButton>button {
+            background-color: #111 !important;
+            border: 1px solid #ff8c00 !important;
+            color: #ff8c00 !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+        }
+
+        .stButton>button:hover {
+            background-color: #ff8c00 !important;
+            color: black !important;
+        }
+
+        /* -------------------------------------------- */
+        /* MULTISELECT NARANJA                          */
         /* -------------------------------------------- */
         .stMultiSelect div[data-baseweb="select"] {
             background-color: #111 !important;
@@ -63,10 +82,12 @@ def inject_dark_theme():
         .stMultiSelect [data-baseweb="tag"] {
             background-color: #ff7b00 !important;
             color: white !important;
+            border-radius: 6px !important;
         }
+        .stMultiSelect [data-baseweb="tag"] svg { color: white !important; }
 
         /* -------------------------------------------- */
-        /* SELECTBOX */
+        /* SELECTBOX                                    */
         /* -------------------------------------------- */
         .stSelectbox div[data-baseweb="select"] {
             background-color: #111 !important;
@@ -78,7 +99,7 @@ def inject_dark_theme():
         }
 
         /* -------------------------------------------- */
-        /* TABLAS – MODO OSCURO */
+        /* TABLAS – MODO OSCURO                         */
         /* -------------------------------------------- */
         .dataframe, .stDataFrame, .stTable {
             background-color: #000 !important;
@@ -103,6 +124,7 @@ def inject_dark_theme():
         """,
         unsafe_allow_html=True,
     )
+
 
 def titulo_naranja(texto):
     st.markdown(
