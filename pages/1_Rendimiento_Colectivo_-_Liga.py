@@ -297,8 +297,9 @@ def styled_multiselect(label, options, default, key):
     Crea un multiselect visualmente igual al estilo del Bloque 0:
     fondo gris oscuro, borde naranja, texto pequeño y limpio.
     """
-def inject_dark_theme():
-st.markdown(
+
+    # Contenedor estilo Cibao
+    st.markdown(
         f"""
         <div style="
             background-color:{CIBAO_DARKGRAY};
@@ -307,16 +308,17 @@ st.markdown(
             padding:6px 8px 4px 8px;
             margin-bottom:10px;
         ">
-        <p style="
-            color:{CIBAO_GRAY};
-            font-size:13px;
-            margin-bottom:4px;
-        ">{label}</p>
+            <p style="
+                color:{CIBAO_GRAY};
+                font-size:13px;
+                margin-bottom:4px;
+            ">{label}</p>
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # ✅ Multiselect nativo, compacto y limpio
+    # Multiselect nativo, compacto y limpio
     selection = st.multiselect(
         "",
         options,
@@ -325,9 +327,7 @@ st.markdown(
         label_visibility="collapsed",
     )
 
-    st.markdown("</div>", unsafe_allow_html=True)
     return selection
-
 
 # ==============================
 # 🎨 ESTILO GLOBAL — Tipografía y títulos
@@ -362,49 +362,43 @@ st.markdown(
 
 
 # ==============================
-# Bloque 0 ANÁLISIS RÁPIDO CIBAO VS RIVAL
+# Bloque 0 — ANÁLISIS RÁPIDO CIBAO VS RIVAL
 # ==============================
 
 if not df_liga_mayor.empty:
+
     st.markdown(
         f"""
         <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
-        Comparativa liga (Cibao vs próximo rival)
+            Comparativa liga (Cibao vs próximo rival)
         </h2>
         <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
-        Evalúa el rendimiento del Cibao FC frente a su próximo rival, considerando métricas ofensivas y defensivas clave.
+            Evalúa el rendimiento del Cibao FC frente a su próximo rival,
+            considerando métricas ofensivas y defensivas clave.
         </p>
         """,
         unsafe_allow_html=True,
     )
+
     col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.2, 1])
+
+    # ✅ LISTA DE RIVALES LIMPIA Y CORRECTA
     team_options = sorted(
         {
             str(t)
             for t in df_liga_mayor["Team"].dropna().unique()
             if str(t).strip().lower() != "cibao"
-        """
-        <style>
-
-        /* ------------------------- */
-        /* OCULTAR HEADER Y TOOLBAR */
-        /* ------------------------- */
-        header[data-testid="stHeader"] {display: none !important;}
-        [data-testid="stToolbar"] {display: none !important;}
-
-        /* ------------------------- */
-        /* FONDO GENERAL */
-        /* ------------------------- */
-        html, body, [data-testid="stAppViewContainer"], .main {
-            background-color:#000 !important;
-            color:#fff !important;
-       }
+        }
     )
+
     if not team_options:
         st.info("No hay rivales disponibles en el dataset de Liga Mayor.")
+
     else:
         opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
+
         metric_labels = list(METRIC_OPTIONS.keys())
+
         x_default = (
             metric_labels.index("Goles por 90")
             if "Goles por 90" in metric_labels
@@ -415,21 +409,29 @@ if not df_liga_mayor.empty:
             if "Goles en contra por 90" in metric_labels
             else min(1, len(metric_labels) - 1)
         )
+
         x_choice = col_sel2.selectbox(
             "Métrica ofensiva (eje X)",
             metric_labels,
             index=x_default if metric_labels else 0,
         )
+
         y_choice = col_sel3.selectbox(
             "Métrica defensiva (eje Y)",
             metric_labels,
             index=y_default if metric_labels else 0,
         )
-        filters = {"Competition": lambda s: s.str.contains("Liga", case=False, na=False)}
+
+        filters = {
+            "Competition": lambda s: s.str.contains("Liga", case=False, na=False)
+        }
+
         x_column = METRIC_OPTIONS.get(x_choice)
         y_column = METRIC_OPTIONS.get(y_choice)
+
         if x_column is None or y_column is None:
             st.error("No se encontró la métrica seleccionada en el dataset.")
+
         else:
             fig_radar, resumen_radar, _ = make_team_scatter(
                 df_liga_mayor,
@@ -442,11 +444,16 @@ if not df_liga_mayor.empty:
                 title=f"Liga Mayor — {x_choice} vs {y_choice}",
                 filters=filters,
             )
+
             st.plotly_chart(
-                fig_radar, use_container_width=True, config={"displayModeBar": True}
+                fig_radar,
+                use_container_width=True,
+                config={"displayModeBar": True},
             )
+
             if resumen_radar:
                 st.caption(f"Resumen: {resumen_radar}")
+
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
 
