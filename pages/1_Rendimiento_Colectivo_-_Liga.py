@@ -457,177 +457,138 @@ if not df_liga_mayor.empty:
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
 
-# ============================================================
-# 🔶 FUNCIÓN: Bloque — EFICIENCIA Y ATAQUE (Tab 1)
-# ============================================================
-
 def bloque_eficiencia_ataque(df):
-    st.markdown("<h3 style='text-align:center; color:#ff8c00;'>Eficiencia y Ataque</h3>", 
-                unsafe_allow_html=True)
 
-    st.caption("Análisis detallado del rendimiento ofensivo del Cibao FC.")
+    import plotly.express as px
 
-    # ============================
-    # Paleta Cibao FC
-    # ============================
-    PALETTE = ["#ff7b00", "#ffaa4d", "#4d4d4d"]
+    PALETTE = ["#FF8C00", "#FFA64D", "#FF7B00", "#CC6A00"]
+    BG = "#0a0a0a"
 
-    # ============================
-    # Filtrar datos
-    # ============================
-    df = df.copy()
-    if df.empty:
-        st.warning("No hay datos disponibles.")
-        return
-
-    # ======================================================
-    # 1) Goles vs xG (Scatter profesional)
-    # ======================================================
-    st.subheader("📌 Goles vs xG")
-
-    fig1 = px.scatter(
-        df,
-        x="xg",
-        y="goals",
-        color_discrete_sequence=[PALETTE[0]],
-        text="Match",
-        template="plotly_dark",
+    st.markdown(
+        "<h3 style='text-align:center; margin-top:0;'>Eficiencia y Ataque</h3>",
+        unsafe_allow_html=True,
+    )
+    st.write(
+        "Análisis detallado del rendimiento ofensivo del equipo, evaluando generación, tipos de ataque, balón parado y finalización."
     )
 
-    fig1.update_traces(textposition="top center")
-    fig1.update_layout(
-        height=350,
-        xaxis_title="xG",
-        yaxis_title="Goles",
-        plot_bgcolor="#000",
-        paper_bgcolor="#000",
-    )
+    # -------------------------------
+    # MÉTRICAS AGRUPADAS EN 4 BLOQUES
+    # -------------------------------
 
-    st.plotly_chart(fig1, use_container_width=True)
+    bloques = {
+        "Producción ofensiva directa": {
+            "goals": "Goles por partido",
+            "xg": "xG (Goles esperados)",
+            "shots": "Disparos por partido",
+            "shots_on_target": "Disparos a puerta",
+        },
+        "Tipos de ataque y progresión": {
+            "positional_attacks": "Ataques posicionales",
+            "counter_attacks": "Contraataques",
+            "penalty_area_entries": "Entradas al área",
+            "touches_in_penalty_area": "Toques en el área",
+        },
+        "Balón parado y eficiencia final": {
+            "set_pieces": "Balones parados",
+            "corners": "Corners",
+            "free_kicks": "Faltas directas",
+            "penalties": "Penaltis",
+        },
+        "Centros y finalización profunda": {
+            "crosses": "Centros por 90",
+            "deep_completed_crosses": "Centros profundos completados",
+            "deep_completed_passes": "Pases profundos completados",
+            "crosses_accurate_percent": "Precisión de centros (%)",
+        },
+    }
 
-    # ======================================================
-    # 2) Volumen de disparos
-    # ======================================================
-    st.subheader("📌 Volumen de Disparos")
+    # -------------------------------
+    # FUNCIÓN PARA GENERAR INSIGHTS
+    # -------------------------------
+    def generar_insights(serie, etiquetas):
+        if serie.empty:
+            return "No hay datos suficientes para generar conclusiones."
 
-    fig2 = px.bar(
-        df,
-        x="Match",
-        y=["shots", "shots_from_outside_penalty_area"],
-        barmode="group",
-        color_discrete_sequence=PALETTE[:2],
-        template="plotly_dark",
-    )
+        max_idx = serie.idxmax()
+        min_idx = serie.idxmin()
 
-    fig2.update_layout(
-        height=350,
-        plot_bgcolor="#000",
-        paper_bgcolor="#000",
-        yaxis_title="Disparos",
-    )
+        insight = (
+            f"- **Punto más alto:** {etiquetas[max_idx]} con {serie[max_idx]:.2f}.\n"
+            f"- **Punto más bajo:** {etiquetas[min_idx]} con {serie[min_idx]:.2f}.\n"
+        )
 
-    st.plotly_chart(fig2, use_container_width=True)
+        if serie.mean() > 0:
+            insight += f"- El rendimiento ofensivo muestra valores consistentes con un promedio de {serie.mean():.2f}."
 
-    # ======================================================
-    # 3) Eficiencia en el tiro (%)
-    # ======================================================
-    st.subheader("📌 Eficiencia de Disparo (%)")
+        return insight
 
-    fig3 = px.line(
-        df,
-        x="Match",
-        y=["shots_on_target_percent", 
-           "shots_from_outside_penalty_area_on_target_percent"],
-        markers=True,
-        color_discrete_sequence=PALETTE[:2],
-        template="plotly_dark",
-    )
+    # -------------------------------
+    # DISEÑO: 4 GRÁFICOS (2 × 2)
+    # -------------------------------
 
-    fig3.update_layout(
-        height=320,
-        plot_bgcolor="#000",
-        paper_bgcolor="#000",
-        yaxis_title="% de acierto",
-    )
+    layout = [
+        ("Producción ofensiva directa", "vertical"),
+        ("Tipos de ataque y progresión", "horizontal"),
+        ("Balón parado y eficiencia final", "vertical"),
+        ("Centros y finalización profunda", "horizontal"),
+    ]
 
-    st.plotly_chart(fig3, use_container_width=True)
+    for i, (titulo, orientacion) in enumerate(layout):
 
-    # ======================================================
-    # 4) Tipos de ataque (posicional / contraataque)
-    # ======================================================
-    st.subheader("📌 Tipos de Ataque")
+        if i % 2 == 0:
+            cols = st.columns(2)
 
-    fig4 = px.bar(
-        df,
-        x="Match",
-        y=["positional_attacks", "counter_attacks"],
-        barmode="group",
-        color_discrete_sequence=PALETTE[:2],
-        template="plotly_dark",
-    )
+        col = cols[i % 2]
 
-    fig4.update_layout(
-        height=330,
-        plot_bgcolor="#000",
-        paper_bgcolor="#000",
-        yaxis_title="Acciones por 90",
-    )
+        with col:
+            grupo = bloques[titulo]
 
-    st.plotly_chart(fig4, use_container_width=True)
+            df_plot = df[list(grupo.keys())].mean().reset_index()
+            df_plot.columns = ["metric", "value"]
+            df_plot["label"] = df_plot["metric"].map(grupo)
 
-    # ======================================================
-    # 5) Balón parado (stacked)
-    # ======================================================
-    st.subheader("📌 Balón parado")
+            if orientacion == "vertical":
+                fig = px.bar(
+                    df_plot,
+                    x="label",
+                    y="value",
+                    text_auto=".2f",
+                    color="label",
+                    color_discrete_sequence=PALETTE,
+                )
+                fig.update_layout(
+                    xaxis_title=None,
+                    yaxis_title="Valor",
+                    paper_bgcolor=BG,
+                    plot_bgcolor=BG,
+                    font=dict(color="white"),
+                )
 
-    fig5 = px.bar(
-        df,
-        x="Match",
-        y=["set_pieces", "corners", "free_kicks"],
-        barmode="stack",
-        color_discrete_sequence=PALETTE,
-        template="plotly_dark",
-    )
+            else:  # horizontal
+                fig = px.bar(
+                    df_plot,
+                    y="label",
+                    x="value",
+                    orientation="h",
+                    text_auto=".2f",
+                    color="label",
+                    color_discrete_sequence=PALETTE,
+                )
+                fig.update_layout(
+                    xaxis_title="Valor",
+                    yaxis_title=None,
+                    paper_bgcolor=BG,
+                    plot_bgcolor=BG,
+                    font=dict(color="white"),
+                )
 
-    fig5.update_layout(
-        height=330,
-        plot_bgcolor="#000",
-        paper_bgcolor="#000",
-    )
+            st.subheader(titulo)
+            st.plotly_chart(fig, use_container_width=True)
 
-    st.plotly_chart(fig5, use_container_width=True)
-
-    # ======================================================
-    # 6) Entradas al área + Centros profundos
-    # ======================================================
-    st.subheader("📌 Entradas al Área y Centros Profundos")
-
-    fig6 = go.Figure()
-
-    fig6.add_trace(go.Bar(
-        x=df["Match"],
-        y=df["penalty_area_entries"],
-        name="Entradas al área",
-        marker=dict(color=PALETTE[0])
-    ))
-
-    fig6.add_trace(go.Line(
-        x=df["Match"],
-        y=df["deep_completed_crosses"],
-        name="Centros profundos completados",
-        marker=dict(color=PALETTE[1])
-    ))
-
-    fig6.update_layout(
-        template="plotly_dark",
-        height=340,
-        plot_bgcolor="#000",
-        paper_bgcolor="#000",
-    )
-
-    st.plotly_chart(fig6, use_container_width=True)
-
-
+            # Insights automáticos
+            insights = generar_insights(df_plot["value"], df_plot["label"])
+            st.markdown(f"**Conclusiones:**\n{insights}")
 
 # ============================================================
 # 🔶 CSS PARA PESTAÑAS TIPO CHROME
