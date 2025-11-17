@@ -53,10 +53,9 @@ except Exception as exc:
     df_liga_mayor = pd.DataFrame()
 
 # ---------- PAGE TITLE ----------
+titulo_naranja("Rendimiento Colectivo — Cibao FC (Liga)")
+
 st.markdown("""
-<h1 style='text-align:center; color:#FF8C00; text-shadow: 0 0 15px rgba(255,140,0,0.65); font-weight:900;'>
-Rendimiento Colectivo — Cibao FC (Liga)
-</h1>
 <p style='text-align:center; color:#D1D5DB; font-size:17px;'>
 Lectura de <b>modelo de juego</b>, <b>eficiencia por fases</b> y <b>tendencias competitivas</b>.<br>
 Diseñado para soporte táctico del staff técnico — decisiones claras, con contexto.
@@ -64,6 +63,7 @@ Diseñado para soporte táctico del staff técnico — decisiones claras, con co
 """, unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
+
 
 # ===============================================
 # 🎯 FILTROS GLOBALES (Sidebar + Aplicación completa)
