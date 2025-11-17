@@ -19,6 +19,33 @@ from graficos_de_navaja_suiza import (
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Rendimiento Colectivo - Liga", layout="wide")
 
+# ---------- AÑADIR FONDO NEGRO FIJO ----------
+st.markdown("""
+<style>
+
+html, body, [data-testid="stAppViewContainer"], .main {
+    background-color: #000000 !important;
+    color: white !important;
+}
+
+/* Evita que Chrome / Edge activen tema claro */
+:root {
+    color-scheme: dark !important;
+}
+
+/* Evita ajustes automáticos */
+html {
+    forced-color-adjust: none !important;
+}
+
+/* Limpia fondos blancos de contenedores */
+[data-testid="stVerticalBlock"] {
+    background-color: transparent !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 PALETTE = ["#FF8C00", "#FFA94D", "#FFD6A5", "#F1F5F9"]
 THEME_DARK = dict(
     template="plotly_dark",
