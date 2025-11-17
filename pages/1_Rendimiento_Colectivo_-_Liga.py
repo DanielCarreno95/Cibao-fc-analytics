@@ -473,134 +473,138 @@ def bloque_eficiencia_ataque(df_filtrado):
     )
     st.caption("Evaluación táctica del comportamiento ofensivo del Cibao FC en las últimas jornadas seleccionadas.")
 
-    # ===========================
-    # DEFINICIÓN DE GRUPOS (solo métricas REALES)
-    # ===========================
+# ===========================
+# GRUPOS OFENSIVOS DEFINITIVOS
+# ===========================
 
-    grupos = {
-        "Finalización y eficacia": {
-            "Goles por partido": "goals",
-            "xG por partido": "xg",
-            "Disparos por partido": "shots",
-            "Disparos a puerta (%)": "shots_on_target_percent",
-        },
+grupos = {
+    "Finalización y eficacia": {
+        "Goles por partido": "goals",
+        "xG por partido": "xg",
+        "Disparos por partido": "shots",
+        "Disparos a puerta (%)": "shots_on_target_percent",
+    },
 
-        "Producción ofensiva": {
-            "Ataques posicionales con disparo (%)": "positional_attacks_with_shots_percent",
-            "Contraataques con disparo (%)": "counter_attacks_with_shots_percent",
-            "Balones parados con disparo (%)": "set_pieces_with_shots_percent",
-            "Corners con disparo (%)": "corners_with_shots_percent",
-        },
+    "Producción ofensiva": {
+        "Ataques posicionales con disparo (%)": "positional_attacks_with_shots_percent",
+        "Contraataques con disparo (%)": "counter_attacks_with_shots_percent",
+        "Balones parados con disparo (%)": "set_pieces_with_shots_percent",
+        "Corners con disparo (%)": "corners_with_shots_percent",
+    },
 
-        "Ataque posicional vs transiciones": {
-            "Ataques posicionales por 90": "positional_attacks",
-            "Contraataques por 90": "counter_attacks",
-            "Entradas al área por 90": "penalty_area_entries",
-            "Toques en el área por 90": "touches_in_penalty_area",
-        },
+    "Ataque posicional vs transiciones": {
+        "Ataques posicionales por 90": "positional_attacks",
+        "Contraataques por 90": "counter_attacks",
+        "Entradas al área por 90": "penalty_area_entries",
+        "Toques en el área por 90": "touches_in_penalty_area",
+    },
 
-        "Juego exterior y profundidad": {
-            "Centros precisos (%)": "crosses_accurate_percent",
-            "Centros profundos completados": "deep_completed_crosses",
-            "Pases profundos completados": "deep_completed_passes",
-            "Entradas al área con centros": "penalty_area_entries_crosses",
-        },
-    }
+    "Juego exterior y profundidad": {
+        "Centros precisos (%)": "crosses_accurate_percent",
+        "Centros profundos completados": "deep_completed_crosses",
+        "Pases profundos completados": "deep_completed_passes",
+        "Entradas al área con centros": "penalty_area_entries_crosses",
+    },
+}
 
-    # ===========================
-    # PALETA CIBAO
-    # ===========================
-    CIBAO_ORANGE = "#FF8C00"
-    CIBAO_BLACK = "#111111"
-    CIBAO_GRAY = "#D3D3D3"
-    PALETTE_CIBAO = ["#FF8C00", "#F78E1E", "#2F2F2F", "#777777"]
+# ===========================
+# PALETA CIBAO FC
+# ===========================
+CIBAO_ORANGE = "#FF8C00"
+CIBAO_BLACK = "#111111"
+CIBAO_GRAY = "#D3D3D3"
+PALETTE_CIBAO = ["#FF8C00", "#F78E1E", "#2F2F2F", "#777777"]
 
-    # ===========================
-    # FUNCIÓN PARA GRAFICAR GRUPO
-    # ===========================
+# ===========================
+# FUNCIÓN DE GRÁFICO
+# ===========================
 
-    def plot_group(nombre_grupo, mapping):
+def plot_group(nombre_grupo, mapping):
 
-        df_plot = df_filtrado.copy()
+    df_plot = df_filtrado.copy()
+    columnas = [v for v in mapping.values() if v in df_plot.columns]
+    etiquetas = {v: k for k, v in mapping.items() if v in df_plot.columns}
 
-        columnas = [v for v in mapping.values() if v in df_plot.columns]
-        etiquetas = {v: k for k, v in mapping.items() if v in df_plot.columns}
+    if len(columnas) == 0:
+        st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
+        return
 
-        if len(columnas) == 0:
-            st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
-            return
+    # Calcular promedios
+    df_mean = (
+        df_plot[columnas]
+        .mean()
+        .reset_index()
+        .rename(columns={"index": "metric", 0: "valor"})
+    )
+    df_mean["label"] = df_mean["metric"].map(etiquetas)
+    df_mean = df_mean.sort_values("valor", ascending=True)
 
-        # Promedios
-        df_mean = (
-            df_plot[columnas]
-            .mean()
-            .reset_index()
-            .rename(columns={"index": "metric", 0: "valor"})
-        )
-        df_mean["label"] = df_mean["metric"].map(etiquetas)
+    fig = px.bar(
+        df_mean,
+        x="valor",
+        y="label",
+        orientation="h",
+        text_auto=".2f",
+        color_discrete_sequence=PALETTE_CIBAO,
+    )
 
-        # Ordenar
-        df_mean = df_mean.sort_values("valor", ascending=True)
+    fig.update_layout(
+        height=300,
+        template="plotly_dark",
+        plot_bgcolor=CIBAO_BLACK,
+        paper_bgcolor=CIBAO_BLACK,
+        font=dict(color=CIBAO_GRAY, size=12),
+        title=dict(text=nombre_grupo, font=dict(size=18, color=CIBAO_ORANGE)),
+        margin=dict(l=20, r=20, t=45, b=20),
+        showlegend=False,
+    )
 
-        fig = px.bar(
-            df_mean,
-            x="valor",
-            y="label",
-            orientation="h",
-            text_auto=".2f",
-            color_discrete_sequence=PALETTE_CIBAO,
-        )
+    st.plotly_chart(fig, use_container_width=True)
 
-        fig.update_layout(
-            height=300,
-            template="plotly_dark",
-            plot_bgcolor=CIBAO_BLACK,
-            paper_bgcolor=CIBAO_BLACK,
-            font=dict(color=CIBAO_GRAY, size=12),
-            title=dict(text=nombre_grupo, font=dict(size=18, color=CIBAO_ORANGE)),
-            margin=dict(l=20, r=20, t=45, b=20),
-            showlegend=False,
-        )
+    # =======================
+    # INSIGHTS TÁCTICOS
+    # =======================
 
-        st.plotly_chart(fig, use_container_width=True)
+    max_row = df_mean.iloc[-1]
+    min_row = df_mean.iloc[0]
 
-        # --------- CONCLUSIONES TÁCTICAS ---------
-        max_row = df_mean.iloc[-1]
-        min_row = df_mean.iloc[0]
+    st.markdown(
+        f"""
+        <div style='background:#111;padding:12px;border-left:3px solid #FF8C00;margin-top:-10px;margin-bottom:25px'>
+        <b>Conclusiones tácticas</b><br><br>
 
-        st.markdown(
-            f"""
-            <div style='background:#111;padding:12px;border-left:3px solid #FF8C00;margin-top:-10px;margin-bottom:25px'>
-            <b>Conclusiones tácticas</b><br><br>
+        • <b>Comportamiento ofensivo más consistente:</b> El equipo muestra mejor rendimiento en 
+        <b>{max_row["label"]}</b>, indicador de una fase del ataque que está sosteniendo la producción ofensiva.<br><br>
 
-            • <b>Punto fuerte actual:</b> El equipo destaca en <b>{max_row["label"]}</b>, una acción que está aportando valor real al modelo ofensivo.<br><br>
+        • <b>Comportamiento con menor impacto:</b> <b>{min_row["label"]}</b> aparece como el registro más bajo del grupo, 
+        reflejando un patrón donde todavía existe margen de mejora para generar amenazas más frecuentes o más efectivas.<br><br>
 
-            • <b>Aspecto a seguir mejorando:</b> <b>{min_row["label"]}</b> presenta menor impacto relativo, indicando margen de crecimiento en ese comportamiento.<br><br>
+        • <b>Interpretación táctica:</b> La relación entre ambos extremos describe un modelo ofensivo 
+        <b>{"estable y alineado con las intenciones de juego" if max_row["valor"] > min_row["valor"] else "con irregularidad en la progresión y finalización"}</b>.  
+        Estos datos permiten al cuerpo técnico reforzar las fases donde el equipo es más productivo y ajustar aquellas donde
+        la incidencia ofensiva se reduce.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-            • <b>Lectura táctica:</b> El promedio ofensivo global del grupo sugiere que la tendencia del equipo está siendo 
-              <b>{"coherente con el modelo" if max_row["valor"] > min_row["valor"] else "inestable en la toma de decisiones"}</b>, 
-              especialmente en fases de progresión y finalización.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+# ===========================
+# LAYOUT 2 × 2 DEFINITIVO
+# ===========================
 
-    # ===========================
-    # LAYOUT 2 × 2
-    # ===========================
+col1, col2 = st.columns(2)
+with col1:
+    plot_group("Finalización y eficacia", grupos["Finalización y eficacia"])
+with col2:
+    plot_group("Producción ofensiva", grupos["Producción ofensiva"])
 
-    col1, col2 = st.columns(2)
-    with col1:
-        plot_group("Finalización y eficacia", grupos["Finalización y eficacia"])
-    with col2:
-        plot_group("Producción ofensiva", grupos["Producción ofensiva"])
+col3, col4 = st.columns(2)
+with col3:
+    plot_group("Ataque posicional vs transiciones", grupos["Ataque posicional vs transiciones"])
+with col4:
+    plot_group("Juego exterior y profundidad", grupos["Juego exterior y profundidad"])
 
-    col3, col4 = st.columns(2)
-    with col3:
-        plot_group("Ataque posicional vs transiciones", grupos["Ataque posicional vs transiciones"])
-    with col4:
-        plot_group("Juego exterior y profundidad", grupos["Juego exterior y profundidad"])
-=================
+#=============================================================
 # 🔶 CSS PARA PESTAÑAS TIPO CHROME
 # ============================================================
 
