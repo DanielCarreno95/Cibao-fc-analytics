@@ -16,52 +16,19 @@ from graficos_de_navaja_suiza import (
     DATA_FILE as LIGA_MAYOR_DATA_FILE,
 )
 
+# === IMPORTA EL TEMA OSCURO GLOBAL ===
+from src.utils.global_dark_theme import inject_dark_theme
+
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Rendimiento Colectivo - Liga", layout="wide")
 
-# ---------- AÑADIR FONDO NEGRO FIJO ----------
-st.markdown("""
-<style>
-
-html, body, [data-testid="stAppViewContainer"], .main {
-    background-color: #000000 !important;
-    color: white !important;
-}
-
-/* Sidebar obligado oscuro */
-[data-testid="stSidebar"] {
-    background-color: #111111 !important;
-    color: white !important;
-    border-right: 1px solid #222 !important;
-}
-
-/* Fondo interno del sidebar */
-[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-    background-color: #111111 !important;
-}
-
-/* Evita que Chrome / Edge activen tema claro */
-:root {
-    color-scheme: dark !important;
-}
-
-/* Evita cambios automáticos */
-html {
-    forced-color-adjust: none !important;
-}
-
-/* Limpia fondos blancos residuales */
-div, section, article {
-    background-color: transparent !important;
-}
-
-</style>
-""", unsafe_allow_html=True)
+# ---------- ACTIVAR TEMA OSCURO GLOBAL ----------
+inject_dark_theme()
 
 # ---------- ENCABEZADO VISUAL DEL SIDEBAR ----------
 with st.sidebar:
     st.markdown("""
-    <h3 style='margin-top:0; color:#ff7b00;'> Análisis Liga</h3>
+    <h3 style='margin-top:0; color:#ff7b00;'>📊 Análisis Liga</h3>
     <hr style='margin-top:6px; margin-bottom:20px; opacity:0.3;'>
     """, unsafe_allow_html=True)
 
