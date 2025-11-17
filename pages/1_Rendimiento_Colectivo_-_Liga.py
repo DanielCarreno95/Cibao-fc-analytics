@@ -686,7 +686,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # ============================================================
 
 with tab1:
-    bloque_eficiencia_ataque(df_filtrado, partidos_sel, jornadas_sel)
+    bloque_eficiencia_ataque(df_filtrado)
 
 
 with tab2:
