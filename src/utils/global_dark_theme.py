@@ -1,130 +1,116 @@
 # ===========================================
-#  GLOBAL DARK THEME – CIBAO FC DATA HUB
+# TEMA OSCURO GLOBAL + ESTILO CIBAO FC
 # ===========================================
+
 import streamlit as st
 import plotly.io as pio
 
+
 def inject_dark_theme():
-    """Aplica el modo oscuro global unificado para Chrome, Edge, Firefox y Safari."""
-
-    # ---------- Plotly dark global ----------
+    # Tema Plotly
     pio.templates.default = "plotly_dark"
-    pio.templates["plotly_dark"].layout.paper_bgcolor = "rgba(0,0,0,0)"
-    pio.templates["plotly_dark"].layout.plot_bgcolor = "rgba(0,0,0,0)"
-    pio.templates["plotly_dark"].layout.font.color = "#ffffff"
 
-    # ---------- CSS Global ----------
     st.markdown("""
     <style>
 
-    /* ============================================== */
-    /*   ELIMINAR BORDE SUPERIOR / TOOLBAR STREAMLIT  */
-    /* ============================================== */
-    header[data-testid="stHeader"],
-    [data-testid="stToolbar"] {
-        display: none !important;
+    /* ============================
+       ELIMINAR HEADER Y TOOLBAR
+    ============================ */
+    header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+
+
+    /* ============================
+       FONDO GENERAL SEGURO
+       (solo html y body — NO tocar contenedores)
+    ============================ */
+    html, body {
+        background-color: #000 !important;
+        color: #fff !important;
     }
 
-    /* ============================================== */
-    /*            FONDO NEGRO GLOBAL REAL             */
-    /* ============================================== */
-    html, body, [data-testid="stAppViewContainer"], .main, section, div {
-        background-color: #000000 !important;
-        color: #ffffff !important;
+    :root {
+        color-scheme: dark !important;
     }
 
-    /* Evitar tema claro forzado por Chrome */
-    :root { color-scheme: dark !important; }
-    html   { forced-color-adjust: none !important; }
 
-    /* ============================================== */
-    /*                SIDEBAR OSCURO                  */
-    /* ============================================== */
+    /* ============================
+       SIDEBAR OSCURO
+    ============================ */
     [data-testid="stSidebar"] {
-        background-color: #111111 !important;
+        background-color: #111 !important;
         border-right: 1px solid #222 !important;
-        color: #ffffff !important;
     }
     [data-testid="stSidebar"] * {
-        color: #ffffff !important;
+        color: #fff !important;
     }
 
-    /* ============================================== */
-    /*      SELECTBOX + MULTISELECT — CIBAO ORANGE    */
-    /* ============================================== */
 
-    /* Contenedor */
-    div[data-baseweb="select"] > div {
+    /* ============================
+       MULTISELECT NARANJA
+    ============================ */
+    .stMultiSelect div[data-baseweb="select"] {
         background-color: #111 !important;
         border: 1px solid #ff7b00 !important;
-        color: #ffffff !important;
-        border-radius: 6px !important;
+        color: white !important;
     }
-
-    /* Texto */
-    div[data-baseweb="select"] span {
-        color: #ffffff !important;
-    }
-
-    /* Flecha */
-    div[data-baseweb="select"] svg {
-        fill: #ff7b00 !important;
-    }
-
-    /* Tags del MultiSelect */
-    [data-baseweb="tag"] {
+    .stMultiSelect [data-baseweb="tag"] {
         background-color: #ff7b00 !important;
-        color: #000 !important;
-        font-weight: 700 !important;
+        color: #fff !important;
         border-radius: 6px !important;
     }
-
-    [data-baseweb="tag"] svg {
-        fill: #000 !important;
+    .stMultiSelect [data-baseweb="tag"] svg {
+        color: #fff !important;
     }
 
-    /* ============================================== */
-    /*                 TABLAS EN OSCURO               */
-    /* ============================================== */
 
+    /* ============================
+       SELECTBOX NARANJA
+    ============================ */
+    .stSelectbox div[data-baseweb="select"] {
+        background-color: #111 !important;
+        border-color: #ff7b00 !important;
+        color: white !important;
+    }
+    .stSelectbox svg {
+        color: #ff7b00 !important;
+    }
+
+
+    /* ============================
+       TABLAS TEMA OSCURO
+    ============================ */
     .dataframe, .stDataFrame, .stTable {
         background-color: #000 !important;
-        color: #ffffff !important;
+        color: #fff !important;
     }
-
     .dataframe tbody tr td {
         background-color: #111 !important;
-        color: #ffffff !important;
+        color: #fff !important;
     }
-
     .dataframe thead tr th {
         background-color: #222 !important;
         color: #ff8c00 !important;
     }
-
     .dataframe td, .dataframe th {
         border-color: #333 !important;
     }
 
-    /* ============================================== */
-    /*       TITULOS PRINCIPALES EN NARANJA           */
-    /* ============================================== */
+
+    /* ============================
+       TÍTULOS NARANJA CIBAO
+    ============================ */
     h1, h2, h3 {
         color: #ff8c00 !important;
-        text-shadow: 0 0 15px rgba(255,140,0,0.55) !important;
-    }
-
-    hr {
-        border-color: #222 !important;
+        text-shadow: 0 0 12px rgba(255,140,0,0.55) !important;
+        font-weight: 900 !important;
     }
 
     </style>
     """, unsafe_allow_html=True)
 
 
-# ---------------------------------------------------
-#      FUNCIÓN PARA TÍTULO PRINCIPAL ESTILIZADO
-# ---------------------------------------------------
+
 def titulo_naranja(texto: str):
     st.markdown(f"""
     <h1 style="
@@ -132,5 +118,6 @@ def titulo_naranja(texto: str):
         font-weight:900;
         color:#ff8c00;
         text-shadow: 0 0 14px rgba(255,140,0,0.65);
+        margin-top: 8px;
     ">{texto}</h1>
     """, unsafe_allow_html=True)
