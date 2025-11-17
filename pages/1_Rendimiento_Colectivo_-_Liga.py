@@ -457,7 +457,81 @@ if not df_liga_mayor.empty:
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
 
-# ====== PESTAÑAS PERSONALIZADAS TIPO CHROME ======
+# ============================================================
+# 🔶 FUNCIÓN: Bloque — EFICIENCIA Y ATAQUE (Tab 1)
+# ============================================================
+
+def bloque_eficiencia_ataque(df_filtrado, partidos_sel, jornadas_sel):
+
+    st.markdown("<h3 style='text-align:center; color:#FF8C00;'>Eficiencia y Ataque</h3>", unsafe_allow_html=True)
+
+    offensive_metrics = {
+        "Goles por partido": "goals",
+        "xG (Goles esperados)": "xg",
+        "Disparos por partido": "shots",
+        "A puerta por partido": "shots_on_target",
+        "Contraataques por 90": "counter_attacks",
+        "Entradas al área por 90": "penalty_area_entries",
+        "Disparos Totales": "totalScoringAtt",
+        "Disparos al Arco": "ontargetScoringAtt",
+        "Disparos Fuera": "shotOffTarget",
+        "Disparos Bloqueados": "blockedScoringAtt",
+    }
+
+    df_off = df_filtrado.copy()
+
+    # VALIDACIÓN DE FILTRADO
+    df_off = df_off[
+        (df_off["Match"].isin(partidos_sel)) &
+        (df_off["Jornada"].isin(jornadas_sel))
+    ]
+
+    if df_off.empty:
+        st.warning("No hay datos disponibles para estas métricas.")
+        return
+
+    # Reorganizar para gráfico
+    df_long = df_off.melt(
+        id_vars=["Match"],
+        value_vars=[v for v in offensive_metrics.values() if v in df_off.columns],
+        var_name="metric",
+        value_name="value",
+    )
+    df_long["metric_label"] = df_long["metric"].map(
+        {v: k for k, v in offensive_metrics.items()}
+    )
+
+    # Gráfico
+    fig = px.bar(
+        df_long,
+        x="value",
+        y="Match",
+        color="metric_label",
+        orientation="h",
+        barmode="group",
+        color_discrete_sequence=["#FF8C00", "#FFA64D", "#FFE0B3", "#F1F5F9"],
+        template="plotly_dark",
+        text_auto=".1f",
+    )
+
+    fig.update_layout(
+        height=380,
+        plot_bgcolor="#000",
+        paper_bgcolor="#000",
+        font=dict(color="#D3D3D3", size=12),
+        xaxis_title="Valor",
+        yaxis_title="Partido",
+        legend_title="Métrica ofensiva",
+        margin=dict(l=40, r=20, t=30, b=20),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+
+# ============================================================
+# 🔶 CSS PARA PESTAÑAS TIPO CHROME
+# ============================================================
 
 tabs_css = """
 <style>
@@ -494,6 +568,11 @@ div[role="tabpanel"] {
 
 st.markdown(tabs_css, unsafe_allow_html=True)
 
+
+# ============================================================
+# 🔶 CREACIÓN DE LAS 5 PESTAÑAS
+# ============================================================
+
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Eficiencia y Ataque",
     "Construcción y Pases",
@@ -502,22 +581,26 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Análisis Comparativo (Tablas)"
 ])
 
+
+# ============================================================
+# 🔶 CONTENIDO DE CADA PESTAÑA
+# ============================================================
+
 with tab1:
-    st.write("Contenido: Eficiencia y Ataque (pendiente por definir)")
+    bloque_eficiencia_ataque(df_filtrado, partidos_sel, jornadas_sel)
+
 
 with tab2:
-    st.write("Contenido: Construcción y Pases (pendiente por definir)")
+    st.info("🔧 Contenido de Construcción y Pases — pendiente por definir.")
+
 
 with tab3:
-    st.write("Contenido: Defensa y Eficiencia (pendiente por definir)")
+    st.info("🔧 Contenido de Defensa y Eficiencia — pendiente por definir.")
+
 
 with tab4:
-    st.write("Contenido: Distribución Táctica (pendiente por definir)")
+    st.info("🔧 Distribución táctica — pendiente por definir.")
+
 
 with tab5:
-    st.write("Contenido: Análisis Comparativo (pendiente por definir)")
-
-
-
-
-
+    st.info("📊 Tablas comparativas — pendiente por definir.")
