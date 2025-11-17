@@ -239,42 +239,42 @@ def main_hub():
     st.markdown("<div class='hub-title'>Cibao FC - Data Hub</div>", unsafe_allow_html=True)
     st.markdown("<div class='hub-subtitle'>Centro integral de análisis táctico y rendimiento basado en datos ⚽</div>", unsafe_allow_html=True)
 
-   # ===========================================
-#                ANÁLISIS LIGA
-# ===========================================
-st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:20px;'>ANÁLISIS LIGA</h3>", unsafe_allow_html=True)
+    # ===========================================
+    #                ANÁLISIS LIGA
+    # ===========================================
+    st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:20px;'>ANÁLISIS LIGA</h3>", unsafe_allow_html=True)
 
-liga_modules = [
-    ("Rendimiento Colectivo", "pages/1_Rendimiento_Colectivo_-_Liga.py"),
-    ("Análisis del Rival", "pages/2_Analisis_del_Rival_-_Liga.py"),
-    ("Rendimiento Individual", "pages/3_Rendimiento_Individual_-_Liga.py"),
-]
+    liga_modules = [
+        ("Rendimiento Colectivo", "pages/1_Rendimiento_Colectivo_-_Liga.py"),
+        ("Análisis del Rival", "pages/2_Analisis_del_Rival_-_Liga.py"),
+        ("Rendimiento Individual", "pages/3_Rendimiento_Individual_-_Liga.py"),
+    ]
 
-cols_liga = st.columns(3, gap="large")
-for i, (title, page) in enumerate(liga_modules):
-    with cols_liga[i]:
-        if st.button(f"**{title}**", use_container_width=True, key=f"liga_btn_{i}"):
-            st.switch_page(page)
+    cols_liga = st.columns(3, gap="large")
+    for i, (title, page) in enumerate(liga_modules):
+        with cols_liga[i]:
+            if st.button(f"**{title}**", use_container_width=True, key=f"liga_btn_{i}"):
+                st.switch_page(page)
 
-# Separador reducido
-st.markdown("<hr style='margin-top:20px; margin-bottom:8px; opacity:0.25;'>", unsafe_allow_html=True)
+    # Separador reducido
+    st.markdown("<hr style='margin-top:20px; margin-bottom:8px; opacity:0.25;'>", unsafe_allow_html=True)
 
-# ===========================================
-#                ANÁLISIS COPA
-# ===========================================
-st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:5px;'>ANÁLISIS COPA</h3>", unsafe_allow_html=True)
+    # ===========================================
+    #                ANÁLISIS COPA
+    # ===========================================
+    st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:5px;'>ANÁLISIS COPA</h3>", unsafe_allow_html=True)
 
-copa_modules = [
-    ("Rendimiento Colectivo", "pages/4_Rendimiento_Colectivo_-_Copa.py"),
-    ("Análisis del Rival", "pages/5_Analisis_del_Rival_-_Copa.py"),
-    ("Rendimiento Individual", "pages/6_Rendimiento_Individual_-_Copa.py"),
-]
+    copa_modules = [
+        ("Rendimiento Colectivo", "pages/4_Rendimiento_Colectivo_-_Copa.py"),
+        ("Análisis del Rival", "pages/5_Analisis_del_Rival_-_Copa.py"),
+        ("Rendimiento Individual", "pages/6_Rendimiento_Individual_-_Copa.py"),
+    ]
 
-cols_copa = st.columns(3, gap="large")
-for i, (title, page) in enumerate(copa_modules):
-    with cols_copa[i]:
-        if st.button(f"**{title}**", use_container_width=True, key=f"copa_btn_{i}"):
-            st.switch_page(page)
+    cols_copa = st.columns(3, gap="large")
+    for i, (title, page) in enumerate(copa_modules):
+        with cols_copa[i]:
+            if st.button(f"**{title}**", use_container_width=True, key=f"copa_btn_{i}"):
+                st.switch_page(page)
             
 # ===========================================
 # CONTROL DE AUTENTICACIÓN
