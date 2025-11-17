@@ -38,10 +38,17 @@ def _handle_go_param():
     if not go:
         return
 
+    # === Mapeo actualizado según nombres renombrados ===
     mapping = {
-        "colectivo": "pages/1_Rendimiento_Colectivo.py",
-        "rival": "pages/2_Análisis_del_Rival.py",
-        "individual": "pages/3_Rendimiento_Individual.py",
+        # LIGA
+        "colectivo": "pages/1_Rendimiento_Colectivo_-_Liga.py",
+        "rival": "pages/2_Analisis_del_Rival_-_Liga.py",
+        "individual": "pages/3_Rendimiento_Individual_-_Liga.py",
+
+        # COPA
+        "colectivo_copa": "pages/4_Rendimiento_Colectivo_-_Copa.py",
+        "rival_copa": "pages/5_Analisis_del_Rival_-_Copa.py",
+        "individual_copa": "pages/6_Rendimiento_Individual_-_Copa.py",
     }
 
     page = mapping.get(str(go).lower())
@@ -54,6 +61,7 @@ def _handle_go_param():
 
 # Llamar al router lo antes posible
 _handle_go_param()
+
 
 # ===========================================
 # LOGIN PAGE
