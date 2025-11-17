@@ -1,126 +1,131 @@
-# ============================================
-#  global_dark_theme.py — Tema oscuro global
-# ============================================
-
 import streamlit as st
+import plotly.io as pio
 
 def inject_dark_theme():
-    """Inyecta CSS global para forzar modo oscuro en toda la app."""
+    """
+    Inyecta tema global oscuro que funciona en Chrome, Edge y Firefox.
+    Aplica también tema oscuro por defecto a todas las gráficas Plotly.
+    """
+
+    # ===========================
+    #   TEMA OSCURO PARA PLOTLY
+    # ===========================
+    pio.templates.default = "plotly_dark"
+    pio.templates["plotly_dark"].layout.paper_bgcolor = "rgba(0,0,0,0)"
+    pio.templates["plotly_dark"].layout.plot_bgcolor = "rgba(0,0,0,0)"
+    pio.templates["plotly_dark"].layout.font.color = "#FFFFFF"
+
+    # ===========================
+    #   CSS GLOBAL OSCURO
+    # ===========================
     st.markdown("""
     <style>
 
-        /* ======== FONDO GENERAL ======== */
-        [data-testid="stAppViewContainer"] {
-            background-color: #000000 !important;
-            color: #ffffff !important;
-        }
+    /* =====================================
+       FORZAR TEMA OSCURO EN TODA LA APP
+       ===================================== */
+    html, body, [data-testid="stAppViewContainer"], .main {
+        background-color: #000000 !important;
+        color: #f0f0f0 !important;
+    }
 
-        /* ======== SIDEBAR ======== */
-        [data-testid="stSidebar"] {
-            background-color: #111111 !important;
-            border-right: 1px solid #222222 !important;
-        }
+    :root {
+        color-scheme: dark !important;
+    }
+    html {
+        forced-color-adjust: none !important;
+    }
 
-        /* Títulos del sidebar */
-        [data-testid="stSidebar"] h1,
-        [data-testid="stSidebar"] h2,
-        [data-testid="stSidebar"] h3,
-        [data-testid="stSidebar"] h4,
-        [data-testid="stSidebar"] h5,
-        [data-testid="stSidebar"] p,
-        [data-testid="stSidebar"] span {
-            color: #ff8c00 !important;
-        }
+    /* =====================================
+       SIDEBAR OSCURO
+       ===================================== */
+    [data-testid="stSidebar"] {
+        background-color: #111111 !important;
+        color: white !important;
+        border-right: 1px solid #222 !important;
+    }
 
-        /* Texto del menú lateral (páginas) */
-        section[data-testid="stSidebar"] button {
-            color: #ffffff !important;
-        }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        background-color: #111111 !important;
+    }
 
-        .st-emotion-cache-6qob1r,
-        .st-emotion-cache-1aumxhk,
-        .st-emotion-cache-q16mip {
-            color: #ffffff !important;
-        }
+    /* =====================================
+       SELECTBOX Y MULTISELECT (COLOR NARANJA)
+       ===================================== */
 
-        /* Hover del menú */
-        section[data-testid="stSidebar"] button:hover {
-            background-color: #ff8c0022 !important;
-            color: #ff8c00 !important;
-        }
+    /* Caja principal */
+    div[data-baseweb="select"] > div {
+        background-color: #1a1a1a !important;
+        border: 2px solid #ff7b00 !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+    }
 
-        /* ======== MULTISELECT ======== */
+    /* Texto interno */
+    div[data-baseweb="select"] span {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
 
-        /* Chips (tags) */
-        div[data-baseweb="tag"] {
-            background: #222222 !important;
-            color: #ff8c00 !important;
-            border: 1px solid #ff8c00 !important;
-        }
+    /* Flecha del select */
+    div[data-baseweb="select"] svg {
+        fill: #ff7b00 !important;
+    }
 
-        /* Icono X de cada chip */
-        div[data-baseweb="tag"] svg {
-            fill: #ff8c00 !important;
-        }
+    /* Menú desplegable */
+    ul[role="listbox"] {
+        background-color: #1a1a1a !important;
+        border: 1px solid #ff7b00 !important;
+    }
 
-        /* Caja del multiselect */
-        .stMultiSelect > div {
-            background-color: #111111 !important;
-            border: 1px solid #444444 !important;
-            color: #ffffff !important;
-        }
+    /* Items del menú */
+    ul[role="listbox"] li {
+        color: white !important;
+        font-weight: 600 !important;
+    }
 
-        /* Dropdown */
-        .stMultiSelect div[data-baseweb="popover"] {
-            background-color: #111111 !important;
-            color: #ffffff !important;
-        }
+    /* Hover del item */
+    ul[role="listbox"] li:hover {
+        background-color: #ff7b00 !important;
+        color: #000 !important;
+    }
 
-        /* Hover de opciones */
-        .stMultiSelect li:hover {
-            background-color: #333333 !important;
-        }
+    /* TAGS DEL MULTISELECT — COLOR NARANJA */
+    .css-1gtu0rj, .css-1n7v3ny, .css-12a3c0m {
+        background-color: #ff7b00 !important;
+        color: #000 !important;
+        font-weight: 800 !important;
+        border-radius: 6px !important;
+    }
 
-        /* Texto del input del multiselect */
-        .stMultiSelect input {
-            color: #ffffff !important;
-        }
+    /* Icono "X" dentro del tag */
+    .css-1gtu0rj svg, .css-1n7v3ny svg, .css-12a3c0m svg {
+        fill: #000 !important;
+    }
 
-        /* ======== BOTONES ======== */
-        .stButton>button {
-            background-color: #111111 !important;
-            border: 1px solid #ff8c00 !important;
-            color: white !important;
-            font-weight: 700 !important;
-        }
+    /* =====================================
+       BOTONES SECUNDARIOS (BORRAR FILTROS)
+       ===================================== */
+    button[kind="secondary"] {
+        background-color: #222 !important;
+        color: #ff7b00 !important;
+        border: 1px solid #ff7b00 !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+    }
 
-        .stButton>button:hover {
-            background-color: #ff8c00 !important;
-            color: #000000 !important;
-        }
+    button[kind="secondary"]:hover {
+        background-color: #ff7b00 !important;
+        color: black !important;
+        border: 1px solid #ff7b00 !important;
+    }
 
-        /* Botones secundarios */
-        button[kind="secondary"] {
-            background-color: #111111 !important;
-            border: 1px solid #ff8c00 !important;
-            color: white !important;
-        }
-
-        /* Inputs, selects, sliders */
-        .stTextInput > div > div,
-        .stSelectbox > div,
-        .stNumberInput > div,
-        .stSlider > div,
-        textarea {
-            background-color: #111111 !important;
-            color: #ffffff !important;
-            border: 1px solid #333333 !important;
-        }
-
-        /* Placeholder */
-        ::placeholder {
-            color: #cccccc !important;
-        }
+    /* =====================================
+       LIMPIAR FONDOS BLANCOS RESIDUALES
+       ===================================== */
+    div, section, article {
+        background: transparent !important;
+    }
 
     </style>
     """, unsafe_allow_html=True)
