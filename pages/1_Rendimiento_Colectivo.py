@@ -1,5 +1,5 @@
 # ===========================================
-# 1_Rendimiento_Colectivo.py — Cibao FC Data Hub (fix types + dict keys)
+# 1_Rendimiento_Colectivo.py — Cibao FC Data Hub
 # ===========================================
 import streamlit as st
 import pandas as pd
@@ -7,8 +7,12 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
+# 👉 Menú lateral personalizado (Liga / Copa)
+from sidebar_menu import sidebar_menu
+sidebar_menu()
+
 from src.data_processing.load_cibao_team_data import load_cibao_team_data
-from src.utils.metrics_dictionary import METRICS_DICT  # español -> nombre real
+from src.utils.metrics_dictionary import METRICS_DICT
 from graficos_de_navaja_suiza import (
     load_data as load_liga_mayor_data,
     make_team_scatter,
@@ -18,10 +22,13 @@ from graficos_de_navaja_suiza import (
 
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Rendimiento Colectivo - Cibao FC", layout="wide")
+
 PALETTE = ["#FF8C00", "#FFA94D", "#FFD6A5", "#F1F5F9"]
-THEME_DARK = dict(template="plotly_dark",
-                   paper_bgcolor="rgba(0,0,0,0)",
-                   plot_bgcolor="rgba(0,0,0,0)")
+THEME_DARK = dict(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)"
+)
 
 # ---------- DATA ----------
 try:
@@ -30,12 +37,12 @@ except Exception as e:
     st.error(f"❌ Error cargando datos: {e}")
     st.stop()
 
+# Limpieza rápida de columnas
 df_cibao.columns = [c.strip().replace("\n", " ").replace("  ", " ") for c in df_cibao.columns]
 
 @st.cache_data
 def load_liga_mayor_per90():
     return load_liga_mayor_data(LIGA_MAYOR_DATA_FILE)
-
 
 try:
     df_liga_mayor = load_liga_mayor_per90()
@@ -53,6 +60,7 @@ Lectura de <b>modelo de juego</b>, <b>eficiencia por fases</b> y <b>tendencias c
 Diseñado para soporte táctico del staff técnico — decisiones claras, con contexto.
 </p>
 """, unsafe_allow_html=True)
+
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ===============================================
