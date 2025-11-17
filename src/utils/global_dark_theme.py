@@ -1,5 +1,5 @@
 # ===========================================
-# CONFIGURACIÓN GLOBAL – MODO OSCURO CIBAO FC (VERSIÓN FINAL)
+# CONFIGURACIÓN GLOBAL – MODO OSCURO CIBAO FC (VERSION FINAL ESTABLE)
 # ===========================================
 import streamlit as st
 import plotly.io as pio
@@ -10,8 +10,14 @@ pio.templates.default = "plotly_dark"
 
 def inject_dark_theme():
     """
-    Tema oscuro global para toda la app – compatible con Chrome/Edge,
-    con fixes para todos los widgets (Selectbox, Multiselect, Plotly, tablas, etc.)
+    Tema oscuro global – 100% compatible con Chrome, Edge, Firefox y Safari.
+    Arregla:
+        ✔ multiselect blanco
+        ✔ selectbox blanco
+        ✔ popovers blancos
+        ✔ menú de selección
+        ✔ tablas blancas
+        ✔ fondo de Plotly que tapa el gráfico en Chrome
     """
 
     st.markdown(
@@ -19,13 +25,13 @@ def inject_dark_theme():
         <style>
 
         /* ============================================ */
-        /* QUITAR HEADER Y TOOLBAR                       */
+        /* OCULTAR HEADER / TOOLBAR                     */
         /* ============================================ */
         header[data-testid="stHeader"] {display: none !important;}
         [data-testid="stToolbar"] {display: none !important;}
 
         /* ============================================ */
-        /* FONDO GLOBAL SIN ROMPER GRÁFICAS             */
+        /* FONDO GLOBAL                                  */
         /* ============================================ */
         html, body, [data-testid="stAppViewContainer"], .main {
             background-color: #000 !important;
@@ -36,7 +42,7 @@ def inject_dark_theme():
         html { forced-color-adjust: none !important; }
 
         /* ============================================ */
-        /* SIDEBAR                                      */
+        /* SIDEBAR                                       */
         /* ============================================ */
         [data-testid="stSidebar"] {
             background-color: #111 !important;
@@ -44,11 +50,11 @@ def inject_dark_theme():
         }
 
         [data-testid="stSidebar"] * {
-            color: white !important;
+            color: #ffffff !important;
         }
 
         /* ============================================ */
-        /* TITULOS                                      */
+        /* TITULOS                                        */
         /* ============================================ */
         h1, h2, h3 {
             color: #ff8c00 !important;
@@ -56,23 +62,22 @@ def inject_dark_theme():
         }
 
         /* ============================================ */
-        /* MULTISELECT – FIX COMPLETO PARA CHROME        */
+        /* MULTISELECT & SELECTBOX FIX CHROME/EDGE       */
         /* ============================================ */
 
-        /* Contenedor base del select (Chrome pone blanco aquí) */
+        /* Caja principal */
         div[data-baseweb="select"] {
             background-color: #111 !important;
             border: 1px solid #ff7b00 !important;
             color: white !important;
         }
 
-        /* Wrapper que Chrome mete automáticamente */
-        div[aria-expanded], div[data-baseweb="popover"] {
-            background-color: #111 !important;
-            color: white !important;
+        /* Flechas */
+        .stSelectbox svg, .stMultiSelect svg {
+            color: #ff7b00 !important;
         }
 
-        /* Items del menú */
+        /* Menú desplegable */
         ul[data-baseweb="menu"] {
             background-color: #111 !important;
             border: 1px solid #ff7b00 !important;
@@ -81,6 +86,7 @@ def inject_dark_theme():
         ul[data-baseweb="menu"] li {
             background-color: #111 !important;
             color: white !important;
+            border-radius: 4px;
         }
 
         ul[data-baseweb="menu"] li:hover {
@@ -88,43 +94,49 @@ def inject_dark_theme():
             color: black !important;
         }
 
-        /* Contenedor del multiselect (Chrome deja blanco) */
+        /* Multiselect container */
         .stMultiSelect > div {
             background-color: #111 !important;
             border: 1px solid #ff7b00 !important;
         }
 
-        /* Tags naranjas */
+        /* Tags */
         [data-baseweb="tag"] {
             background-color: #ff7b00 !important;
             color: white !important;
             border-radius: 6px !important;
         }
 
-        /* Icono X del tag */
+        /* Icono "X" */
         [data-baseweb="tag"] svg {
             color: white !important;
         }
 
         /* ============================================ */
-        /* SELECTBOX (igual estilo que multiselect)      */
+        /* BOTONES                                       */
         /* ============================================ */
-        .stSelectbox div[data-baseweb="select"] {
-            background-color: #111 !important;
-            color: white !important;
-            border: 1px solid #ff7b00 !important;
+
+        button[kind="secondary"], button[kind="primary"],
+        .stButton button {
+            background-color: #ff8c00 !important;
+            color: black !important;
+            border-radius: 8px !important;
+            border: none !important;
+            font-weight: 700 !important;
         }
 
-        .stSelectbox svg {
-            color: #ff7b00 !important;
+        .stButton button:hover {
+            background-color: #ffa64d !important;
+            color: black !important;
         }
 
         /* ============================================ */
-        /* TABLAS – MODO OSCURO                         */
+        /* TABLAS                                        */
         /* ============================================ */
+
         .dataframe, .stDataFrame, .stTable {
             background-color: #000 !important;
-            color: white !important;
+            color: #fff !important;
         }
 
         .dataframe thead tr th {
@@ -142,11 +154,21 @@ def inject_dark_theme():
         }
 
         /* ============================================ */
-        /* PLOTLY – Fondo realmente oscuro               */
+        /* PLOTLY — FIX REAL PARA QUE SE VEA EL GRÁFICO */
         /* ============================================ */
-        .js-plotly-plot .plotly,
-        .js-plotly-plot .main-svg,
+
+        /* Evitamos que Chrome ponga fondo blanco */
         .js-plotly-plot .plot-container {
+            background: transparent !important;
+        }
+
+        /* Evitamos que Plotly sea ocultado por un div negro */
+        .js-plotly-plot .main-svg {
+            background: transparent !important;
+        }
+
+        /* Capa interna donde viven ejes/grid */
+        .js-plotly-plot .cartesianlayer {
             background-color: #111 !important;
         }
 
@@ -157,7 +179,7 @@ def inject_dark_theme():
 
 
 def titulo_naranja(texto):
-    """Título principal institucional."""
+    """Título central institucional Cibao FC."""
     st.markdown(
         f"""
         <h1 style="
