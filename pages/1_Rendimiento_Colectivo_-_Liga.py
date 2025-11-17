@@ -298,7 +298,7 @@ def styled_multiselect(label, options, default, key):
     fondo gris oscuro, borde naranja, texto pequeño y limpio.
     """
 def inject_dark_theme():
-    st.markdown(
+st.markdown(
         f"""
         <div style="
             background-color:{CIBAO_DARKGRAY};
@@ -398,7 +398,7 @@ if not df_liga_mayor.empty:
         html, body, [data-testid="stAppViewContainer"], .main {
             background-color:#000 !important;
             color:#fff !important;
-        }
+       }
     )
     if not team_options:
         st.info("No hay rivales disponibles en el dataset de Liga Mayor.")
@@ -952,7 +952,7 @@ def build_table(df, metrics_dict, title):
         .stMultiSelect [data-baseweb="tag"] {
             background-color:#ff7b00 !important;
             color:white !important;
-        }
+       }
     ).format(precision=2)
 
     # Altura dinámica: 45px por fila + margen superior
@@ -1023,7 +1023,7 @@ if not df_base.empty:
         </style>
         """,
         unsafe_allow_html=True,
-    )
+)
 
 
 
@@ -1065,8 +1065,8 @@ else:
     # 🧩 BLOQUE 0 — ANÁLISIS RÁPIDO CIBAO VS RIVAL (Copa)
     # ==============================
 def titulo_naranja(texto):
-    st.markdown(
-        f"""
+st.markdown(
+f"""
         <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
         Comparativa Copa (Cibao vs Rival)
         </h2>
@@ -1079,9 +1079,9 @@ def titulo_naranja(texto):
             color:#ff8c00;
             text-shadow:0 0 14px rgba(255,140,0,0.65);
         ">{texto}</h1>
-        """,
-        unsafe_allow_html=True,
-    )
+       """,
+unsafe_allow_html=True,
+)
 
     col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.2, 1])
 
