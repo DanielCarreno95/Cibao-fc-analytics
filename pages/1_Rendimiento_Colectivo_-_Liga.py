@@ -1049,7 +1049,7 @@ with tab4:
     st.markdown("""
     <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Distribución Táctica</h2>
     <p style='text-align:center; color:#ccc;'>
-    Análisis de la estructura defensiva del Cibao FC según alturas de recuperación y zonas de presión.
+    Análisis de la estructura defensiva del Cibao FC según alturas de recuperación y niveles de presión.
     </p>
     """, unsafe_allow_html=True)
 
@@ -1071,12 +1071,8 @@ with tab4:
     }
 
     # ===========================
-    # PALETA PARA HEATMAP
+    # ESCALA CIBAO — MISMA PARA AMBOS HEATMAPS
     # ===========================
-
-    CIBAO_ORANGE = "#FF8C00"
-    CIBAO_DARK = "#111"
-    CIBAO_GRAY = "#D3D3D3"
 
     HEATMAP_COLORSCALE = [
         [0.0, "#2a2a2a"],
@@ -1085,8 +1081,12 @@ with tab4:
         [1.0, "#ffae42"]
     ]
 
+    CIBAO_ORANGE = "#FF8C00"
+    CIBAO_DARK = "#111"
+    CIBAO_GRAY = "#D3D3D3"
+
     # ===========================
-    # FUNCIÓN PARA HEATMAP
+    # FUNCIÓN PARA HEATMAP + NORMALIZACIÓN
     # ===========================
 
     def plot_heatmap(nombre_grupo, mapping):
@@ -1100,8 +1100,18 @@ with tab4:
             st.warning(f"No hay datos disponibles para: {nombre_grupo}")
             return
 
-        serie = dfp[cols].mean().fillna(0)
-        valores = serie.values.reshape(1, -1)
+        series = dfp[cols].mean().fillna(0)
+
+        # NORMALIZACIÓN para que ambas escalas luzcan igual
+        min_val = series.min()
+        max_val = series.max()
+
+        if max_val - min_val == 0:
+            norm = [0 for _ in series]
+        else:
+            norm = [(v - min_val) / (max_val - min_val) for v in series]
+
+        valores = np.array(norm).reshape(1, -1)
 
         fig = go.Figure(
             data=go.Heatmap(
@@ -1109,7 +1119,13 @@ with tab4:
                 x=labels,
                 y=[""],
                 colorscale=HEATMAP_COLORSCALE,
-                showscale=True
+                showscale=True,
+                colorbar=dict(
+                    title="Intensidad",
+                    thickness=12,
+                    tickfont=dict(color=CIBAO_GRAY),
+                    titlefont=dict(color=CIBAO_GRAY),
+                )
             )
         )
 
@@ -1129,21 +1145,28 @@ with tab4:
 
         st.plotly_chart(fig, use_container_width=True)
 
-        max_metric = serie.idxmax()
-        min_metric = serie.idxmin()
+        # ----------------- CONCLUSIONES -----------------
 
-        st.markdown(f"""
-        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                    margin-top:-8px; margin-bottom:25px;'>
-            <b>Conclusiones tácticas</b><br><br>
+        max_metric = series.idxmax()
+        min_metric = series.idxmin()
 
-            • <b>Zona de mayor incidencia:</b> El comportamiento más destacado se produce en 
-              <b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>.<br><br>
+        # HTML limpio, sin caracteres escapados
+        conclusion_html = f"""
+<div style='background:#111; padding:14px; border-left:3px solid {CIBAO_ORANGE};
+            margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
 
-            • <b>Zona con menor actividad:</b> El registro más bajo corresponde a 
-              <b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, área donde existe margen para ajustar la altura del bloque.<br><br>
-        </div>
-        """, unsafe_allow_html=True)
+<b>Conclusiones tácticas</b><br><br>
+
+• <b>Zona de mayor incidencia:</b> El comportamiento más destacado se produce en 
+<b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>.<br><br>
+
+• <b>Zona con menor actividad:</b> El registro más bajo corresponde a 
+<b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, zona donde existe margen para ajustar la altura del bloque.
+<br><br>
+</div>
+"""
+
+        st.markdown(conclusion_html, unsafe_allow_html=True)
 
     # ===========================
     # LAYOUT — 2 HEATMAPS
