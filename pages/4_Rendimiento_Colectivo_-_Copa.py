@@ -268,6 +268,7 @@ tab_ofensivo, tab_pases, tab_defensivo, tab_set_pieces, tab_general = st.tabs(
         "Construcción y Pases",
         "Defensa y Eficiencia",
         "Acciones a balón parado",
+        "Análisis Comparativo (Tablas)",
     ]
 )
 
@@ -610,3 +611,15 @@ with tab_set_pieces:
         plot_setpiece_group("Reinicios básicos", grupo_sp1)
     with col_sp2:
         plot_setpiece_group("Saques de esquina", grupo_sp2)
+
+with tab_general:
+    st.markdown(
+        """
+        <h3 style='text-align:center; color:#ff8c00;'>Análisis Comparativo (Tablas)</h3>
+        <p style='text-align:center; color:#bbb; font-size:14px;'>
+            Aquí podrás incorporar las tablas comparativas o cualquier reporte final que quieras mostrar.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.info("Pendiente de integrar las tablas dinámicas para Copa Concacaf.")
