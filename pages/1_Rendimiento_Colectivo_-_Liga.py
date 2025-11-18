@@ -817,7 +817,6 @@ with tab3:
     </p>
     """, unsafe_allow_html=True)
 
-
     # ===========================
     # DEFINICIÓN DE GRUPOS
     # ===========================
@@ -843,7 +842,7 @@ with tab3:
 
         "Volumen y calidad de llegadas rivales": {
             "Disparos en contra por 90": "shots_against",
-            "Disparos en contra a puerta": "shots_against_on_target",
+            "Disparos en contra a puerta": "shots_again_target",
             "Eficiencia rival (tiros a puerta %)": "shots_against_on_target_percent",
         },
 
@@ -852,14 +851,13 @@ with tab3:
         }
     }
 
-
     # ===========================
     # PALETA
     # ===========================
+
     CIBAO_ORANGE = "#FF8C00"
     CIBAO_BLACK = "#111"
     CIBAO_GRAY = "#D3D3D3"
-
 
     # ============================================================
     # 🔶 FUNCIONES DE GRÁFICO
@@ -869,7 +867,6 @@ with tab3:
     def plot_horizontal(nombre, mapping):
 
         dfp = df_filtrado.copy()
-
         cols = [v for v in mapping.values() if v in dfp.columns]
         labels = {v: k for k, v in mapping.items() if v in dfp.columns}
 
@@ -877,12 +874,8 @@ with tab3:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        df_mean = (
-            dfp[cols].mean()
-            .reset_index()
-            .rename(columns={"index": "metric", 0: "valor"})
-        )
-
+        df_mean = dfp[cols].mean().reset_index()
+        df_mean.columns = ["metric", "valor"]
         df_mean["label"] = df_mean["metric"].map(labels)
         df_mean = df_mean.sort_values("valor", ascending=True)
 
@@ -912,23 +905,18 @@ with tab3:
         min_row = df_mean.iloc[0]
 
         st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};margin-top:-8px;margin-bottom:25px;'>
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px;margin-bottom:25px;'>
         <b>Conclusiones tácticas</b><br><br>
-        • <b>Comportamiento destacado:</b> El equipo muestra mayor solvencia en <b>{max_row['label']}</b>, 
-          lo cual refleja ventaja competitiva en situaciones individuales de disputa.<br><br>
-
-        • <b>Aspecto mejorable:</b> La métrica más baja es <b>{min_row['label']}</b>, señalando un área donde 
-          la estructura defensiva puede elevar su consistencia.
+        • <b>Comportamiento destacado:</b> Mayor solvencia en <b>{max_row['label']}</b>.<br><br>
+        • <b>Aspecto mejorable:</b> Valor más bajo en <b>{min_row['label']}</b>.
         </div>
         """, unsafe_allow_html=True)
-
-
 
     # --- BARRAS VERTICALES ---
     def plot_vertical(nombre, mapping):
 
         dfp = df_filtrado.copy()
-
         cols = [v for v in mapping.values() if v in dfp.columns]
         labels = {v: k for k, v in mapping.items() if v in dfp.columns}
 
@@ -936,11 +924,8 @@ with tab3:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        df_mean = (
-            dfp[cols].mean()
-            .reset_index()
-            .rename(columns={"index": "metric", 0: "valor"})
-        )
+        df_mean = dfp[cols].mean().reset_index()
+        df_mean.columns = ["metric", "valor"]
         df_mean["label"] = df_mean["metric"].map(labels)
         df_mean = df_mean.sort_values("valor", ascending=False)
 
@@ -970,18 +955,15 @@ with tab3:
         min_row = df_mean.iloc[-1]
 
         st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};margin-top:-8px;margin-bottom:25px;'>
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px;margin-bottom:25px;'>
         <b>Conclusiones tácticas</b><br><br>
-        • <b>Mayor influencia defensiva:</b> El equipo destaca en <b>{max_row['label']}</b>, 
-          comportamiento clave en la protección del área y en la interrupción de avances rivales.<br><br>
-
-        • <b>Zona con margen de mejora:</b> La métrica con menor impacto es <b>{min_row['label']}</b>, 
-          elemento donde aumentar la consistencia reforzaría el bloque defensivo.
+        • <b>Mayor influencia:</b> <b>{max_row['label']}</b>.<br><br>
+        • <b>Zona con margen de mejora:</b> <b>{min_row['label']}</b>.
         </div>
         """, unsafe_allow_html=True)
 
-
-    # --- GAUGE LINEAL ---
+    # --- GAUGE LINEAL (UNIFICADO) ---
     def plot_gauge(mapping):
 
         col = list(mapping.values())[0]
@@ -993,33 +975,39 @@ with tab3:
 
         value = df_filtrado[col].mean()
 
+        max_rango = max(40, value * 1.8)  # rango uniforme
+
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=value,
             title={'text': f"<b>{label}</b>", 'font': {'color': CIBAO_ORANGE, 'size': 18}},
             gauge={
-                'axis': {'range': [0, value*2]},
+                'axis': {'range': [0, max_rango]},
                 'bar': {'color': CIBAO_ORANGE},
                 'bgcolor': "#333",
+                'borderwidth': 1,
+                'bordercolor': "#555",
             }
         ))
 
         fig.update_layout(
             paper_bgcolor=CIBAO_BLACK,
-            height=220,
+            plot_bgcolor=CIBAO_BLACK,
+            height=260,  # unificado
+            margin=dict(l=20, r=20, t=60, b=20),
             font=dict(color=CIBAO_GRAY)
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
         st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};margin-top:-5px;margin-bottom:25px;'>
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-5px;margin-bottom:25px;'>
         <b>Conclusión táctica</b><br><br>
-        • La <b>distancia media de disparo ({value:.1f} m)</b> refleja la capacidad del equipo para empujar al rival
-          a zonas menos ventajosas, reduciendo la probabilidad de ocasiones claras.
+        • La <b>distancia media de disparo ({value:.1f} m)</b> indica la capacidad del equipo para limitar
+          la calidad de las ocasiones rivales.
         </div>
         """, unsafe_allow_html=True)
-
 
     # ===========================
     # LAYOUT 2 × 2 + 1
@@ -1206,16 +1194,12 @@ with tab5:
     </p>
     """, unsafe_allow_html=True)
 
-
     # ============================================================
-    # 📋 NUEVO DICCIONARIO DE BLOQUES (AMPLIADO Y DEPURADO)
+    # 📋 DICCIONARIO DE MÉTRICAS (AMPLIADO)
     # ============================================================
 
     metrics_blocks = {
 
-        # ---------------------------------------------------------
-        # 🔥 BLOQUE OFENSIVO — Rendimiento General + Eficiencia
-        # ---------------------------------------------------------
         "Ofensivas": {
             "Goles por partido": "goals",
             "xG (Goles esperados)": "xg",
@@ -1226,17 +1210,13 @@ with tab5:
             "Acciones de ataque por 90": "attacking_actions",
             "Acciones exitosas (%)": "successful_attacking_actions_percent",
             "Contraataques por 90": "counter_attacks",
-            "Disparos tras contraataque": "counter_attack_shots",
             "Centros por 90": "crosses",
             "Precisión de centros (%)": "crosses_accurate_percent",
             "Pases clave por 90": "key_passes",
             "Asistencias esperadas (xA)": "xa",
-            "Corners por 90": "corners"
+            "Corners por 90": "corners",
         },
 
-        # ---------------------------------------------------------
-        # 🔶 BLOQUE CONSTRUCCIÓN / POSESIÓN
-        # ---------------------------------------------------------
         "Construcción y Pase": {
             "Posesión (%)": "possession_percent",
             "Pases por 90": "passes",
@@ -1244,18 +1224,15 @@ with tab5:
             "Precisión hacia adelante (%)": "forward_passes_accurate_percent",
             "Precisión hacia atrás (%)": "back_passes_accurate_percent",
             "Precisión lateral (%)": "lateral_passes_accurate_percent",
-            "Precisión pases progresivos (%)": "progressive_passes_accurate_percent",
             "Pases progresivos por 90": "progressive_passes",
-            "Pases al último tercio (%)": "passes_to_final_third_accurate_percent",
-            "Pases largos precisos (%)": "long_passes_accurate_percent",
-            "Pases inteligentes precisos (%)": "smart_passes_accurate_percent",
+            "Precisión pases progresivos (%)": "progressive_passes_accurate_percent",
+            "Precisión último tercio (%)": "passes_to_final_third_accurate_percent",
+            "Precisión pases largos (%)": "long_passes_accurate_percent",
+            "Precisión pases inteligentes (%)": "smart_passes_accurate_percent",
             "Pases al área por 90": "passes_to_penalty_area",
-            "Longitud media de pase": "average_pass_length"
+            "Longitud media de pase": "average_pass_length",
         },
 
-        # ---------------------------------------------------------
-        # 🛡 BLOQUE DEFENSIVO — Defensa + Presión + Duelos
-        # ---------------------------------------------------------
         "Defensivas": {
             "Intercepciones por 90": "interceptions",
             "Despejes por 90": "clearances",
@@ -1269,29 +1246,22 @@ with tab5:
             "Disparos en contra por 90": "shots_against",
             "Disparos en contra a puerta": "shots_against_on_target",
             "Eficiencia rival (%)": "shots_against_on_target_percent",
-            "PPDA": "ppda"
-        }
+            "PPDA": "ppda",
+        },
     }
 
-
     # ============================================================
-    # 🎨 PALETA CIBAO — VIVA (LA ORIGINAL DE 5 TONOS)
+    # 🎨 PALETA CIBAO — GRADIENTE VIVO
     # ============================================================
 
     from matplotlib.colors import LinearSegmentedColormap
     import matplotlib
-    import io
     import pandas as pd
+    import io
 
     CIBAO_ORANGE_CMAP = LinearSegmentedColormap.from_list(
         "cibao_orange",
-        [
-            "#ff6600",  # naranja fuerte
-            "#ff7b00",  # naranja medio
-            "#ff9933",  # ámbar
-            "#ffb84d",  # naranja suave
-            "#ffd699"   # crema cálido
-        ]
+        ["#ff6600", "#ff7b00", "#ff9933", "#ffb84d", "#ffd699"]
     )
 
     matplotlib.colormaps.register(
@@ -1299,7 +1269,6 @@ with tab5:
         name="cibao_orange",
         force=True
     )
-
 
     # ============================================================
     # 🔍 PREPARAR DATOS BASE
@@ -1311,6 +1280,7 @@ with tab5:
         st.info("No hay datos disponibles para los filtros seleccionados.")
     else:
         df_base = df_base.sort_values("Date", ascending=False)
+
         partidos_disponibles = df_base["Match"].nunique()
         df_base = df_base.head(min(partidos_disponibles, 5))
 
@@ -1318,49 +1288,55 @@ with tab5:
             f"Mostrando los últimos {len(df_base)} partidos disponibles (máximo 5)."
         )
 
-
         # ============================================================
-        # ⚙️ FUNCIÓN PARA TABLAS (SIN ERRORES + 2 DECIMALES)
+        # ⚙️ FUNCIÓN PARA GENERAR TABLA FORMATEADA
         # ============================================================
 
         def build_table(df, metrics_dict, title):
 
-            columnas = ["Match"] + list(metrics_dict.values())
-            df_local = df[columnas].copy()
+            # solo columnas que EXISTEN en df
+            columnas_existentes = [c for c in metrics_dict.values() if c in df.columns]
 
-            df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
+            if len(columnas_existentes) == 0:
+                st.warning(f"No hay datos disponibles para {title}.")
+                return df.iloc[:0]
 
-            # 👉 FORZAR REDONDEO REAL ANTES DEL STYLER
-            df_local = df_local.applymap(
-                lambda x: round(x, 2) if isinstance(x, (int, float)) else x
-            )
+            df_local = df[["Match"] + columnas_existentes].copy()
+
+            # renombrar
+            label_map = {v: k for k, v in metrics_dict.items() if v in columnas_existentes}
+            df_local = df_local.rename(columns=label_map)
+
+            # redondeo REAL a 2 decimales solo en numéricas
+            numeric_cols = df_local.select_dtypes(include=["number"]).columns
+            df_local[numeric_cols] = df_local[numeric_cols].round(2)
 
             st.markdown(
                 f"### <span style='color:#ff8c00;'>⬤ {title}</span>",
                 unsafe_allow_html=True
             )
 
-            styled = df_local.style.background_gradient(
-                cmap="cibao_orange"
-            ).set_properties(
-                **{
-                    "text-align": "center",
-                    "font-size": "12px",
-                    "border-color": "#333",
-                }
+            styled = (
+                df_local.style
+                .background_gradient(cmap="cibao_orange", subset=numeric_cols)
+                .set_properties(
+                    **{
+                        "text-align": "center",
+                        "font-size": "12px",
+                        "border-color": "#333",
+                    }
+                )
+                .format("{:.2f}", subset=numeric_cols)
             )
 
-            # 👉 FORZAR FORMATO VISUAL A 2 DECIMALES
-            styled = styled.format("{:.2f}")
-
             height = max(220, len(df_local) * 45 + 80)
+
             st.dataframe(styled, use_container_width=True, height=height)
 
             return df_local
 
-
         # ============================================================
-        # 📊 GENERAR TABLAS
+        # 📊 BLOQUES
         # ============================================================
 
         st.divider()
@@ -1372,12 +1348,12 @@ with tab5:
         st.divider()
         df_def = build_table(df_base, metrics_blocks["Defensivas"], "Bloque Defensivo")
 
-
         # ============================================================
         # 📥 DESCARGA EN EXCEL
         # ============================================================
 
         buffer = io.BytesIO()
+
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             df_off.to_excel(writer, sheet_name="Ofensivo", index=False)
             df_pass.to_excel(writer, sheet_name="Construccion_Pase", index=False)
@@ -1392,7 +1368,6 @@ with tab5:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-
         # ============================================================
         # 📌 INSIGHT FINAL
         # ============================================================
@@ -1400,7 +1375,8 @@ with tab5:
         st.markdown("""
         <div style='background:#111; padding:12px; border-left:3px solid #ff8c00; margin-top:20px;'>
             <b>Resumen general:</b><br><br>
-            Las tablas comparativas muestran de forma clara el rendimiento del equipo por fase del juego.
-            El gradiente naranja resalta qué áreas se destacan y cuáles requieren ajustes tácticos.
+            Las tablas comparativas permiten identificar de forma rápida qué bloques del modelo
+            (ofensivo, construcción y defensivo) están sosteniendo el rendimiento del equipo
+            y en cuáles existe margen para ajustar comportamientos.
         </div>
         """, unsafe_allow_html=True)
