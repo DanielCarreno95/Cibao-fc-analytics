@@ -1319,33 +1319,38 @@ with tab5:
     # ⚙️ FUNCIÓN DE TABLA ESTILIZADA
     # ============================================================
 
-    def build_table(df, metrics_dict, title):
+   def build_table(df, metrics_dict, title):
 
-        columnas = ["Match"] + list(metrics_dict.values())
-        df_local = df[columnas].copy()
+    columnas = ["Match"] + list(metrics_dict.values())
+    df_local = df[columnas].copy()
 
-        df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
-        df_local = df_local.round(2)
+    df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
+    df_local = df_local.round(2)  # redondeo numérico real en el DF
 
-        st.markdown(
-            f"### <span style='color:#ff8c00;'>⬤ {title}</span>",
-            unsafe_allow_html=True
-        )
+    st.markdown(
+        f"### <span style='color:#ff8c00;'>⬤ {title}</span>",
+        unsafe_allow_html=True
+    )
 
-        styled = df_local.style.background_gradient(
-            cmap="cibao_orange"
-        ).set_properties(
-            **{
-                "text-align": "center",
-                "font-size": "12px",
-                "border-color": "#333",
-            }
-        )
+    styled = df_local.style.background_gradient(
+        cmap="cibao_orange"
+    ).set_properties(
+        **{
+            "text-align": "center",
+            "font-size": "12px",
+            "border-color": "#333",
+        }
+    )
 
-        height = max(240, len(df_local) * 45 + 80)
-        st.dataframe(styled, use_container_width=True, height=height)
+    # 👉 FORZAR DOS DECIMALES SIEMPRE
+    styled = styled.format("{:.2f}")
 
-        return df_local
+    height = max(220, len(df_local) * 45 + 80)
+
+    st.dataframe(styled, use_container_width=True, height=height)
+
+    return df_local
+
 
     # ============================================================
     # 📊 BLOQUES
