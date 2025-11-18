@@ -347,8 +347,8 @@ with tab_ofensivo:
         plot_horizontal_group("Distribución de disparos", _dedup_pairs(grupo2))
 
     plot_horizontal_group("Ventajas generadas", _dedup_pairs(grupo3))
-
-with tab_pases:
+    
+    with tab_pases:
     st.markdown(
         """
         <h3 style='text-align:center; color:#ff8c00;'>Construcción y Pases</h3>
@@ -420,7 +420,7 @@ with tab_pases:
     else:
         st.warning("No hay datos disponibles para Construcción y Pases.")
 
- with tab_defensivo:
+with tab_defensivo:
     st.markdown(
         """
         <h3 style='text-align:center; color:#ff8c00;'>Defensa y Eficiencia</h3>
