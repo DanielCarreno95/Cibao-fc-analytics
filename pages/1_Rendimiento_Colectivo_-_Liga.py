@@ -1049,8 +1049,7 @@ with tab4:
     st.markdown("""
     <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Distribución Táctica</h2>
     <p style='text-align:center; color:#ccc;'>
-        Análisis de la estructura defensiva del Cibao FC a partir del comportamiento por zonas:
-        alturas de recuperación y niveles de presión ejercida.
+    Análisis de la estructura defensiva del Cibao FC según alturas de recuperación y zonas de presión.
     </p>
     """, unsafe_allow_html=True)
 
@@ -1059,13 +1058,11 @@ with tab4:
     # ===========================
 
     grupos_tacticos = {
-
         "Mapa de Recuperaciones por Altura": {
             "Recuperaciones altas por 90": "recoveries_high",
             "Recuperaciones medias por 90": "recoveries_medium",
             "Recuperaciones bajas por 90": "recoveries_low",
         },
-
         "Mapa de Presión por Altura": {
             "Presión alta (estimada)": "losses_high",
             "Presión media (estimada)": "losses_medium",
@@ -1074,7 +1071,7 @@ with tab4:
     }
 
     # ===========================
-    # PALETA CIBAO PARA HEATMAP
+    # PALETA PARA HEATMAP
     # ===========================
 
     CIBAO_ORANGE = "#FF8C00"
@@ -1089,70 +1086,67 @@ with tab4:
     ]
 
     # ===========================
-    # FUNCIÓN PARA HEATMAP (CORREGIDA)
+    # FUNCIÓN PARA HEATMAP
     # ===========================
 
-   def plot_heatmap(nombre_grupo, mapping):
+    def plot_heatmap(nombre_grupo, mapping):
 
-    dfp = df_filtrado.copy()
+        dfp = df_filtrado.copy()
 
-    cols = [v for v in mapping.values() if v in dfp.columns]
-    labels = [k for k, v in mapping.items() if v in dfp.columns]
+        cols = [v for v in mapping.values() if v in dfp.columns]
+        labels = [k for k, v in mapping.items() if v in dfp.columns]
 
-    if len(cols) == 0:
-        st.warning(f"No hay datos para: {nombre_grupo}")
-        return
+        if len(cols) == 0:
+            st.warning(f"No hay datos disponibles para: {nombre_grupo}")
+            return
 
-    # Evitar NaN
-    serie = dfp[cols].mean().fillna(0)
-    valores = serie.values.reshape(1, -1)
+        serie = dfp[cols].mean().fillna(0)
+        valores = serie.values.reshape(1, -1)
 
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=valores,
-            x=labels,
-            y=[""],
-            colorscale=HEATMAP_COLORSCALE,
-            showscale=True,  # DEJAMOS EL COLORBAR POR DEFECTO (SIN PERSONALIZAR)
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=valores,
+                x=labels,
+                y=[""],
+                colorscale=HEATMAP_COLORSCALE,
+                showscale=True
+            )
         )
-    )
 
-    fig.update_layout(
-        height=280,
-        template="plotly_dark",
-        title=dict(
-            text=f"<b>{nombre_grupo}</b>",
-            font=dict(size=18, color=CIBAO_ORANGE)
-        ),
-        title_x=0.5,
-        paper_bgcolor=CIBAO_DARK,
-        plot_bgcolor=CIBAO_DARK,
-        font=dict(color=CIBAO_GRAY),
-        margin=dict(l=20, r=20, t=60, b=20)
-    )
+        fig.update_layout(
+            height=280,
+            template="plotly_dark",
+            title=dict(
+                text=f"<b>{nombre_grupo}</b>",
+                font=dict(size=18, color=CIBAO_ORANGE)
+            ),
+            title_x=0.5,
+            paper_bgcolor=CIBAO_DARK,
+            plot_bgcolor=CIBAO_DARK,
+            font=dict(color=CIBAO_GRAY),
+            margin=dict(l=20, r=20, t=60, b=20)
+        )
 
-    st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
 
-    # -------- CONCLUSIONES TÁCTICAS --------
-    max_metric = serie.idxmax()
-    min_metric = serie.idxmin()
+        max_metric = serie.idxmax()
+        min_metric = serie.idxmin()
 
-    st.markdown(f"""
-    <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                margin-top:-8px; margin-bottom:25px;'>
-        <b>Conclusiones tácticas</b><br><br>
+        st.markdown(f"""
+        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px; margin-bottom:25px;'>
+            <b>Conclusiones tácticas</b><br><br>
 
-        • <b>Zona de mayor influencia:</b> El equipo registra mayor actividad en 
-          <b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>.<br><br>
+            • <b>Zona de mayor incidencia:</b> El comportamiento más destacado se produce en 
+              <b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>.<br><br>
 
-        • <b>Zona menos activa:</b> La menor intervención aparece en 
-          <b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, un área donde aumentar la intensidad 
-          puede optimizar la estructura del bloque.<br><br>
-    </div>
-    """, unsafe_allow_html=True)
+            • <b>Zona con menor actividad:</b> El registro más bajo corresponde a 
+              <b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, área donde existe margen para ajustar la altura del bloque.<br><br>
+        </div>
+        """, unsafe_allow_html=True)
 
     # ===========================
-    # LAYOUT 2 HEATMAPS
+    # LAYOUT — 2 HEATMAPS
     # ===========================
 
     col1, col2 = st.columns(2)
