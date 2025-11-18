@@ -54,53 +54,31 @@ def _handle_go_param():
     page = mapping.get(str(go).lower())
     if page:
         try:
-            st.query_params.clear()
-        except Exception:
-            st.experimental_set_query_params()
-        st.switch_page(page)
-
-# Llamar al router lo antes posible
-_handle_go_param()
+            # Verificar que el archivo existe antes de cambiar de página
+            import os
+            if os.path.exists(page):
+                try:
+                    st.query_params.clear()
+                except Exception:
+                    try:
+                        st.experimental_set_query_params()
+                    except Exception:
+                        pass
+                st.switch_page(page)
+        except Exception as e:
+            # Si hay error, simplemente continuar con el hub
+            pass
 
 
 # ===========================================
 # LOGIN PAGE
 # ===========================================
 def login_page():
+    # Minimal CSS - only hide sidebar/toolbar
     st.markdown("""
         <style>
         [data-testid="stSidebar"], [data-testid="stToolbar"], header[data-testid="stHeader"] {
             display: none !important;
-        }
-        [data-testid="stAppViewContainer"] {
-            background:
-              linear-gradient(rgba(10,10,10,0.65), rgba(10,10,10,0.8)),
-              url("https://www.presidencia.gob.do/sites/default/files/inline-images/00449e09-428b-4cf5-9264-c9204705de13.jpeg");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }
-        div.block-container > div:first-child:empty {
-            background: rgba(20, 20, 25, 0.82);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.45);
-            backdrop-filter: blur(12px);
-            width: 520px;
-            padding: 3rem 3rem;
-            margin: auto;
-            display: flex !important;
-            flex-direction: column;
-            justify-content: center;
-            align-items: stretch;
-            transform: translateY(20vh);
-        }
-        div.block-container {
-            display: flex !important;
-            justify-content: center !important;
-            align-items: flex-start !important;
-            height: 100vh !important;
-            padding-top: 0 !important;
         }
         .login-title {
             font-size: 2.2rem;
@@ -141,18 +119,12 @@ def login_page():
             transform: translateY(-2px);
             box-shadow: 0 0 20px rgba(255,123,0,0.4);
         }
-        @keyframes fadein {
-            from { opacity: 0; transform: translateY(-15px) scale(0.9); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
         </style>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
-        <div style="text-align:center; animation: fadein 1.8s ease;">
-            <img src="https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png" width="140">
-        </div>
-    """, unsafe_allow_html=True)
+    # Simple title first to test rendering
+    st.title("Cibao FC - Hub")
+    st.write("Centro de análisis de rendimiento colectivo e individual basado en datos 📊")
 
     placeholder = st.empty()
     with placeholder.container():
@@ -186,12 +158,9 @@ def main_hub():
             display: none !important;
         }
         [data-testid="stAppViewContainer"] {
-            background:
-              linear-gradient(rgba(10,10,10,0.75), rgba(10,10,10,0.85)),
-              url("https://www.presidencia.gob.do/sites/default/files/inline-images/00449e09-428b-4cf5-9264-c9204705de13.jpeg");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
+            background: linear-gradient(rgba(10,10,10,0.75), rgba(10,10,10,0.85));
+            /* Background image temporarily disabled due to Cloudflare outage */
+            /* url("https://www.presidencia.gob.do/sites/default/files/inline-images/00449e09-428b-4cf5-9264-c9204705de13.jpeg"); */
         }
         .hub-title {
             font-size: 2.8rem;
@@ -230,11 +199,13 @@ def main_hub():
     """, unsafe_allow_html=True)
 
     # ======== LOGO Y TITULOS ========
-    st.markdown("""
-        <div style="text-align:center; margin-top:2vh;">
-            <img src="https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png" width="120">
-        </div>
-    """, unsafe_allow_html=True)
+    # Logo temporarily disabled due to potential Cloudflare issues
+    # st.markdown("""
+    #     <div style="text-align:center; margin-top:2vh;">
+    #         <img src="https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png" width="120">
+    #     </div>
+    # """, unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center; margin-top:2vh; font-size:2rem; color:#ff7b00;'>⚽ Cibao FC</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='hub-title'>Cibao FC - Data Hub</div>", unsafe_allow_html=True)
     st.markdown("<div class='hub-subtitle'>Centro integral de análisis táctico y rendimiento basado en datos ⚽</div>", unsafe_allow_html=True)
@@ -283,9 +254,16 @@ if "auth" not in st.session_state:
     st.session_state["auth"] = False
     st.session_state["page"] = "login"
 
-if not st.session_state["auth"]:
-    login_page()
-else:
-    if st.session_state.get("page") != "hub":
-        st.session_state["page"] = "hub"
-    main_hub()
+# Debug: Check what's happening
+try:
+    if not st.session_state["auth"]:
+        login_page()
+    else:
+        # Manejar parámetros de navegación rápida solo si está autenticado
+        _handle_go_param()
+        if st.session_state.get("page") != "hub":
+            st.session_state["page"] = "hub"
+        main_hub()
+except Exception as e:
+    st.error(f"Error in app: {str(e)}")
+    st.exception(e)
