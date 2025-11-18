@@ -1086,98 +1086,117 @@ with tab4:
     CIBAO_ORANGE = "#FF8C00"
     CIBAO_GRAY = "#D3D3D3"
 
-    # ===========================
-    # FUNCIÓN PARA HEATMAP
-    # ===========================
+# ===========================
+# FUNCIÓN PARA HEATMAP — COLORES FIJOS POR RANKING
+# ===========================
 
-    def plot_heatmap(nombre_grupo, mapping):
+def plot_heatmap(nombre_grupo, mapping):
 
-        dfp = df_filtrado.copy()
+    dfp = df_filtrado.copy()
 
-        cols = [v for v in mapping.values() if v in dfp.columns]
-        labels = [k for k, v in mapping.items() if v in dfp.columns]
+    cols = [v for v in mapping.values() if v in dfp.columns]
+    labels = [k for k, v in mapping.items() if v in dfp.columns]
 
-        if len(cols) == 0:
-            st.warning(f"No hay datos para: {nombre_grupo}")
-            return
+    if len(cols) == 0:
+        st.warning(f"No hay datos disponibles para: {nombre_grupo}")
+        return
 
-        # datos reales
-        series_real = dfp[cols].mean().fillna(0)
+    # ---------------------------
+    # 1. Datos reales
+    # ---------------------------
+    series_real = dfp[cols].mean().fillna(0)
 
-        # normalización
-        min_val, max_val = series_real.min(), series_real.max()
-        if max_val - min_val == 0:
-            normalized = np.zeros_like(series_real, dtype=float)
-        else:
-            normalized = (series_real - min_val) / (max_val - min_val)
+    # ---------------------------
+    # 2. RANKING → 0,1,2 (bajo–medio–alto)
+    # ---------------------------
+    rank = series_real.rank(method="dense") - 1
+    rank = rank.astype(int)
 
-        # Convertimos a numpy antes de reshape (AQUÍ ESTABA EL ERROR)
-        z_vals = normalized.to_numpy().reshape(1, -1)
+    # Convertir ranking a matriz 1×N (valores fijos 0–1–2)
+    z_vals = rank.to_numpy().reshape(1, -1)
 
-        # Heatmap
-        fig = go.Figure(
-            data=go.Heatmap(
-                z=z_vals,
-                x=labels,
-                y=[""],
-                colorscale=HEATMAP_COLORSCALE,
-                showscale=True,
-                colorbar=dict(
-                    thickness=10,
-                    bgcolor="#111",
-                    tickfont=dict(color=CIBAO_GRAY)
-                )
+    # ---------------------------
+    # 3. PALETA FIJA CIBAO PARA RANKING
+    # ---------------------------
+    HEATMAP_COLORSCALE = [
+        [0.0, "#2a2a2a"],   # menor → gris oscuro
+        [0.5, "#ff7b00"],   # medio → naranja fuerte cibao
+        [1.0, "#ffae42"]    # mayor → naranja claro
+    ]
+
+    # ---------------------------
+    # 4. HEATMAP
+    # ---------------------------
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=z_vals,
+            x=labels,
+            y=[""],
+            colorscale=HEATMAP_COLORSCALE,
+            showscale=True,
+            colorbar=dict(
+                thickness=10,
+                tickvals=[0, 1, 2],
+                ticktext=["Bajo", "Medio", "Alto"],
+                bgcolor="#111",
+                tickfont=dict(color=CIBAO_GRAY)
+            )
+        )
+    )
+
+    # ---------------------------
+    # 5. Mostrar valores en cada celda
+    # ---------------------------
+    annotations = []
+    for j, label in enumerate(labels):
+        annotations.append(
+            dict(
+                x=label,
+                y="",
+                text=f"{series_real.iloc[j]:.2f}",
+                font=dict(color="white", size=13),
+                showarrow=False
             )
         )
 
-        # Valores en cada celda
-        annotations = []
-        for j, label in enumerate(labels):
-            annotations.append(
-                dict(
-                    x=label,
-                    y="",
-                    text=f"{series_real.iloc[j]:.2f}",
-                    font=dict(color="white", size=13),
-                    showarrow=False
-                )
-            )
+    fig.update_layout(
+        annotations=annotations,
+        height=280,
+        template="plotly_dark",
+        title=dict(
+            text=f"<b>{nombre_grupo}</b>",
+            font=dict(size=18, color=CIBAO_ORANGE)
+        ),
+        title_x=0.5,
+        paper_bgcolor="#111",
+        plot_bgcolor="#111",
+        margin=dict(l=20, r=20, t=50, b=20)
+    )
 
-        fig.update_layout(
-            annotations=annotations,
-            height=280,
-            template="plotly_dark",
-            title=dict(
-                text=f"<b>{nombre_grupo}</b>",
-                font=dict(size=18, color=CIBAO_ORANGE)
-            ),
-            title_x=0.5,
-            paper_bgcolor="#111",
-            plot_bgcolor="#111",
-            margin=dict(l=20, r=20, t=50, b=20)
-        )
+    st.plotly_chart(fig, use_container_width=True)
 
-        st.plotly_chart(fig, use_container_width=True)
+    # ---------------------------
+    # 6. CONCLUSIONES TÁCTICAS
+    # ---------------------------
+    max_m = series_real.idxmax()
+    min_m = series_real.idxmin()
 
-        # --- CONCLUSIONES TÁCTICAS ---
-        max_m = series_real.idxmax()
-        min_m = series_real.idxmin()
+    c1 = [k for k, v in mapping.items() if v == max_m][0]
+    c2 = [k for k, v in mapping.items() if v == min_m][0]
 
-        c1 = [k for k, v in mapping.items() if v == max_m][0]
-        c2 = [k for k, v in mapping.items() if v == min_m][0]
+    st.markdown(f"""
+    <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
 
-        st.markdown(f"""
-        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                    margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
+    <b>Conclusiones tácticas</b><br><br>
 
-        <b>Conclusiones tácticas</b><br><br>
+    • <b>Zona de mayor incidencia:</b> mayor actividad en <b>{c1}</b>.<br><br>
 
-        • <b>Zona de mayor incidencia:</b> mayor actividad en <b>{c1}</b>.<br><br>
+    • <b>Zona con menor actividad:</b> menor intervención en <b>{c2}</b>.<br><br>
 
-        • <b>Zona con menor actividad:</b> menor intervención en <b>{c2}</b>.<br><br>
+    </div>
+    """, unsafe_allow_html=True)
 
-        </div>
-        """, unsafe_allow_html=True)
 
     # ===========================
     # LAYOUT 2×2
