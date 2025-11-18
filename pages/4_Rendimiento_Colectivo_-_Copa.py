@@ -86,47 +86,21 @@ for (label, value), col in zip(kpi_texts, cols_text):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-st.caption("Última jornada (todos los registros de la fecha más reciente)")
-cols_to_show = ["Match_Date", "stage", "home_team", "away_team", "team", "rival"]
-cols_to_show = [c for c in cols_to_show if c in df_ultima_jornada.columns]
-st.dataframe(
-    df_ultima_jornada[cols_to_show].rename(
-        columns={
-            "Match_Date": "Fecha",
-            "stage": "Fase",
-            "home_team": "Equipo Local",
-            "away_team": "Equipo Visitante",
-            "team": "Equipo",
-            "rival": "Rival",
-        }
-    ),
-    use_container_width=True,
+# =========================================================
+# 🧩 COMPARATIVA CIBAO VS RIVAL (Copa)
+# =========================================================
+st.markdown(
+    f"""
+    <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
+        Comparativa Copa (Cibao vs Rival)
+    </h2>
+    <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
+        Evalúa el rendimiento del Cibao FC frente a sus rivales en Copa Concacaf,
+        considerando métricas ofensivas y defensivas clave.
+    </p>
+    """,
+    unsafe_allow_html=True,
 )
-
-# =========================================================
-# 🧩 BLOQUE 0 — COMPARATIVA CIBAO VS RIVAL (Copa)
-# =========================================================
-def titulo_naranja_copa(texto: str):
-    st.markdown(
-        f"""
-        <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
-            Comparativa Copa (Cibao vs Rival)
-        </h2>
-        <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
-            Evalúa el rendimiento del Cibao FC frente a sus rivales en Copa Concacaf,
-            considerando métricas ofensivas y defensivas clave.
-        </p>
-        <h1 style="
-            text-align:center;
-            font-weight:900;
-            color:#ff8c00;
-            text-shadow:0 0 14px rgba(255,140,0,0.65);
-        ">{texto}</h1>
-        """,
-        unsafe_allow_html=True,
-    )
-
-titulo_naranja_copa("Bloque comparativo Copa Concacaf")
 
 col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.2, 1])
 
