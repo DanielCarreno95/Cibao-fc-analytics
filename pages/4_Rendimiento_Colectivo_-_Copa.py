@@ -457,9 +457,7 @@ with tab_defensivo:
 
         mean_vals = df_d[cols].mean()
         df_plot = (
-            pd.DataFrame(
-                {"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]}
-            )
+            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
             .sort_values("valor", ascending=True)
             .reset_index(drop=True)
         )
@@ -500,6 +498,12 @@ with tab_defensivo:
             unsafe_allow_html=True,
         )
 
+    col_def1, col_def2 = st.columns(2)
+    with col_def1:
+        plot_def_block("Acciones defensivas y disputas", grupo_def1)
+    with col_def2:
+        plot_def_block("Contención bajo palos", grupo_def2)
+
 with tab_set_pieces:
     st.markdown(
         """
@@ -535,9 +539,7 @@ with tab_set_pieces:
 
         mean_vals = df_sp[cols].mean()
         df_plot = (
-            pd.DataFrame(
-                {"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]}
-            )
+            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
             .sort_values("valor", ascending=True)
             .reset_index(drop=True)
         )
@@ -583,9 +585,3 @@ with tab_set_pieces:
         plot_setpiece_group("Reinicios básicos", grupo_sp1)
     with col_sp2:
         plot_setpiece_group("Saques de esquina", grupo_sp2)
-
-    col_def1, col_def2 = st.columns(2)
-    with col_def1:
-        plot_def_block("Acciones defensivas y disputas", grupo_def1)
-    with col_def2:
-        plot_def_block("Contención bajo palos", grupo_def2)
