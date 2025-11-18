@@ -1208,14 +1208,11 @@ with tab5:
 
 
     # ============================================================
-    # 📋 NUEVO DICCIONARIO DE BLOQUES (AMPLIADO Y DEPURADO)
+    # 📋 DICCIONARIO DE MÉTRICAS (AMPLIADO)
     # ============================================================
 
     metrics_blocks = {
 
-        # ---------------------------------------------------------
-        # 🔥 BLOQUE OFENSIVO — Rendimiento General + Eficiencia
-        # ---------------------------------------------------------
         "Ofensivas": {
             "Goles por partido": "goals",
             "xG (Goles esperados)": "xg",
@@ -1226,7 +1223,6 @@ with tab5:
             "Acciones de ataque por 90": "attacking_actions",
             "Acciones exitosas (%)": "successful_attacking_actions_percent",
             "Contraataques por 90": "counter_attacks",
-            "Disparos tras contraataque": "counter_attack_shots",
             "Centros por 90": "crosses",
             "Precisión de centros (%)": "crosses_accurate_percent",
             "Pases clave por 90": "key_passes",
@@ -1234,9 +1230,6 @@ with tab5:
             "Corners por 90": "corners"
         },
 
-        # ---------------------------------------------------------
-        # 🔶 BLOQUE CONSTRUCCIÓN / POSESIÓN
-        # ---------------------------------------------------------
         "Construcción y Pase": {
             "Posesión (%)": "possession_percent",
             "Pases por 90": "passes",
@@ -1244,8 +1237,8 @@ with tab5:
             "Precisión hacia adelante (%)": "forward_passes_accurate_percent",
             "Precisión hacia atrás (%)": "back_passes_accurate_percent",
             "Precisión lateral (%)": "lateral_passes_accurate_percent",
-            "Precisión pases progresivos (%)": "progressive_passes_accurate_percent",
             "Pases progresivos por 90": "progressive_passes",
+            "Precisión pases progresivos (%)": "progressive_passes_accurate_percent",
             "Pases al último tercio (%)": "passes_to_final_third_accurate_percent",
             "Pases largos precisos (%)": "long_passes_accurate_percent",
             "Pases inteligentes precisos (%)": "smart_passes_accurate_percent",
@@ -1253,9 +1246,6 @@ with tab5:
             "Longitud media de pase": "average_pass_length"
         },
 
-        # ---------------------------------------------------------
-        # 🛡 BLOQUE DEFENSIVO — Defensa + Presión + Duelos
-        # ---------------------------------------------------------
         "Defensivas": {
             "Intercepciones por 90": "interceptions",
             "Despejes por 90": "clearances",
@@ -1275,30 +1265,20 @@ with tab5:
 
 
     # ============================================================
-    # 🎨 PALETA CIBAO — VIVA (LA ORIGINAL DE 5 TONOS)
+    # 🎨 PALETA NARANJA CIBAO (5 TONOS)
     # ============================================================
 
     from matplotlib.colors import LinearSegmentedColormap
     import matplotlib
-    import io
     import pandas as pd
+    import io
 
     CIBAO_ORANGE_CMAP = LinearSegmentedColormap.from_list(
         "cibao_orange",
-        [
-            "#ff6600",  # naranja fuerte
-            "#ff7b00",  # naranja medio
-            "#ff9933",  # ámbar
-            "#ffb84d",  # naranja suave
-            "#ffd699"   # crema cálido
-        ]
+        ["#ff6600", "#ff7b00", "#ff9933", "#ffb84d", "#ffd699"]
     )
 
-    matplotlib.colormaps.register(
-        CIBAO_ORANGE_CMAP,
-        name="cibao_orange",
-        force=True
-    )
+    matplotlib.colormaps.register(CIBAO_ORANGE_CMAP, name="cibao_orange", force=True)
 
 
     # ============================================================
@@ -1314,46 +1294,46 @@ with tab5:
         partidos_disponibles = df_base["Match"].nunique()
         df_base = df_base.head(min(partidos_disponibles, 5))
 
-        st.caption(
-            f"Mostrando los últimos {len(df_base)} partidos disponibles (máximo 5)."
-        )
+        st.caption(f"Mostrando los últimos {len(df_base)} partidos disponibles (máximo 5).")
 
 
         # ============================================================
-        # ⚙️ FUNCIÓN PARA TABLAS (SIN ERRORES + 2 DECIMALES)
+        # ⚙️ FUNCIÓN PARA TABLAS — SIN ERROR + 2 DECIMALES
         # ============================================================
 
         def build_table(df, metrics_dict, title):
 
-            columnas = ["Match"] + list(metrics_dict.values())
-            df_local = df[columnas].copy()
+            # ----- QUEDARNOS SOLO CON LAS COLUMNAS QUE EXISTEN -----
+            columnas_existentes = [c for c in metrics_dict.values() if c in df.columns]
 
-            df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
+            if len(columnas_existentes) == 0:
+                st.warning(f"No hay datos disponibles para {title}.")
+                return df.iloc[:0]   # devolver vacío sin fallar
 
-            # 👉 FORZAR REDONDEO REAL ANTES DEL STYLER
-            df_local = df_local.applymap(
-                lambda x: round(x, 2) if isinstance(x, (int, float)) else x
-            )
+            df_local = df[["Match"] + columnas_existentes].copy()
 
-            st.markdown(
-                f"### <span style='color:#ff8c00;'>⬤ {title}</span>",
-                unsafe_allow_html=True
-            )
+            # Renombrar según etiquetas legibles
+            label_map = {v: k for k, v in metrics_dict.items() if v in columnas_existentes}
+            df_local = df_local.rename(columns=label_map)
 
-            styled = df_local.style.background_gradient(
-                cmap="cibao_orange"
-            ).set_properties(
-                **{
+            # Redondeo a 2 decimales (REAL, NO SOLO VISUAL)
+            df_local = df_local.applymap(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
+
+            st.markdown(f"### <span style='color:#ff8c00;'>⬤ {title}</span>", unsafe_allow_html=True)
+
+            styled = (
+                df_local.style
+                .background_gradient(cmap="cibao_orange")
+                .set_properties(**{
                     "text-align": "center",
                     "font-size": "12px",
-                    "border-color": "#333",
-                }
+                    "border-color": "#333"
+                })
+                .format("{:.2f}")
             )
 
-            # 👉 FORZAR FORMATO VISUAL A 2 DECIMALES
-            styled = styled.format("{:.2f}")
-
             height = max(220, len(df_local) * 45 + 80)
+
             st.dataframe(styled, use_container_width=True, height=height)
 
             return df_local
@@ -1374,10 +1354,11 @@ with tab5:
 
 
         # ============================================================
-        # 📥 DESCARGA EN EXCEL
+        # 📥 DESCARGA EXCEL
         # ============================================================
 
         buffer = io.BytesIO()
+
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             df_off.to_excel(writer, sheet_name="Ofensivo", index=False)
             df_pass.to_excel(writer, sheet_name="Construccion_Pase", index=False)
@@ -1400,7 +1381,7 @@ with tab5:
         st.markdown("""
         <div style='background:#111; padding:12px; border-left:3px solid #ff8c00; margin-top:20px;'>
             <b>Resumen general:</b><br><br>
-            Las tablas comparativas muestran de forma clara el rendimiento del equipo por fase del juego.
-            El gradiente naranja resalta qué áreas se destacan y cuáles requieren ajustes tácticos.
+            Las tablas comparativas permiten visualizar el rendimiento real del equipo
+            en ataque, organización y defensa sin perder claridad táctica.
         </div>
         """, unsafe_allow_html=True)
