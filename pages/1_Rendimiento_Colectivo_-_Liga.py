@@ -1049,7 +1049,7 @@ with tab4:
     st.markdown("""
     <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Distribución Táctica</h2>
     <p style='text-align:center; color:#ccc;'>
-    Análisis de la estructura defensiva del Cibao FC según alturas de recuperación y niveles de presión.
+    Análisis del comportamiento defensivo del Cibao FC según alturas de recuperación y zonas de presión.
     </p>
     """, unsafe_allow_html=True)
 
@@ -1071,9 +1071,8 @@ with tab4:
     }
 
     # ===========================
-    # ESCALA CIBAO — MISMA PARA AMBOS HEATMAPS
+    # PALETA HEATMAP CIBAO
     # ===========================
-
     HEATMAP_COLORSCALE = [
         [0.0, "#2a2a2a"],
         [0.4, "#5c5c5c"],
@@ -1082,113 +1081,106 @@ with tab4:
     ]
 
     CIBAO_ORANGE = "#FF8C00"
-    CIBAO_DARK = "#111"
     CIBAO_GRAY = "#D3D3D3"
 
-    # ===========================
-    # FUNCIÓN PARA HEATMAP + NORMALIZACIÓN
-    # ===========================
+    import numpy as np
+    import plotly.graph_objects as go
 
+    # ===========================
+    # FUNCIÓN PARA HEATMAP
+    # ===========================
     def plot_heatmap(nombre_grupo, mapping):
 
-    dfp = df_filtrado.copy()
+        dfp = df_filtrado.copy()
 
-    cols = [v for v in mapping.values() if v in dfp.columns]
-    labels = [k for k, v in mapping.items() if v in dfp.columns]
+        cols = [v for v in mapping.values() if v in dfp.columns]
+        labels = [k for k, v in mapping.items() if v in dfp.columns]
 
-    if len(cols) == 0:
-        st.warning(f"No hay datos disponibles para: {nombre_grupo}")
-        return
+        if len(cols) == 0:
+            st.warning(f"No hay datos para: {nombre_grupo}")
+            return
 
-    # Serie real (para mostrar números reales dentro del heatmap)
-    series_real = dfp[cols].mean().fillna(0)
+        # Valores reales
+        series_real = dfp[cols].mean().fillna(0)
 
-    # NORMALIZACIÓN para color
-    min_val = series_real.min()
-    max_val = series_real.max()
+        # Normalización robusta
+        min_val, max_val = series_real.min(), series_real.max()
+        if max_val - min_val == 0:
+            normalized = np.zeros_like(series_real)
+        else:
+            normalized = (series_real - min_val) / (max_val - min_val)
 
-    if max_val - min_val == 0:
-        norm_values = [0 for _ in series_real]
-    else:
-        norm_values = [(v - min_val) / (max_val - min_val) for v in series_real]
+        z_vals = normalized.reshape(1, -1)
 
-    z_vals = np.array(norm_values).reshape(1, -1)
-
-    # ========== HEATMAP ==========
-    heatmap = go.Heatmap(
-        z=z_vals,
-        x=labels,
-        y=[""],
-        colorscale=HEATMAP_COLORSCALE,
-        showscale=True,  # colorbar simple
-        colorbar=dict(
-            thickness=12,
-            bgcolor="#111",
-            tickcolor="#D3D3D3",
-        )
-    )
-
-    fig = go.Figure(data=heatmap)
-
-    # ========== ANOTACIONES (VALORES DENTRO DEL CUADRO) ==========
-    annotations = []
-    for j, label in enumerate(labels):
-        annotations.append(
-            dict(
-                x=label,
-                y="",
-                text=f"{series_real.iloc[j]:.2f}",
-                showarrow=False,
-                font=dict(color="white", size=13)
+        # HEATMAP
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=z_vals,
+                x=labels,
+                y=[""],
+                colorscale=HEATMAP_COLORSCALE,
+                showscale=True,
+                colorbar=dict(
+                    thickness=10,
+                    bgcolor="#111",
+                    tickfont=dict(color=CIBAO_GRAY)
+                )
             )
         )
 
-    fig.update_layout(
-        annotations=annotations
-    )
+        # ANOTACIONES → números dentro del cuadro
+        annotations = []
+        for j, label in enumerate(labels):
+            annotations.append(
+                dict(
+                    x=label,
+                    y="",
+                    text=f"{series_real.iloc[j]:.2f}",
+                    font=dict(color="white", size=13),
+                    showarrow=False
+                )
+            )
 
-    # ========== FORMATO GENERAL ==========
-    fig.update_layout(
-        height=280,
-        template="plotly_dark",
-        title=dict(
-            text=f"<b>{nombre_grupo}</b>",
-            font=dict(size=18, color=CIBAO_ORANGE)
-        ),
-        title_x=0.5,
-        paper_bgcolor="#111",
-        plot_bgcolor="#111",
-        font=dict(color="#D3D3D3"),
-        margin=dict(l=20, r=20, t=60, b=20)
-    )
+        fig.update_layout(
+            annotations=annotations,
+            height=280,
+            template="plotly_dark",
+            title=dict(
+                text=f"<b>{nombre_grupo}</b>",
+                font=dict(size=18, color=CIBAO_ORANGE)
+            ),
+            title_x=0.5,
+            paper_bgcolor="#111",
+            plot_bgcolor="#111",
+            margin=dict(l=20, r=20, t=50, b=20)
+        )
 
-    st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
 
-    # ========== CONCLUSIONES ==========
-    max_metric = series_real.idxmax()
-    min_metric = series_real.idxmin()
+        # CONCLUSIONES
+        max_metric = series_real.idxmax()
+        min_metric = series_real.idxmin()
 
-    conclusion_html = f"""
-<div style='background:#111; padding:14px; border-left:3px solid {CIBAO_ORANGE};
-            margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
+        html_conclusion = f"""
+        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
 
-<b>Conclusiones tácticas</b><br><br>
+            <b>Conclusiones tácticas</b><br><br>
 
-• <b>Zona de mayor incidencia:</b> El comportamiento más destacado se produce en 
-<b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>.<br><br>
+            • <b>Zona de mayor incidencia:</b> mayor impacto en 
+              <b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>.<br><br>
 
-• <b>Zona con menor actividad:</b> El registro más bajo corresponde a 
-<b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, zona donde existe margen de ajuste en la altura del bloque.
-<br><br>
-</div>
-"""
+            • <b>Zona con menor actividad:</b> menor registro en
+              <b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>.<br><br>
 
-    st.markdown(conclusion_html, unsafe_allow_html=True)
+        </div>
+        """
+
+        st.markdown(html_conclusion, unsafe_allow_html=True)
 
     # ===========================
-    # LAYOUT — 2 HEATMAPS
+    # LAYOUT 2×2
     # ===========================
-
     col1, col2 = st.columns(2)
 
     with col1:
