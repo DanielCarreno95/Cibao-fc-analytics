@@ -817,7 +817,6 @@ with tab3:
     </p>
     """, unsafe_allow_html=True)
 
-
     # ===========================
     # DEFINICIÓN DE GRUPOS
     # ===========================
@@ -843,7 +842,7 @@ with tab3:
 
         "Volumen y calidad de llegadas rivales": {
             "Disparos en contra por 90": "shots_against",
-            "Disparos en contra a puerta": "shots_against_on_target",
+            "Disparos en contra a puerta": "shots_again_target",
             "Eficiencia rival (tiros a puerta %)": "shots_against_on_target_percent",
         },
 
@@ -852,14 +851,13 @@ with tab3:
         }
     }
 
-
     # ===========================
     # PALETA
     # ===========================
+
     CIBAO_ORANGE = "#FF8C00"
     CIBAO_BLACK = "#111"
     CIBAO_GRAY = "#D3D3D3"
-
 
     # ============================================================
     # 🔶 FUNCIONES DE GRÁFICO
@@ -869,7 +867,6 @@ with tab3:
     def plot_horizontal(nombre, mapping):
 
         dfp = df_filtrado.copy()
-
         cols = [v for v in mapping.values() if v in dfp.columns]
         labels = {v: k for k, v in mapping.items() if v in dfp.columns}
 
@@ -877,12 +874,8 @@ with tab3:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        df_mean = (
-            dfp[cols].mean()
-            .reset_index()
-            .rename(columns={"index": "metric", 0: "valor"})
-        )
-
+        df_mean = dfp[cols].mean().reset_index()
+        df_mean.columns = ["metric", "valor"]
         df_mean["label"] = df_mean["metric"].map(labels)
         df_mean = df_mean.sort_values("valor", ascending=True)
 
@@ -912,23 +905,18 @@ with tab3:
         min_row = df_mean.iloc[0]
 
         st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};margin-top:-8px;margin-bottom:25px;'>
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px;margin-bottom:25px;'>
         <b>Conclusiones tácticas</b><br><br>
-        • <b>Comportamiento destacado:</b> El equipo muestra mayor solvencia en <b>{max_row['label']}</b>, 
-          lo cual refleja ventaja competitiva en situaciones individuales de disputa.<br><br>
-
-        • <b>Aspecto mejorable:</b> La métrica más baja es <b>{min_row['label']}</b>, señalando un área donde 
-          la estructura defensiva puede elevar su consistencia.
+        • <b>Comportamiento destacado:</b> Mayor solvencia en <b>{max_row['label']}</b>.<br><br>
+        • <b>Aspecto mejorable:</b> Valor más bajo en <b>{min_row['label']}</b>.
         </div>
         """, unsafe_allow_html=True)
-
-
 
     # --- BARRAS VERTICALES ---
     def plot_vertical(nombre, mapping):
 
         dfp = df_filtrado.copy()
-
         cols = [v for v in mapping.values() if v in dfp.columns]
         labels = {v: k for k, v in mapping.items() if v in dfp.columns}
 
@@ -936,11 +924,8 @@ with tab3:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        df_mean = (
-            dfp[cols].mean()
-            .reset_index()
-            .rename(columns={"index": "metric", 0: "valor"})
-        )
+        df_mean = dfp[cols].mean().reset_index()
+        df_mean.columns = ["metric", "valor"]
         df_mean["label"] = df_mean["metric"].map(labels)
         df_mean = df_mean.sort_values("valor", ascending=False)
 
@@ -970,66 +955,59 @@ with tab3:
         min_row = df_mean.iloc[-1]
 
         st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};margin-top:-8px;margin-bottom:25px;'>
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px;margin-bottom:25px;'>
         <b>Conclusiones tácticas</b><br><br>
-        • <b>Mayor influencia defensiva:</b> El equipo destaca en <b>{max_row['label']}</b>, 
-          comportamiento clave en la protección del área y en la interrupción de avances rivales.<br><br>
-
-        • <b>Zona con margen de mejora:</b> La métrica con menor impacto es <b>{min_row['label']}</b>, 
-          elemento donde aumentar la consistencia reforzaría el bloque defensivo.
+        • <b>Mayor influencia:</b> <b>{max_row['label']}</b>.<br><br>
+        • <b>Zona con margen de mejora:</b> <b>{min_row['label']}</b>.
         </div>
         """, unsafe_allow_html=True)
 
+    # --- GAUGE LINEAL (UNIFICADO) ---
+    def plot_gauge(mapping):
 
-# --- GAUGE LINEAL (UNIFICADO) ---
-def plot_gauge(mapping):
+        col = list(mapping.values())[0]
+        label = list(mapping.keys())[0]
 
-    col = list(mapping.values())[0]
-    label = list(mapping.keys())[0]
+        if col not in df_filtrado.columns:
+            st.warning("No hay datos disponibles.")
+            return
 
-    if col not in df_filtrado.columns:
-        st.warning("No hay datos disponibles.")
-        return
+        value = df_filtrado[col].mean()
 
-    value = df_filtrado[col].mean()
+        max_rango = max(40, value * 1.8)  # rango uniforme
 
-    # 🔥 Rango uniforme para TODAS las métricas
-    min_rango = 0
-    max_rango = max(40, value * 1.8)
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=value,
+            title={'text': f"<b>{label}</b>", 'font': {'color': CIBAO_ORANGE, 'size': 18}},
+            gauge={
+                'axis': {'range': [0, max_rango]},
+                'bar': {'color': CIBAO_ORANGE},
+                'bgcolor': "#333",
+                'borderwidth': 1,
+                'bordercolor': "#555",
+            }
+        ))
 
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=value,
-        title={'text': f"<b>{label}</b>", 'font': {'color': CIBAO_ORANGE, 'size': 18}},
-        gauge={
-            'axis': {'range': [min_rango, max_rango]},
-            'bar': {'color': CIBAO_ORANGE},
-            'bgcolor': "#333",
-            'borderwidth': 1,
-            'bordercolor': "#555",
-        }
-    ))
+        fig.update_layout(
+            paper_bgcolor=CIBAO_BLACK,
+            plot_bgcolor=CIBAO_BLACK,
+            height=260,  # unificado
+            margin=dict(l=20, r=20, t=60, b=20),
+            font=dict(color=CIBAO_GRAY)
+        )
 
-    fig.update_layout(
-        paper_bgcolor=CIBAO_BLACK,
-        plot_bgcolor=CIBAO_BLACK,
-        height=260,                     # 🔥 unificado
-        margin=dict(l=20, r=20, t=60, b=20),
-        font=dict(color=CIBAO_GRAY)
-    )
+        st.plotly_chart(fig, use_container_width=True)
 
-    st.plotly_chart(fig, use_container_width=True)
-
-    # 🔥 MISMA estructura que antes, sin tocar texto
-    st.markdown(f"""
-    <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
-                margin-top:-5px;margin-bottom:25px;'>
+        st.markdown(f"""
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-5px;margin-bottom:25px;'>
         <b>Conclusión táctica</b><br><br>
-        • La <b>distancia media de disparo ({value:.1f} m)</b> refleja la capacidad del equipo para empujar al rival
-          a zonas menos ventajosas, reduciendo la probabilidad de ocasiones claras.
-    </div>
-    """, unsafe_allow_html=True)
-
+        • La <b>distancia media de disparo ({value:.1f} m)</b> indica la capacidad del equipo para limitar
+          la calidad de las ocasiones rivales.
+        </div>
+        """, unsafe_allow_html=True)
 
     # ===========================
     # LAYOUT 2 × 2 + 1
