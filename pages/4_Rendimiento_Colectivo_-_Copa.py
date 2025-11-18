@@ -419,3 +419,89 @@ with tab_pases:
         )
     else:
         st.warning("No hay datos disponibles para Construcción y Pases.")
+
+ with tab_defensivo:
+    st.markdown(
+        """
+        <h3 style='text-align:center; color:#ff8c00;'>Defensa y Eficiencia</h3>
+        <p style='text-align:center; color:#bbb; font-size:14px;'>
+            Volumen de acciones defensivas, contenciones bajo palos y castigo recibido en Copa Concacaf.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    grupo_def1 = {
+        "Entradas Totales": "totalTackle",
+        "Entradas Ganadas": "wonTackle",
+        "Despejes": "totalClearance",
+        "Faltas Cometidas": "fouls",
+    }
+
+    grupo_def2 = {
+        "Atajadas": "saves",
+        "Valla Invicta": "cleanSheet",
+        "Goles Recibidos": "goalsConceded",
+    }
+
+    def plot_def_block(title, mapping):
+        pares = _dedup_pairs(mapping)
+        if not pares:
+            st.warning(f"No hay datos para {title}.")
+            return
+
+        cols = [col for _, col in pares]
+        df_d = df_copa_cibao.copy()
+        for col in cols:
+            df_d[col] = pd.to_numeric(df_d[col], errors="coerce").fillna(0)
+
+        mean_vals = df_d[cols].mean()
+        df_plot = (
+            pd.DataFrame(
+                {"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]}
+            )
+            .sort_values("valor", ascending=True)
+            .reset_index(drop=True)
+        )
+
+        fig = px.bar(
+            df_plot,
+            x="valor",
+            y="label",
+            orientation="h",
+            text_auto=".2f",
+            color_discrete_sequence=[CIBAO_ORANGE],
+            height=320,
+        )
+        fig.update_layout(
+            template="plotly_dark",
+            plot_bgcolor="#0B0B0B",
+            paper_bgcolor="#0B0B0B",
+            margin=dict(l=20, r=20, t=40, b=20),
+            title=dict(text=f"<b>{title}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
+            title_x=0.5,
+            font=dict(color=CIBAO_GRAY, size=12),
+            showlegend=False,
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        max_row = df_plot.iloc[-1]
+        min_row = df_plot.iloc[0]
+        st.markdown(
+            f"""
+            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
+                <b>Conclusiones tácticas</b><br><br>
+                • <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                • <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    col_def1, col_def2 = st.columns(2)
+    with col_def1:
+        plot_def_block("Acciones defensivas y disputas", grupo_def1)
+    with col_def2:
+        plot_def_block("Contención bajo palos", grupo_def2)
