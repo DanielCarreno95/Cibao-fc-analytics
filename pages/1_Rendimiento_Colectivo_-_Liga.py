@@ -1091,67 +1091,84 @@ with tab4:
 
     def plot_heatmap(nombre_grupo, mapping):
 
-        dfp = df_filtrado.copy()
+    dfp = df_filtrado.copy()
 
-        cols = [v for v in mapping.values() if v in dfp.columns]
-        labels = [k for k, v in mapping.items() if v in dfp.columns]
+    cols = [v for v in mapping.values() if v in dfp.columns]
+    labels = [k for k, v in mapping.items() if v in dfp.columns]
 
-        if len(cols) == 0:
-            st.warning(f"No hay datos disponibles para: {nombre_grupo}")
-            return
+    if len(cols) == 0:
+        st.warning(f"No hay datos disponibles para: {nombre_grupo}")
+        return
 
-        series = dfp[cols].mean().fillna(0)
+    # Serie real (para mostrar números reales dentro del heatmap)
+    series_real = dfp[cols].mean().fillna(0)
 
-        # NORMALIZACIÓN para que ambas escalas luzcan igual
-        min_val = series.min()
-        max_val = series.max()
+    # NORMALIZACIÓN para color
+    min_val = series_real.min()
+    max_val = series_real.max()
 
-        if max_val - min_val == 0:
-            norm = [0 for _ in series]
-        else:
-            norm = [(v - min_val) / (max_val - min_val) for v in series]
+    if max_val - min_val == 0:
+        norm_values = [0 for _ in series_real]
+    else:
+        norm_values = [(v - min_val) / (max_val - min_val) for v in series_real]
 
-        valores = np.array(norm).reshape(1, -1)
+    z_vals = np.array(norm_values).reshape(1, -1)
 
-        fig = go.Figure(
-            data=go.Heatmap(
-                z=valores,
-                x=labels,
-                y=[""],
-                colorscale=HEATMAP_COLORSCALE,
-                showscale=True,
-                colorbar=dict(
-                    title="Intensidad",
-                    thickness=12,
-                    tickfont=dict(color=CIBAO_GRAY),
-                    titlefont=dict(color=CIBAO_GRAY),
-                )
+    # ========== HEATMAP ==========
+    heatmap = go.Heatmap(
+        z=z_vals,
+        x=labels,
+        y=[""],
+        colorscale=HEATMAP_COLORSCALE,
+        showscale=True,  # colorbar simple
+        colorbar=dict(
+            thickness=12,
+            bgcolor="#111",
+            tickcolor="#D3D3D3",
+        )
+    )
+
+    fig = go.Figure(data=heatmap)
+
+    # ========== ANOTACIONES (VALORES DENTRO DEL CUADRO) ==========
+    annotations = []
+    for j, label in enumerate(labels):
+        annotations.append(
+            dict(
+                x=label,
+                y="",
+                text=f"{series_real.iloc[j]:.2f}",
+                showarrow=False,
+                font=dict(color="white", size=13)
             )
         )
 
-        fig.update_layout(
-            height=280,
-            template="plotly_dark",
-            title=dict(
-                text=f"<b>{nombre_grupo}</b>",
-                font=dict(size=18, color=CIBAO_ORANGE)
-            ),
-            title_x=0.5,
-            paper_bgcolor=CIBAO_DARK,
-            plot_bgcolor=CIBAO_DARK,
-            font=dict(color=CIBAO_GRAY),
-            margin=dict(l=20, r=20, t=60, b=20)
-        )
+    fig.update_layout(
+        annotations=annotations
+    )
 
-        st.plotly_chart(fig, use_container_width=True)
+    # ========== FORMATO GENERAL ==========
+    fig.update_layout(
+        height=280,
+        template="plotly_dark",
+        title=dict(
+            text=f"<b>{nombre_grupo}</b>",
+            font=dict(size=18, color=CIBAO_ORANGE)
+        ),
+        title_x=0.5,
+        paper_bgcolor="#111",
+        plot_bgcolor="#111",
+        font=dict(color="#D3D3D3"),
+        margin=dict(l=20, r=20, t=60, b=20)
+    )
 
-        # ----------------- CONCLUSIONES -----------------
+    st.plotly_chart(fig, use_container_width=True)
 
-        max_metric = series.idxmax()
-        min_metric = series.idxmin()
+    # ========== CONCLUSIONES ==========
+    max_metric = series_real.idxmax()
+    min_metric = series_real.idxmin()
 
-        # HTML limpio, sin caracteres escapados
-        conclusion_html = f"""
+    conclusion_html = f"""
 <div style='background:#111; padding:14px; border-left:3px solid {CIBAO_ORANGE};
             margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
 
@@ -1161,12 +1178,12 @@ with tab4:
 <b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>.<br><br>
 
 • <b>Zona con menor actividad:</b> El registro más bajo corresponde a 
-<b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, zona donde existe margen para ajustar la altura del bloque.
+<b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, zona donde existe margen de ajuste en la altura del bloque.
 <br><br>
 </div>
 """
 
-        st.markdown(conclusion_html, unsafe_allow_html=True)
+    st.markdown(conclusion_html, unsafe_allow_html=True)
 
     # ===========================
     # LAYOUT — 2 HEATMAPS
