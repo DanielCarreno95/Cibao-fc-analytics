@@ -59,6 +59,7 @@ if df_ultima_jornada.empty:
 fecha_str = ultima_fecha.strftime("%d-%m-%Y")
 fila_principal = df_ultima_jornada.iloc[0]
 
+# --------- KPIs textuales (fila 1)
 kpi_texts = [
     ("Fecha", fecha_str),
     ("Fase", fila_principal.get("stage", "-")),
@@ -86,6 +87,33 @@ for (label, value), col in zip(kpi_texts, cols_text):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# --------- KPIs adicionales (fila 2)
+kpi_extra = [
+    ("Minutos Jugados", fila_principal.get("minsPlayed", "-")),
+    ("Formación", fila_principal.get("formation_place", "-")),
+    ("Sustituciones Hechas", fila_principal.get("totalSubOff", "-")),
+    ("Tarjetas Amarillas", fila_principal.get("yellowCard", "-")),
+    ("Tarjetas Rojas", fila_principal.get("redCard", "-")),
+]
+
+cols_extra = st.columns(len(kpi_extra))
+for (label, value), col in zip(kpi_extra, cols_extra):
+    display = "-" if pd.isna(value) else value
+    with col:
+        st.markdown(
+            f"""
+            <div style='background:rgba(25,25,25,0.95);
+                        border:1px solid rgba(255,140,0,0.35);
+                        border-radius:14px;padding:18px;
+                        text-align:center;box-shadow:0 0 18px rgba(255,140,0,0.12);'>
+                <div style='font-size:1.4rem;color:{CIBAO_ORANGE};font-weight:800;'>{display}</div>
+                <div style='color:#cfcfcf;font-size:0.9rem;'>{label}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+st.markdown("<br>", unsafe_allow_html=True)
 # =========================================================
 # 🧩 COMPARATIVA CIBAO VS RIVAL (Copa)
 # =========================================================
@@ -242,7 +270,6 @@ tab_ofensivo, tab_pases, tab_defensivo, tab_set_pieces, tab_general = st.tabs(
         "Construcción y Pases",
         "Defensa y Eficiencia",
         "Acciones a balón parado",
-        "Disciplina y General",
     ]
 )
 
