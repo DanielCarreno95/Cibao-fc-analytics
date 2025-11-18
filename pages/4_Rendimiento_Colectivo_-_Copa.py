@@ -348,7 +348,7 @@ with tab_ofensivo:
 
     plot_horizontal_group("Ventajas generadas", _dedup_pairs(grupo3))
     
-    with tab_pases:
+   with tab_pases:
     st.markdown(
         """
         <h3 style='text-align:center; color:#ff8c00;'>Construcción y Pases</h3>
