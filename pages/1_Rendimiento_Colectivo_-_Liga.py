@@ -1063,6 +1063,7 @@ with tab4:
             "Recuperaciones medias por 90": "recoveries_medium",
             "Recuperaciones bajas por 90": "recoveries_low",
         },
+
         "Mapa de Presión por Altura": {
             "Presión alta (estimada)": "losses_high",
             "Presión media (estimada)": "losses_medium",
@@ -1071,150 +1072,125 @@ with tab4:
     }
 
     # ===========================
-    # PALETA HEATMAP CIBAO
+    # PALETA (COLORES FIJOS)
     # ===========================
 
+    CIBAO_ORANGE = "#FF8C00"
+    CIBAO_GRAY = "#D3D3D3"
+
     HEATMAP_COLORSCALE = [
-    [0.0, "#2a2a2a"],   # gris oscuro
-    [0.5, "#ff7b00"],   # naranja cibao fuerte
-    [1.0, "#ffae42"]    # naranja claro
+        [0.0, "#2a2a2a"],   # bajo — gris oscuro
+        [0.5, "#ff7b00"],   # medio — naranja fuerte
+        [1.0, "#ffae42"]    # alto — naranja claro
     ]
 
     import numpy as np
     import plotly.graph_objects as go
 
-    CIBAO_ORANGE = "#FF8C00"
-    CIBAO_GRAY = "#D3D3D3"
+    # ===========================
+    # FUNCIÓN DEL HEATMAP (COLORES FIJOS POR RANKING)
+    # ===========================
 
-# ===========================
-# FUNCIÓN PARA HEATMAP — COLORES FIJOS POR RANKING
-# ===========================
+    def plot_heatmap(nombre_grupo, mapping):
 
-def plot_heatmap(nombre_grupo, mapping):
+        dfp = df_filtrado.copy()
 
-    dfp = df_filtrado.copy()
+        cols = [v for v in mapping.values() if v in dfp.columns]
+        labels = [k for k, v in mapping.items() if v in dfp.columns]
 
-    cols = [v for v in mapping.values() if v in dfp.columns]
-    labels = [k for k, v in mapping.items() if v in dfp.columns]
+        if len(cols) == 0:
+            st.warning(f"No hay datos disponibles para: {nombre_grupo}")
+            return
 
-    if len(cols) == 0:
-        st.warning(f"No hay datos disponibles para: {nombre_grupo}")
-        return
+        # --- Datos reales
+        series_real = dfp[cols].mean().fillna(0)
 
-    # ---------------------------
-    # 1. Datos reales
-    # ---------------------------
-    series_real = dfp[cols].mean().fillna(0)
+        # --- Ranking → convierte valores a 0,1,2 (bajo–medio–alto)
+        rank = series_real.rank(method="dense") - 1
+        rank = rank.astype(int)
 
-    # ---------------------------
-    # 2. RANKING → 0,1,2 (bajo–medio–alto)
-    # ---------------------------
-    rank = series_real.rank(method="dense") - 1
-    rank = rank.astype(int)
+        # Convertimos ranking a matriz 1×N
+        z_vals = rank.to_numpy().reshape(1, -1)
 
-    # Convertir ranking a matriz 1×N (valores fijos 0–1–2)
-    z_vals = rank.to_numpy().reshape(1, -1)
-
-    # ---------------------------
-    # 3. PALETA FIJA CIBAO PARA RANKING
-    # ---------------------------
-    HEATMAP_COLORSCALE = [
-        [0.0, "#2a2a2a"],   # menor → gris oscuro
-        [0.5, "#ff7b00"],   # medio → naranja fuerte cibao
-        [1.0, "#ffae42"]    # mayor → naranja claro
-    ]
-
-    # ---------------------------
-    # 4. HEATMAP
-    # ---------------------------
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=z_vals,
-            x=labels,
-            y=[""],
-            colorscale=HEATMAP_COLORSCALE,
-            showscale=True,
-            colorbar=dict(
-                thickness=10,
-                tickvals=[0, 1, 2],
-                ticktext=["Bajo", "Medio", "Alto"],
-                bgcolor="#111",
-                tickfont=dict(color=CIBAO_GRAY)
-            )
-        )
-    )
-
-    # ---------------------------
-    # 5. Mostrar valores en cada celda
-    # ---------------------------
-    annotations = []
-    for j, label in enumerate(labels):
-        annotations.append(
-            dict(
-                x=label,
-                y="",
-                text=f"{series_real.iloc[j]:.2f}",
-                font=dict(color="white", size=13),
-                showarrow=False
+        # --- HEATMAP
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=z_vals,
+                x=labels,
+                y=[""],
+                colorscale=HEATMAP_COLORSCALE,
+                showscale=True,
+                colorbar=dict(
+                    thickness=10,
+                    tickvals=[0, 1, 2],
+                    ticktext=["Bajo", "Medio", "Alto"],
+                    bgcolor="#111",
+                    tickfont=dict(color=CIBAO_GRAY)
+                )
             )
         )
 
-    fig.update_layout(
-        annotations=annotations,
-        height=280,
-        template="plotly_dark",
-        title=dict(
-            text=f"<b>{nombre_grupo}</b>",
-            font=dict(size=18, color=CIBAO_ORANGE)
-        ),
-        title_x=0.5,
-        paper_bgcolor="#111",
-        plot_bgcolor="#111",
-        margin=dict(l=20, r=20, t=50, b=20)
-    )
+        # --- Texto dentro de las celdas (valores reales)
+        annotations = []
+        for j, label in enumerate(labels):
+            annotations.append(
+                dict(
+                    x=label,
+                    y="",
+                    text=f"{series_real.iloc[j]:.2f}",
+                    font=dict(color="white", size=13),
+                    showarrow=False
+                )
+            )
 
-    st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(
+            annotations=annotations,
+            height=280,
+            template="plotly_dark",
+            title=dict(
+                text=f"<b>{nombre_grupo}</b>",
+                font=dict(size=18, color=CIBAO_ORANGE)
+            ),
+            title_x=0.5,
+            paper_bgcolor="#111",
+            plot_bgcolor="#111",
+            margin=dict(l=20, r=20, t=50, b=20)
+        )
 
-    # ---------------------------
-    # 6. CONCLUSIONES TÁCTICAS
-    # ---------------------------
-    max_m = series_real.idxmax()
-    min_m = series_real.idxmin()
+        st.plotly_chart(fig, use_container_width=True)
 
-    c1 = [k for k, v in mapping.items() if v == max_m][0]
-    c2 = [k for k, v in mapping.items() if v == min_m][0]
+        # --- CONCLUSIONES TÁCTICAS ---
+        max_m = series_real.idxmax()
+        min_m = series_real.idxmin()
 
-    st.markdown(f"""
-    <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
+        c1 = [k for k, v in mapping.items() if v == max_m][0]
+        c2 = [k for k, v in mapping.items() if v == min_m][0]
 
-    <b>Conclusiones tácticas</b><br><br>
+        st.markdown(f"""
+        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
 
-    • <b>Zona de mayor incidencia:</b> mayor actividad en <b>{c1}</b>.<br><br>
+        <b>Conclusiones tácticas</b><br><br>
 
-    • <b>Zona con menor actividad:</b> menor intervención en <b>{c2}</b>.<br><br>
+        • <b>Zona de mayor incidencia:</b> mayor actividad en <b>{c1}</b>.<br><br>
 
-    </div>
-    """, unsafe_allow_html=True)
+        • <b>Zona con menor actividad:</b> menor intervención en <b>{c2}</b>.<br><br>
+
+        </div>
+        """, unsafe_allow_html=True)
 
 
     # ===========================
-    # LAYOUT 2×2
+    # LAYOUT — 2 HEATMAPS
     # ===========================
 
     col1, col2 = st.columns(2)
 
     with col1:
-        plot_heatmap(
-            "Mapa de Recuperaciones por Altura",
-            grupos_tacticos["Mapa de Recuperaciones por Altura"]
-        )
+        plot_heatmap("Mapa de Recuperaciones por Altura", grupos_tacticos["Mapa de Recuperaciones por Altura"])
 
     with col2:
-        plot_heatmap(
-            "Mapa de Presión por Altura",
-            grupos_tacticos["Mapa de Presión por Altura"]
-        )
+        plot_heatmap("Mapa de Presión por Altura", grupos_tacticos["Mapa de Presión por Altura"])
 
 with tab5:
 
