@@ -457,1223 +457,950 @@ if not df_liga_mayor.empty:
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
 
+# ===========================
+# EFICIENCIA Y ATAQUE – BLOQUE COMPLETO
+# ===========================
 
-# ==============================
-# BLOQUE 1 — EFICIENCIA Y ATAQUE (Horizontal)
-# ==============================
-def bloque_eficiencia_ataque(df_filtrado):
-    st.markdown("<h3 style='text-align:center;'>Eficiencia y Ataque</h3>", unsafe_allow_html=True)
-    st.caption(
-        "Evalúa la productividad ofensiva del Cibao FC analizando goles, xG y disparos por partido en comparación con otros equipos."
-    )
+st.markdown("""
+<h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Eficiencia y Ataque</h2>
+<p style='text-align:center; color:#ccc;'>
+Evaluación del comportamiento ofensivo del Cibao FC: producción, eficacia en tiro, tipologías de ataque, balón parado y profundidad en último tercio.
+</p>
+""", unsafe_allow_html=True)
 
-    offensive_metrics = {
+# ===========================
+# DEFINICIÓN DE GRUPOS
+# ===========================
+
+grupos = {
+    "Producción ofensiva directa": {
         "Goles por partido": "goals",
+        "Goles en contra por partido": "conceded_goals",
         "xG (Goles esperados)": "xg",
-        "Disparos por partido": "shots",
-        "Disparos a puerta por partido": "shots_on_target",
-        "Contraataques por 90": "counter_attacks",
+    },
+
+    "Eficiencia en el tiro": {
+        "Porcentaje de disparos a puerta (%)": "shots_on_target_percent",
+        "Disparos desde fuera del área a puerta (%)": "shots_from_outside_penalty_area_on_target_percent",
+    },
+
+    "Patrones de ataque": {
+        "Ataques posicionales con disparo (%)": "positional_attacks_with_shots_percent",
+        "Contraataques con disparo (%)": "counter_attacks_with_shots_percent",
+    },
+
+    "Balón parado y definición": {
+        "Balones parados con disparo (%)": "set_pieces_with_shots_percent",
+        "Corners con disparo (%)": "corners_with_shots_percent",
+        "Faltas directas con disparo (%)": "free_kicks_with_shots_percent",
+        "Conversión de penaltis (%)": "penalties_converted_percent",
+    },
+
+    "Juego interior y profundidad": {
         "Entradas al área por 90": "penalty_area_entries",
-    }
-
-    metrics_sel = st.multiselect(
-        "Selecciona métricas ofensivas (máx 5)",
-        list(offensive_metrics.keys()),
-        default=["Goles por partido", "xG (Goles esperados)", "Disparos por partido"],
-        max_selections=5,
-        key="of_metrics",
-    )
-
-    df_off = df_filtrado[
-        (df_filtrado["Match"].isin(partidos_sel))
-        & (df_filtrado["Jornada"].isin(jornadas_sel))
-    ].copy()
-
-    if df_off.empty:
-        st.warning("No hay datos disponibles.")
-        return
-
-    df_long = df_off.melt(
-        id_vars=["Match"],
-        value_vars=[
-            offensive_metrics[m]
-            for m in metrics_sel
-            if offensive_metrics[m] in df_off.columns
-        ],
-        var_name="metric",
-        value_name="value",
-    )
-    df_long["metric_label"] = df_long["metric"].map(
-        {v: k for k, v in offensive_metrics.items()}
-    )
-
-    fig = px.bar(
-        df_long,
-        x="value",
-        y="Match",
-        color="metric_label",
-        orientation="h",
-        barmode="group",
-        color_discrete_sequence=PALETTE_CIBAO,
-        template="plotly_dark",
-        text_auto=".1f",
-    )
-    fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
-    fig.update_layout(
-        height=260,
-        plot_bgcolor=CIBAO_BLACK,
-        paper_bgcolor=CIBAO_BLACK,
-        font=dict(color=CIBAO_GRAY, size=12),
-        xaxis_title="Valor",
-        yaxis_title=None,
-        legend_title="Métrica ofensiva",
-        legend=dict(font=dict(size=11)),
-        bargap=0.25,
-        margin=dict(l=40, r=30, t=30, b=20),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# ==============================
-# BLOQUE 2 — CONSTRUCCIÓN Y PASES (Horizontal)
-# ==============================
-def bloque_construccion_pases(df_filtrado):
-    st.markdown("<h3 style='text-align:center;'>Construcción y Pases</h3>", unsafe_allow_html=True)
-    st.caption(
-        "Analiza la precisión y calidad de los pases en distintas zonas del campo, mostrando la consistencia técnica del equipo."
-    )
-
-    passing_metrics = {
-        "Precisión de pase (%)": "passes_accurate_percent",
-        "Precisión hacia adelante (%)": "forward_passes_accurate_percent",
-        "Precisión pases largos (%)": "long_passes_accurate_percent",
-        "Precisión al último tercio (%)": "passes_to_final_third_accurate_percent",
-        "Precisión de centros (%)": "crosses_accurate_percent",
-    }
-
-    metrics_sel = st.multiselect(
-        "Selecciona métricas de pase (máx 5)",
-        list(passing_metrics.keys()),
-        default=[
-            "Precisión de pase (%)",
-            "Precisión hacia adelante (%)",
-            "Precisión pases largos (%)",
-        ],
-        max_selections=5,
-        key="pa_metrics",
-    )
-
-    df_pass = df_filtrado[
-        (df_filtrado["Match"].isin(partidos_sel))
-        & (df_filtrado["Jornada"].isin(jornadas_sel))
-    ].copy()
-
-    if df_pass.empty:
-        st.warning("No hay datos disponibles.")
-        return
-
-    df_long_pass = df_pass.melt(
-        id_vars=["Match"],
-        value_vars=[
-            passing_metrics[m]
-            for m in metrics_sel
-            if passing_metrics[m] in df_pass.columns
-        ],
-        var_name="metric",
-        value_name="value",
-    )
-    df_long_pass["metric_label"] = df_long_pass["metric"].map(
-        {v: k for k, v in passing_metrics.items()}
-    )
-
-    fig = px.bar(
-        df_long_pass,
-        x="value",
-        y="Match",
-        color="metric_label",
-        orientation="h",
-        barmode="group",
-        color_discrete_sequence=PALETTE_CIBAO,
-        template="plotly_dark",
-        text_auto=".1f",
-    )
-    fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
-    fig.update_layout(
-        height=260,
-        plot_bgcolor=CIBAO_BLACK,
-        paper_bgcolor=CIBAO_BLACK,
-        font=dict(color=CIBAO_GRAY, size=12),
-        xaxis_title="Precisión (%)",
-        yaxis_title=None,
-        legend_title="Tipo de pase",
-        legend=dict(font=dict(size=11)),
-        bargap=0.25,
-        margin=dict(l=40, r=30, t=30, b=20),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-# ==============================
-# LAYOUT 1x2
-# ==============================
-col1, col2 = st.columns(2)
-with col1:
-    bloque_eficiencia_ataque(df_filtrado)
-with col2:
-    bloque_construccion_pases(df_filtrado)
-
-# ==============================
-# BLOQUE 1 — DEFENSA Y EFICIENCIA (Barras horizontales, 3 por defecto, máx 5)
-# ==============================
-def bloque_defensa_eficiencia(df_filtrado):
-    st.markdown("<h3 style='text-align:center;'>Defensa y Eficiencia</h3>", unsafe_allow_html=True)
-    st.caption(
-        "Evalúa el rendimiento defensivo del Cibao FC mediante métricas como duelos ganados, intercepciones, recuperaciones, despejes y pérdidas por partido."
-    )
-
-    defense_metrics = {
-        "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
-        "Intercepciones por 90": "interceptions",
-        "Recuperaciones por 90": "recoveries",
-        "Despejes por 90": "clearances",
-        "Pérdidas de balón por 90": "losses",
-    }
-
-    # 🔹 Solo 3 por defecto, máximo 5
-    metrics_sel = st.multiselect(
-        "Selecciona métricas defensivas (máx 5)",
-        list(defense_metrics.keys()),
-        default=[
-            "Duelos defensivos ganados (%)",
-            "Intercepciones por 90",
-            "Recuperaciones por 90",
-        ],
-        max_selections=5,
-        key="def_eff_metrics",
-    )
-
-    df_def = df_filtrado[
-        (df_filtrado["Match"].isin(partidos_sel))
-        & (df_filtrado["Jornada"].isin(jornadas_sel))
-    ].copy()
-
-    if df_def.empty:
-        st.warning("No hay datos disponibles.")
-        return
-
-    df_long = df_def.melt(
-        id_vars=["Match"],
-        value_vars=[
-            defense_metrics[m]
-            for m in metrics_sel
-            if defense_metrics[m] in df_def.columns
-        ],
-        var_name="metric",
-        value_name="value",
-    )
-    df_long["metric_label"] = df_long["metric"].map(
-        {v: k for k, v in defense_metrics.items()}
-    )
-
-    fig = px.bar(
-        df_long,
-        x="value",
-        y="Match",
-        color="metric_label",
-        orientation="h",
-        barmode="group",
-        color_discrete_sequence=PALETTE_CIBAO,
-        template="plotly_dark",
-        text_auto=".1f",
-    )
-
-    fig.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
-    fig.update_layout(
-        height=260,
-        plot_bgcolor=CIBAO_BLACK,
-        paper_bgcolor=CIBAO_BLACK,
-        font=dict(color=CIBAO_GRAY, size=12),
-        xaxis_title="Valor",
-        yaxis_title=None,
-        legend_title="Métrica defensiva",
-        legend=dict(font=dict(size=11)),
-        bargap=0.25,
-        margin=dict(l=40, r=30, t=30, b=20),
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# ==============================
-# BLOQUE 2 — DISTRIBUCIÓN TÁCTICA (Barras agrupadas, estilo corporativo)
-# ==============================
-def bloque_distribucion_tactica(df_filtrado):
-    st.markdown("<h3 style='text-align:center;'>Distribución Táctica — Presión y Recuperaciones</h3>", unsafe_allow_html=True)
-    st.caption(
-        "Analiza la distribución estimada de las pérdidas y recuperaciones del equipo según la altura del campo. "
-        "Compara la presión ejercida y la efectividad de las recuperaciones entre zonas altas, medias y bajas."
-    )
-
-    pressure_metrics = {
-        "Presión alta (estimada)": "losses_high",
-        "Presión media (estimada)": "losses_medium",
-        "Presión baja (estimada)": "losses_low",
-    }
-
-    recovery_metrics = {
-        "Recuperaciones altas por 90": "recoveries_high",
-        "Recuperaciones medias por 90": "recoveries_medium",
-        "Recuperaciones bajas por 90": "recoveries_low",
-    }
-
-    df_view = df_filtrado[
-        (df_filtrado["Jornada"].isin(jornadas_sel))
-        & (df_filtrado["Match"].isin(partidos_sel))
-    ].copy()
-
-    if df_view.empty:
-        st.warning("No hay datos disponibles para la selección actual.")
-        return
-
-    # === 📊 PRESIÓN POR ZONA ===
-    df_pressure = df_view.melt(
-        id_vars=["Match"],
-        value_vars=list(pressure_metrics.values()),
-        var_name="metric",
-        value_name="value",
-    )
-    df_pressure["Zona"] = df_pressure["metric"].map({v: k for k, v in pressure_metrics.items()})
-
-    fig_pressure = px.bar(
-        df_pressure,
-        x="value",
-        y="Match",
-        color="Zona",
-        orientation="h",
-        barmode="group",
-        color_discrete_sequence=PALETTE_CIBAO,
-        template="plotly_dark",
-        text_auto=".1f",
-    )
-    fig_pressure.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
-    fig_pressure.update_layout(
-        height=230,
-        title=dict(text="Presión — Por zonas del campo", font=dict(size=14, color=CIBAO_ORANGE)),
-        plot_bgcolor=CIBAO_BLACK,
-        paper_bgcolor=CIBAO_BLACK,
-        font=dict(color=CIBAO_GRAY, size=12),
-        xaxis_title="Valor",
-        yaxis_title=None,
-        legend_title="Zona del campo",
-        legend=dict(font=dict(size=11)),
-        bargap=0.25,
-        margin=dict(l=40, r=30, t=40, b=20),
-    )
-
-    st.plotly_chart(fig_pressure, use_container_width=True)
-
-    # === 📊 RECUPERACIONES POR ZONA ===
-    df_recovery = df_view.melt(
-        id_vars=["Match"],
-        value_vars=list(recovery_metrics.values()),
-        var_name="metric",
-        value_name="value",
-    )
-    df_recovery["Zona"] = df_recovery["metric"].map({v: k for k, v in recovery_metrics.items()})
-
-    fig_recovery = px.bar(
-        df_recovery,
-        x="value",
-        y="Match",
-        color="Zona",
-        orientation="h",
-        barmode="group",
-        color_discrete_sequence=PALETTE_CIBAO,
-        template="plotly_dark",
-        text_auto=".1f",
-    )
-    fig_recovery.update_traces(textfont=dict(size=11), textposition="outside", cliponaxis=False)
-    fig_recovery.update_layout(
-        height=230,
-        title=dict(text="Recuperaciones — Por zonas del campo", font=dict(size=14, color=CIBAO_ORANGE)),
-        plot_bgcolor=CIBAO_BLACK,
-        paper_bgcolor=CIBAO_BLACK,
-        font=dict(color=CIBAO_GRAY, size=12),
-        xaxis_title="Valor",
-        yaxis_title=None,
-        legend_title="Zona del campo",
-        legend=dict(font=dict(size=11)),
-        bargap=0.25,
-        margin=dict(l=40, r=30, t=40, b=20),
-    )
-
-    st.plotly_chart(fig_recovery, use_container_width=True)
-
-
-# ==============================
-# LAYOUT 1×2 (Horizontal)
-# ==============================
-col1, col2 = st.columns(2)
-with col1:
-    bloque_defensa_eficiencia(df_filtrado)
-with col2:
-    bloque_distribucion_tactica(df_filtrado)
-
-# ==============================
-# ANÁLISIS COMPARATIVO — TABLAS CON ALTURA DINÁMICA Y PALETA CIBAO
-# ==============================
-
-import pandas as pd
-import io
-import matplotlib
-from matplotlib.colors import LinearSegmentedColormap
-
-st.subheader("Análisis Comparativo por Bloques")
-st.caption(
-    "Visualiza y compara los indicadores clave del rendimiento colectivo en tres fases del juego: "
-    "**ofensiva**, **construcción/pase** y **defensiva**. "
-    "Cada bloque usa una escala cromática en tonos **naranja Cibao FC**, "
-    "resaltando los valores más altos dentro de cada métrica."
-)
-        /* ⚠️ IMPORTANTE:
-           NO aplicar fondo negro a *todos los divs*, eso fue lo que rompió todo.
-        */
-
-# ==============================
-# 📋 DICCIONARIO DE MÉTRICAS POR BLOQUE
-# ==============================
-metrics_blocks = {
-    "Ofensivas": {
-        "Goles por partido": "goals",
-        "xG (Goles esperados)": "xg",
-        "Disparos por partido": "shots",
-        "Disparos a puerta por partido": "shots_on_target",
-        "Contraataques por 90": "counter_attacks",
-        "Penaltis por 90": "penalties",
-        "Centros por 90": "crosses",
-        "Precisión de centros (%)": "crosses_accurate_percent",
-        "Corners por 90": "corners",
-    },
-    "Construcción y Pase": {
-        "Precisión de pase (%)": "passes_accurate_percent",
-        "Precisión hacia adelante (%)": "forward_passes_accurate_percent",
-        "Precisión pases largos (%)": "long_passes_accurate_percent",
-        "Precisión al último tercio (%)": "passes_to_final_third_accurate_percent",
-        "Precisión pases inteligentes (%)": "smart_passes_accurate_percent",
-    },
-    "Defensivas": {
-        "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
-        "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
-        "Intercepciones por 90": "interceptions",
-        "Despejes por 90": "clearances",
-        "Recuperaciones por 90": "recoveries",
-        "Pérdidas de balón por 90": "losses",
-        "PPDA": "ppda",
-        "Disparos en contra por 90": "shots_against",
-        "Disparos en contra a puerta por 90": "shots_against_on_target",
-        "Eficiencia rival (%)": "shots_against_on_target_percent",
+        "Entradas al área con conducción": "penalty_area_entries_runs",
+        "Entradas al área con centros": "penalty_area_entries_crosses",
+        "Toques en el área por 90": "touches_in_penalty_area",
     },
 }
-        :root { color-scheme: dark !important; }
-        html { forced-color-adjust:none !important; }
 
-# ==============================
-# 🎨 PALETA NARANJA CIBAO — REGISTRADA GLOBALMENTE
-# ==============================
-CIBAO_ORANGE = LinearSegmentedColormap.from_list(
-    "cibao_orange",
-    ["#ff6600", "#ff7b00", "#ff9933", "#ffb84d", "#ffd699"]
-)
-matplotlib.colormaps.register(CIBAO_ORANGE, name="cibao_orange", force=True)
+# ===========================
+# PALETA CIBAO
+# ===========================
 
-# ==============================
-# 🔍 DATOS FILTRADOS Y LÍMITE DE FILAS
-# ==============================
-df_base = df_filtrado.copy()
+CIBAO_ORANGE = "#FF8C00"
+CIBAO_BLACK = "#111111"
+CIBAO_GRAY = "#D3D3D3"
+PALETTE_CIBAO = ["#FF8C00"]
 
-if df_base.empty:
-    st.info("No hay datos disponibles para los filtros seleccionados.")
-else:
-    df_base = df_base.sort_values("Date", ascending=False)
-    partidos_sel = df_base["Match"].nunique()
+# ===========================
+# FUNCIÓN DE GRÁFICO + CONCLUSIONES
+# ===========================
 
-    # Mostrar 3 filas por defecto, hasta 5 máximo
-    if partidos_sel <= 3:
-        df_base = df_base.head(3)
-    else:
-        df_base = df_base.head(min(partidos_sel, 5))
-        /* ------------------------- */
-        /* SIDEBAR */
-        /* ------------------------- */
-        [data-testid="stSidebar"] {
-            background-color:#111 !important;
-            border-right:1px solid #222 !important;
-        }
-        [data-testid="stSidebar"] * {
-            color:#fff !important;
-        }
+def plot_group(nombre_grupo, mapping):
 
-    st.caption(
-        f"Mostrando los últimos {len(df_base)} partidos seleccionados "
-        "(máximo 5 por visualización)."
+    df_plot = df_filtrado.copy()
+
+    columnas = [v for v in mapping.values() if v in df_plot.columns]
+    etiquetas = {v: k for k, v in mapping.items() if v in df_plot.columns}
+
+    if len(columnas) == 0:
+        st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
+        return
+
+    df_mean = (
+        df_plot[columnas]
+        .mean()
+        .reset_index()
+        .rename(columns={"index": "metric", 0: "valor"})
     )
-        /* ------------------------- */
-        /* TITULOS */
-        /* ------------------------- */
-        h1, h2, h3 {
-            color:#ff8c00 !important;
-            text-shadow:0 0 15px rgba(255,140,0,0.55) !important;
-        }
+    df_mean["label"] = df_mean["metric"].map(etiquetas)
+    df_mean = df_mean.sort_values("valor", ascending=True)
 
-# ==============================
-# ⚙️ FUNCIÓN DE TABLA CON FORMATO POR COLUMNA Y ALTURA AJUSTABLE
-# ==============================
-def build_table(df, metrics_dict, title):
-    df_local = df[["Match"] + list(metrics_dict.values())].copy()
-    df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
-    df_local = df_local.round(2)
-        /* ------------------------- */
-        /* MULTISELECT + SELECTBOX */
-        /* ------------------------- */
-        .stMultiSelect div[data-baseweb="select"],
-        .stSelectbox div[data-baseweb="select"] {
-            background-color:#111 !important;
-            border:1px solid #ff7b00 !important;
-            color:white !important;
-        }
-
-    st.markdown(f"### 🟧 {title}")
-    styled_df = df_local.style
-    for col in metrics_dict.keys():
-        styled_df = styled_df.background_gradient(cmap="cibao_orange", subset=[col])
-        /* Icono flecha selectbox */
-        .stSelectbox svg { color:#ff7b00 !important; }
-
-    styled_df = styled_df.set_properties(
-        **{
-            "text-align": "center",
-            "font-size": "12px",
-            "border-color": "#2b2b2b",
-            "border-width": "1px",
-            "border-style": "solid",
-        /* Tags */
-        .stMultiSelect [data-baseweb="tag"] {
-            background-color:#ff7b00 !important;
-            color:white !important;
-       }
-    ).format(precision=2)
-
-    # Altura dinámica: 45px por fila + margen superior
-    height = max(180, len(df_local) * 45 + 80)
-    st.dataframe(styled_df, use_container_width=True, height=height)
-    return df_local
-
-# ==============================
-# 📊 BLOQUES (UNO DEBAJO DEL OTRO)
-# ==============================
-if not df_base.empty:
-    st.divider()
-    df_off = build_table(df_base, metrics_blocks["Ofensivas"], "Bloque Ofensivo")
-        /* ------------------------- */
-        /* TABLAS DATAFRAME */
-        /* ------------------------- */
-        .dataframe, .stDataFrame, .stTable {
-            background-color:#000 !important;
-            color:#fff !important;
-        }
-
-    st.divider()
-    df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"], "Bloque Construcción y Pase")
-        .dataframe tbody tr td {
-            background-color:#111 !important;
-            color:#fff !important;
-        }
-
-    st.divider()
-    df_def = build_table(df_base, metrics_blocks["Defensivas"], "Bloque Defensivo")
-        .dataframe thead tr th {
-            background-color:#222 !important;
-            color:#ff8c00 !important;
-        }
-
-    # ==============================
-    # 📥 DESCARGA EN EXCEL
-    # ==============================
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df_off.to_excel(writer, sheet_name="Ofensivo", index=False)
-        df_pass.to_excel(writer, sheet_name="Construccion_Pase", index=False)
-        df_def.to_excel(writer, sheet_name="Defensivo", index=False)
-    buffer.seek(0)
-        .dataframe td, .dataframe th {
-            border-color:#333 !important;
-        }
-
-    st.download_button(
-        label="📥 Descargar análisis completo en Excel",
-        data=buffer,
-        file_name="analisis_completo_cibao.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    fig = px.bar(
+        df_mean,
+        x="valor",
+        y="label",
+        orientation="h",
+        text_auto=".2f",
+        color_discrete_sequence=PALETTE_CIBAO,
     )
-        /* ------------------------- */
-        /* INPUTS */
-        /* ------------------------- */
-        input, textarea {
-            background-color:#111 !important;
-            color:#fff !important;
-            border:1px solid #ff7b00 !important;
-        }
 
-    st.markdown(
-        f"**Insight general:** Se muestran los últimos {len(df_base)} partidos disponibles según los filtros globales. "
-        "Cada bloque utiliza una escala de tonos naranjas institucionales, resaltando los valores más altos "
-        "de rendimiento dentro de cada columna."
-        </style>
-        """,
-        unsafe_allow_html=True,
-)
+    fig.update_layout(
+        height=300,
+        template="plotly_dark",
+        plot_bgcolor=CIBAO_BLACK,
+        paper_bgcolor=CIBAO_BLACK,
+        font=dict(color=CIBAO_GRAY, size=12),
+        title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
+        title_x=0.5,
+        margin=dict(l=20, r=20, t=50, b=20),
+        showlegend=False,
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # -------- CONCLUSIONES TÁCTICAS --------
+    max_row = df_mean.iloc[-1]
+    min_row = df_mean.iloc[0]
+
+    conclusion = f"""
+    <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE}; margin-top:-8px; margin-bottom:25px;'>
+    <b>Conclusiones tácticas</b><br><br>
+
+    • <b>Punto fuerte:</b> El equipo muestra mayor impacto en <b>{max_row['label']}</b>,
+      acción que está contribuyendo directamente al modelo ofensivo.<br><br>
+
+    • <b>Área con menor incidencia:</b> El valor más bajo corresponde a <b>{min_row['label']}</b>,
+      indicador de un comportamiento aún mejorable dentro de la estructura ofensiva.<br><br>
+    </div>
+    """
+
+    st.markdown(conclusion, unsafe_allow_html=True)
+
+# ============================================================
+# 🔶 CREACIÓN DE LAS 5 PESTAÑAS
+# ============================================================
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Eficiencia y Ataque",
+    "Construcción y Pases",
+    "Defensa y Eficiencia",
+    "Distribución Táctica",
+    "Análisis Comparativo (Tablas)"
+])
 
 
+# ============================================================
+# 🔶 CONTENIDO DE CADA PESTAÑA
+# ============================================================
 
-# =========================================================  COPA
+with tab1:
 
-# =========================================================
-# 📊 ANÁLISIS DE MÉTRICAS EN COPA CONCACAF
-# =========================================================
+    st.markdown("### Eficiencia y Ataque")
+    st.caption("Evaluación del comportamiento ofensivo del Cibao FC...")
 
-from src.data_processing.load_concacaf_matchstats_data import load_concacaf_matchstats_data
-from src.utils.metrics_dictionary_concacaf import METRICS_CONCACAF, METRIC_GROUPS_CONCACAF
+    # ===========================
+    # LAYOUT 2 × 2 + 1 FINAL
+    # ===========================
 
-st.markdown(
-    f"""
-    <h1 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
-    Análisis de Métricas — Copa Concacaf
-    </h1>
-    <p style='text-align:center; color:{CIBAO_GRAY}; font-size:17px;'>
-    Exploración de métricas clave del Cibao FC durante la Copa Concacaf, incluyendo desempeño ofensivo, defensivo y de construcción.
+    col1, col2 = st.columns(2)
+    with col1:
+        plot_group("Producción ofensiva directa", grupos["Producción ofensiva directa"])
+    with col2:
+        plot_group("Eficiencia en el tiro", grupos["Eficiencia en el tiro"])
+
+    col3, col4 = st.columns(2)
+    with col3:
+        plot_group("Patrones de ataque", grupos["Patrones de ataque"])
+    with col4:
+        plot_group("Balón parado y definición", grupos["Balón parado y definición"])
+
+    # Último grupo → ancho completo
+    plot_group("Juego interior y profundidad", grupos["Juego interior y profundidad"])
+
+
+# ================= TABS VACÍAS POR AHORA =====================
+
+with tab2:
+
+    # ============================================================
+    # 🔶 CONSTRUCCIÓN Y PASES — BLOQUE COMPLETO
+    # ============================================================
+
+    st.markdown("""
+    <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Construcción y Pases</h2>
+    <p style='text-align:center; color:#ccc;'>
+    Evaluación de la estructura asociativa del Cibao FC: precisión, progresión, control de ritmo, distribución y mecanismos de reinicio del juego.
     </p>
-    """,
-    unsafe_allow_html=True,
-)
+    """, unsafe_allow_html=True)
 
-# ==============================
-# 📂 Carga de datos de Copa
-# ==============================
+    # ===========================
+    # DEFINICIÓN DE GRUPOS
+    # ===========================
 
-try:
-    df_copa_merged, df_copa_cibao, df_copa_rivales = load_concacaf_matchstats_data()
-except Exception as e:
-    st.error(f"⚠️ Error al cargar los datos de Copa Concacaf: {e}")
-    st.stop()
+    grupos_pases = {
 
-if df_copa_cibao.empty:
-    st.warning("No hay registros de partidos de Copa Concacaf disponibles.")
-else:
-    # ==============================
-    # 🧩 BLOQUE 0 — ANÁLISIS RÁPIDO CIBAO VS RIVAL (Copa)
-    # ==============================
-def titulo_naranja(texto):
-st.markdown(
-f"""
-        <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
-        Comparativa Copa (Cibao vs Rival)
-        </h2>
-        <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
-        Evalúa el rendimiento del Cibao FC frente a sus rivales en Copa Concacaf, considerando métricas ofensivas y defensivas clave.
-        </p>
-        <h1 style="
-            text-align:center;
-            font-weight:900;
-            color:#ff8c00;
-            text-shadow:0 0 14px rgba(255,140,0,0.65);
-        ">{texto}</h1>
-       """,
-unsafe_allow_html=True,
-)
+        "Control y estabilidad en la circulación": {
+            "Posesión (%)": "possession_percent",
+            "Precisión de pase (%)": "passes_accurate_percent",
+            "Precisión pases largos (%)": "long_pass_percent",
+        },
 
-    col_sel1, col_sel2, col_sel3 = st.columns([1.2, 1.2, 1])
+        "Seguridad en la progresión": {
+            "Precisión pases progresivos (%)": "progressive_passes_accurate_percent",
+            "Precisión pases hacia atrás (%)": "back_passes_accurate_percent",
+            "Precisión pases laterales (%)": "lateral_passes_accurate_percent",
+        },
 
-    team_options_copa = sorted(
-        {
-            str(t)
-            for t in df_copa_cibao["rival"].dropna().unique()
-            if str(t).strip().lower() != "cibao"
+        "Conexiones de alto valor táctico": {
+            "Precisión pases al último tercio (%)": "passes_to_final_third_accurate_percent",
+            "Precisión pases inteligentes (%)": "smart_passes_accurate_percent",
+        },
+
+        "Reinicios del juego": {
+            "Saques de banda por 90": "throw_ins",
+            "Saques de meta por 90": "goal_kicks",
+        },
+
+        "Longitud media de pase": {
+            "Longitud media de pase": "average_pass_length",
         }
-    )
-
-    if not team_options_copa:
-        st.info("No hay rivales disponibles en el dataset de Copa Concacaf.")
-    else:
-        opponent_copa = col_sel1.selectbox("Selecciona rival de Copa", team_options_copa)
-
-        metric_labels_copa = list(METRICS_CONCACAF.keys())
-
-        # Valores por defecto
-        x_default_copa = (
-            metric_labels_copa.index("Goles") if "Goles" in metric_labels_copa else 0
-        )
-        y_default_copa = (
-            metric_labels_copa.index("Goles Recibidos")
-            if "Goles Recibidos" in metric_labels_copa
-            else min(1, len(metric_labels_copa) - 1)
-        )
-
-        x_choice_copa = col_sel2.selectbox(
-            "Métrica ofensiva (eje X)",
-            metric_labels_copa,
-            index=x_default_copa if metric_labels_copa else 0,
-        )
-
-        y_choice_copa = col_sel3.selectbox(
-            "Métrica defensiva (eje Y)",
-            metric_labels_copa,
-            index=y_default_copa if metric_labels_copa else 0,
-        )
-
-        # Mapeo de nombres en español → columnas reales
-        x_column_copa = METRICS_CONCACAF.get(x_choice_copa)
-        y_column_copa = METRICS_CONCACAF.get(y_choice_copa)
-
-        if x_column_copa is None or y_column_copa is None:
-            st.error("No se encontró la métrica seleccionada en el dataset de Copa.")
-        else:
-            # --- ✨ Preparar dataset completo de Copa
-            df_copa_adapter = df_copa_cibao.copy()
-
-            df_copa_adapter["Team"] = df_copa_adapter["team"]
-            df_copa_adapter["Opponent"] = df_copa_adapter.apply(
-                lambda r: r["away_team"]
-                if r["team"] == r["home_team"]
-                else r["home_team"],
-                axis=1,
-            )
-            df_copa_adapter["Competition"] = "Copa Concacaf"
-            df_copa_adapter["Date"] = pd.to_datetime(df_copa_adapter["match_date"])
-            df_copa_adapter["Match"] = df_copa_adapter.apply(
-                lambda r: f"{r['home_team']} vs {r['away_team']}", axis=1
-            )
-            if "Jornada" not in df_copa_adapter.columns:
-                df_copa_adapter["Jornada"] = df_copa_adapter.get("stage", "Copa")
-
-            for col_num in [x_column_copa, y_column_copa]:
-                if col_num in df_copa_adapter.columns:
-                    df_copa_adapter[col_num] = (
-                        pd.to_numeric(df_copa_adapter[col_num], errors="coerce")
-                        .fillna(0)
-                    )
-
-            df_copa_adapter = df_copa_adapter.fillna(0)
-            df_copa_view = df_copa_adapter.copy()
-
-            if df_copa_view.empty:
-                st.info("No hay registros disponibles para el análisis de Copa.")
-            else:
-                try:
-                    fig_copa, resumen_copa, _ = make_team_scatter(
-                        df_copa_view,
-                        primary_team="Cibao",
-                        opponent=opponent_copa,
-                        x_metric=x_column_copa,
-                        y_metric=y_column_copa,
-                        x_label=x_choice_copa,
-                        y_label=y_choice_copa,
-                        title=f"Copa Concacaf — {x_choice_copa} vs {y_choice_copa}",
-                        filters=None,
-                    )
-
-                    # 🚫 Eliminar anotaciones superiores automáticas (texto que se superpone)
-                    fig_copa.layout.annotations = [
-                        ann for ann in fig_copa.layout.annotations if ann.yref != "paper" or ann.y < 1
-                    ]
-
-                    # Ajuste de márgenes para mantener buen espaciado
-                    fig_copa.update_layout(
-                        margin=dict(t=100, b=80, l=60, r=40),
-                        title_pad=dict(t=60),
-                        title_font=dict(size=20),
-                    )
-
-                    st.plotly_chart(
-                        fig_copa,
-                        use_container_width=True,
-                        config={"displayModeBar": True},
-                    )
-
-                    # ✅ Mostrar solo resumen inferior
-                    if resumen_copa:
-                        st.markdown("---")
-                        st.caption(f"**Resumen:** {resumen_copa}")
-
-                except Exception as e:
-                    st.warning(
-                        f"No se pudo usar make_team_scatter ({e}). Se muestra un scatter básico."
-                    )
-                    import plotly.express as px
-                    fig_basic = px.scatter(
-                        df_copa_view,
-                        x=x_column_copa,
-                        y=y_column_copa,
-                        color="Team",
-                        hover_data=["Match", "Date"],
-                        title=f"Copa Concacaf — {x_choice_copa} vs {y_choice_copa}",
-                        template="plotly_dark",
-                    )
-                    fig_basic.update_layout(
-                        margin=dict(t=100, b=80, l=60, r=40),
-                        title_pad=dict(t=60),
-                        title_font=dict(size=20),
-                    )
-                    st.plotly_chart(fig_basic, use_container_width=True)
-
-
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-
-def _ensure_numeric(df, cols):
-    for c in cols:
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
-    return df
-
-def _map_metrics(names):
-    """Devuelve lista de columnas reales a partir de nombres del diccionario."""
-    cols = []
-    for n in names:
-        col = METRICS_CONCACAF.get(n)
-        if col:
-            cols.append(col)
-    return cols
-
-
-# =========================================================
-# 🔧 Utilidades para bloques de Copa (usar una sola vez)
-# =========================================================
-import numpy as np
-import plotly.graph_objects as go
-
-def _ensure_numeric(df, cols):
-    for c in cols:
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0)
-    return df
-
-def _dedup_names_by_column(metric_names, mapping):
-    seen = set()
-    result = []
-    for n in metric_names:
-        col = mapping.get(n)
-        if col and col not in seen:
-            seen.add(col)
-            result.append((n, col))
-    return result
-
-# =========================================================
-# 🧩 BLOQUES 1–4 · COMPARATIVA CIBAO VS RIVAL — COPA CONCACAF
-# =========================================================
-st.markdown(
-    f"""
-    <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900;'>
-    Comparativa de Métricas — Copa Concacaf (Cibao vs Rival)
-    </h2>
-    <p style='text-align:center; color:{CIBAO_GRAY}; font-size:16px;'>
-    Compara el rendimiento promedio del Cibao FC frente a un rival seleccionado
-    en cada grupo de métricas: ataque, pases, defensa y balón parado.
-    </p>
-    """,
-    unsafe_allow_html=True,
-)
-
-# --- Selección de rival única ---
-team_options_copa = sorted(
-    {
-        str(t)
-        for t in df_copa_cibao["rival"].dropna().unique()
-        if str(t).strip().lower() != "cibao"
     }
-)
-if not team_options_copa:
-    st.warning("No hay rivales disponibles en el dataset de Copa Concacaf.")
-    st.stop()
-
-col_sel = st.columns([1])
-opponent_choice = col_sel[0].selectbox(
-    "Selecciona rival de Copa",
-    team_options_copa,
-    key="copa_metrics_select",
-)
-
-# =========================================================
-# 🧮 Función principal comparativa Cibao vs Rival
-# =========================================================
-def make_comparison_bar(group_name, df, mapping_dict, group_dict, rival_name):
-    group_metrics = group_dict.get(group_name, [])
-    pairs = _dedup_names_by_column(group_metrics, mapping_dict)
-    cols = [c for _, c in pairs]
-    df = _ensure_numeric(df.copy(), cols)
-
-    cibao_df = df[df["team"].str.contains("Cibao", case=False, na=False)]
-    rival_df = df[df["team"].str.contains(rival_name, case=False, na=False)]
-
-    cibao_means, rival_means, labels = [], [], []
-    for disp, col in pairs:
-        labels.append(disp)
-        cibao_means.append(float(cibao_df[col].mean()) if col in cibao_df.columns else 0)
-        rival_means.append(float(rival_df[col].mean()) if col in rival_df.columns else 0)
-
-    color_cibao = "#FF8C00"  # naranja sólido (seguro)
-    color_rival = "#FFA500"
-
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=labels, y=cibao_means, name="Cibao", marker_color=color_cibao
-    ))
-    fig.add_trace(go.Bar(
-        x=labels, y=rival_means, name=rival_name, marker_color=color_rival
-    ))
-
-    fig.update_layout(
-        title=f"{group_name} — Promedio por partido (Cibao vs {rival_name})",
-        barmode="group",
-        template="plotly_dark",
-        height=450,
-        margin=dict(t=70, b=60, l=60, r=40),
-        xaxis_title="Métrica",
-        yaxis_title="Promedio por partido",
-        legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5),
-    )
-    return fig
-
-# =========================================================
-# 📊 FILA 1: ATAQUE + PASES
-# =========================================================
-col1, col2 = st.columns(2)
-with col1:
-    st.plotly_chart(
-        make_comparison_bar("Ataque", df_copa_cibao, METRICS_CONCACAF, METRIC_GROUPS_CONCACAF, opponent_choice),
-        use_container_width=True,
-    )
-with col2:
-    st.plotly_chart(
-        make_comparison_bar("Pases", df_copa_cibao, METRICS_CONCACAF, METRIC_GROUPS_CONCACAF, opponent_choice),
-        use_container_width=True,
-    )
-
-# =========================================================
-# 📊 FILA 2: DEFENSIVO + SET PIECES
-# =========================================================
-col3, col4 = st.columns(2)
-with col3:
-    st.plotly_chart(
-        make_comparison_bar("Defensivo", df_copa_cibao, METRICS_CONCACAF, METRIC_GROUPS_CONCACAF, opponent_choice),
-        use_container_width=True,
-    )
-with col4:
-    st.plotly_chart(
-        make_comparison_bar("Set Pieces", df_copa_cibao, METRICS_CONCACAF, METRIC_GROUPS_CONCACAF, opponent_choice),
-        use_container_width=True,
-    )
 
 
+    # ===========================
+    # FUNCIÓN: BARRAS VERTICALES
+    # ===========================
+
+    def plot_group_vertical(nombre_grupo, mapping):
+
+        df_plot = df_filtrado.copy()
+
+        columnas = [v for v in mapping.values() if v in df_plot.columns]
+        etiquetas = {v: k for k, v in mapping.items() if v in df_plot.columns}
+
+        if len(columnas) == 0:
+            st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
+            return
+
+        df_mean = (
+            df_plot[columnas]
+            .mean()
+            .reset_index()
+            .rename(columns={"index": "metric", 0: "valor"})
+        )
+
+        df_mean["label"] = df_mean["metric"].map(etiquetas)
+        df_mean = df_mean.sort_values("valor", ascending=False)
+
+        fig = px.bar(
+            df_mean,
+            x="label",
+            y="valor",
+            orientation="v",
+            text_auto=".2f",
+            color_discrete_sequence=["#FF8C00"],
+        )
+
+        fig.update_layout(
+            height=360,
+            template="plotly_dark",
+            plot_bgcolor="#111",
+            paper_bgcolor="#111",
+            font=dict(color="#D3D3D3", size=12),
+            title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color="#FF8C00")),
+            title_x=0.5,
+            margin=dict(l=20, r=20, t=50, b=20),
+            showlegend=False,
+            xaxis=dict(tickangle=-35),
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # -------- CONCLUSIONES TÁCTICAS --------
+        max_row = df_mean.iloc[0]
+        min_row = df_mean.iloc[-1]
+
+        conclusion = f"""
+        <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-8px; margin-bottom:25px;'>
+        <b>Conclusiones tácticas</b><br><br>
+
+        • <b>Fortaleza estructural:</b> El equipo muestra mayor fiabilidad en <b>{max_row['label']}</b>, indicador de estabilidad en la fase de construcción.<br><br>
+
+        • <b>Área por optimizar:</b> La métrica con menor incidencia es <b>{min_row['label']}</b>, aspecto donde aumentar la claridad puede mejorar la fluidez asociativa.<br><br>
+        </div>
+        """
+
+        st.markdown(conclusion, unsafe_allow_html=True)
+
+
+    # ===========================
+    # FUNCIÓN: GAUGE LINEAL (GRUPO 5)
+    # ===========================
+
+    def plot_longitud_pase(mapping):
+
+        col = list(mapping.values())[0]
+        label = list(mapping.keys())[0]
+
+        if col not in df_filtrado.columns:
+            st.warning("No hay datos para Longitud media de pase.")
+            return
+
+        value = df_filtrado[col].mean()
+
+        fig = go.Figure()
+
+        fig.add_trace(go.Indicator(
+            mode="gauge+number",
+            value=value,
+            title={'text': f"<b>{label}</b>", 'font': {'color': '#FF8C00', 'size': 18}},
+            gauge={
+                'axis': {'range': [0, max(40, value * 1.5)]},
+                'bar': {'color': "#FF8C00"},
+                'bgcolor': "#333",
+                'borderwidth': 1,
+                'bordercolor': "#555",
+            },
+        ))
+
+        fig.update_layout(
+            height=220,
+            margin=dict(l=20, r=20, t=60, b=20),
+            paper_bgcolor="#111",
+            font=dict(color="#D3D3D3")
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown(f"""
+        <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
+        <b>Conclusión táctica</b><br><br>
+        • La <b>longitud media de pase ({value:.2f} m)</b> describe el perfil del equipo en cuanto a riesgo y distancia de circulación. 
+          Este valor sirve como referencia para calibrar la intención de progresar por combinación o por envío largo.
+        </div>
+        """, unsafe_allow_html=True)
 
 
 
+    # ===========================
+    # LAYOUT 2×2 + 1 FINAL
+    # ===========================
+
+    col1, col2 = st.columns(2)
+    with col1:
+        plot_group_vertical("Control y estabilidad en la circulación", grupos_pases["Control y estabilidad en la circulación"])
+    with col2:
+        plot_group_vertical("Seguridad en la progresión", grupos_pases["Seguridad en la progresión"])
+
+    col3, col4 = st.columns(2)
+    with col3:
+        plot_group_vertical("Conexiones de alto valor táctico", grupos_pases["Conexiones de alto valor táctico"])
+    with col4:
+        plot_group_vertical("Reinicios del juego", grupos_pases["Reinicios del juego"])
+
+    # Gráfico final → gauge lineal
+    plot_longitud_pase(grupos_pases["Longitud media de pase"])
+
+with tab3:
+
+    # ============================================================
+    # 🔶 DEFENSA Y EFICIENCIA — BLOQUE COMPLETO
+    # ============================================================
+
+    st.markdown("""
+    <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Defensa y Eficiencia</h2>
+    <p style='text-align:center; color:#ccc;'>
+    Análisis del comportamiento defensivo del Cibao FC: disputas, duelos, acciones de contención, volumen de llegadas rivales y
+    eficacia defensiva global.
+    </p>
+    """, unsafe_allow_html=True)
+
+
+    # ===========================
+    # DEFINICIÓN DE GRUPOS
+    # ===========================
+
+    grupos_def = {
+
+        "Dominio en los duelos (ofensivos y generales)": {
+            "Duelos ofensivos ganados (%)": "offensive_duels_won_percent",
+            "Duelos ganados (%)": "duels_won_percent",
+        },
+
+        "Solidez defensiva en disputas": {
+            "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
+            "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
+            "Éxito en entradas (%)": "sliding_tackles_successful_percent",
+        },
+
+        "Acciones defensivas por 90'": {
+            "Intercepciones por 90": "interceptions",
+            "Despejes por 90": "clearances",
+            "Pérdidas de balón por 90": "losses",
+        },
+
+        "Volumen y calidad de llegadas rivales": {
+            "Disparos en contra por 90": "shots_against",
+            "Disparos en contra a puerta": "shots_against_on_target",
+            "Eficiencia rival (tiros a puerta %)": "shots_against_on_target_percent",
+        },
+
+        "Distancia media de disparo": {
+            "Distancia media de disparo": "average_shot_distance",
+        }
+    }
+
+
+    # ===========================
+    # PALETA
+    # ===========================
+    CIBAO_ORANGE = "#FF8C00"
+    CIBAO_BLACK = "#111"
+    CIBAO_GRAY = "#D3D3D3"
+
+
+    # ============================================================
+    # 🔶 FUNCIONES DE GRÁFICO
+    # ============================================================
+
+    # --- BARRAS HORIZONTALES ---
+    def plot_horizontal(nombre, mapping):
+
+        dfp = df_filtrado.copy()
+
+        cols = [v for v in mapping.values() if v in dfp.columns]
+        labels = {v: k for k, v in mapping.items() if v in dfp.columns}
+
+        if not cols:
+            st.warning(f"No hay datos para {nombre}")
+            return
+
+        df_mean = (
+            dfp[cols].mean()
+            .reset_index()
+            .rename(columns={"index": "metric", 0: "valor"})
+        )
+
+        df_mean["label"] = df_mean["metric"].map(labels)
+        df_mean = df_mean.sort_values("valor", ascending=True)
+
+        fig = px.bar(
+            df_mean,
+            x="valor",
+            y="label",
+            orientation="h",
+            text_auto=".2f",
+            color_discrete_sequence=[CIBAO_ORANGE],
+        )
+
+        fig.update_layout(
+            height=320,
+            template="plotly_dark",
+            plot_bgcolor=CIBAO_BLACK,
+            paper_bgcolor=CIBAO_BLACK,
+            title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
+            margin=dict(l=30, r=20, t=50, b=20),
+            font=dict(color=CIBAO_GRAY),
+            showlegend=False
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        max_row = df_mean.iloc[-1]
+        min_row = df_mean.iloc[0]
+
+        st.markdown(f"""
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};margin-top:-8px;margin-bottom:25px;'>
+        <b>Conclusiones tácticas</b><br><br>
+        • <b>Comportamiento destacado:</b> El equipo muestra mayor solvencia en <b>{max_row['label']}</b>, 
+          lo cual refleja ventaja competitiva en situaciones individuales de disputa.<br><br>
+
+        • <b>Aspecto mejorable:</b> La métrica más baja es <b>{min_row['label']}</b>, señalando un área donde 
+          la estructura defensiva puede elevar su consistencia.
+        </div>
+        """, unsafe_allow_html=True)
 
 
 
+    # --- BARRAS VERTICALES ---
+    def plot_vertical(nombre, mapping):
+
+        dfp = df_filtrado.copy()
+
+        cols = [v for v in mapping.values() if v in dfp.columns]
+        labels = {v: k for k, v in mapping.items() if v in dfp.columns}
+
+        if not cols:
+            st.warning(f"No hay datos para {nombre}")
+            return
+
+        df_mean = (
+            dfp[cols].mean()
+            .reset_index()
+            .rename(columns={"index": "metric", 0: "valor"})
+        )
+        df_mean["label"] = df_mean["metric"].map(labels)
+        df_mean = df_mean.sort_values("valor", ascending=False)
+
+        fig = px.bar(
+            df_mean,
+            x="label",
+            y="valor",
+            text_auto=".2f",
+            color_discrete_sequence=[CIBAO_ORANGE],
+        )
+
+        fig.update_layout(
+            height=360,
+            template="plotly_dark",
+            plot_bgcolor=CIBAO_BLACK,
+            paper_bgcolor=CIBAO_BLACK,
+            title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
+            margin=dict(l=20, r=20, t=50, b=20),
+            font=dict(color=CIBAO_GRAY),
+            xaxis=dict(tickangle=-30),
+            showlegend=False
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        max_row = df_mean.iloc[0]
+        min_row = df_mean.iloc[-1]
+
+        st.markdown(f"""
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};margin-top:-8px;margin-bottom:25px;'>
+        <b>Conclusiones tácticas</b><br><br>
+        • <b>Mayor influencia defensiva:</b> El equipo destaca en <b>{max_row['label']}</b>, 
+          comportamiento clave en la protección del área y en la interrupción de avances rivales.<br><br>
+
+        • <b>Zona con margen de mejora:</b> La métrica con menor impacto es <b>{min_row['label']}</b>, 
+          elemento donde aumentar la consistencia reforzaría el bloque defensivo.
+        </div>
+        """, unsafe_allow_html=True)
 
 
+    # --- GAUGE LINEAL ---
+    def plot_gauge(mapping):
+
+        col = list(mapping.values())[0]
+        label = list(mapping.keys())[0]
+
+        if col not in df_filtrado.columns:
+            st.warning("No hay datos disponibles.")
+            return
+
+        value = df_filtrado[col].mean()
+
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=value,
+            title={'text': f"<b>{label}</b>", 'font': {'color': CIBAO_ORANGE, 'size': 18}},
+            gauge={
+                'axis': {'range': [0, value*2]},
+                'bar': {'color': CIBAO_ORANGE},
+                'bgcolor': "#333",
+            }
+        ))
+
+        fig.update_layout(
+            paper_bgcolor=CIBAO_BLACK,
+            height=220,
+            font=dict(color=CIBAO_GRAY)
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown(f"""
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};margin-top:-5px;margin-bottom:25px;'>
+        <b>Conclusión táctica</b><br><br>
+        • La <b>distancia media de disparo ({value:.1f} m)</b> refleja la capacidad del equipo para empujar al rival
+          a zonas menos ventajosas, reduciendo la probabilidad de ocasiones claras.
+        </div>
+        """, unsafe_allow_html=True)
 
 
+    # ===========================
+    # LAYOUT 2 × 2 + 1
+    # ===========================
 
+    col1, col2 = st.columns(2)
+    with col1:
+        plot_horizontal("Dominio en los duelos (ofensivos y generales)", grupos_def["Dominio en los duelos (ofensivos y generales)"])
+    with col2:
+        plot_horizontal("Solidez defensiva en disputas", grupos_def["Solidez defensiva en disputas"])
 
+    col3, col4 = st.columns(2)
+    with col3:
+        plot_vertical("Acciones defensivas por 90'", grupos_def["Acciones defensivas por 90'"])
+    with col4:
+        plot_vertical("Volumen y calidad de llegadas rivales", grupos_def["Volumen y calidad de llegadas rivales"])
 
+    # Gauge final
+    plot_gauge(grupos_def["Distancia media de disparo"])
 
+with tab4:
 
+    # ============================================================
+    # 🔶 DISTRIBUCIÓN TÁCTICA — BLOQUE COMPLETO
+    # ============================================================
 
+    st.markdown("""
+    <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Distribución Táctica</h2>
+    <p style='text-align:center; color:#ccc;'>
+    Análisis del comportamiento defensivo del Cibao FC según alturas de recuperación y zonas de presión.
+    </p>
+    """, unsafe_allow_html=True)
 
+    # ===========================
+    # DEFINICIÓN DE GRUPOS
+    # ===========================
 
-# ==============================
-# 📄 INFORME DE RENDIMIENTO COLECTIVO — PDF PROFESIONAL (2 PÁGINAS)
-# ==============================
+    grupos_tacticos = {
+        "Mapa de Recuperaciones por Altura": {
+            "Recuperaciones altas por 90": "recoveries_high",
+            "Recuperaciones medias por 90": "recoveries_medium",
+            "Recuperaciones bajas por 90": "recoveries_low",
+        },
 
-import io
-from datetime import datetime
-from reportlab.pdfgen import canvas
-from reportlab.lib.colors import HexColor
-from reportlab.lib.utils import ImageReader
-import plotly.graph_objects as go
-import pandas as pd
-import numpy as np
-import streamlit as st
+        "Mapa de Presión por Altura": {
+            "Presión alta (estimada)": "losses_high",
+            "Presión media (estimada)": "losses_medium",
+            "Presión baja (estimada)": "losses_low",
+        }
+    }
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-PAGE_W, PAGE_H = 2400, 1600  # horizontal
-MARGIN = 60
-GAP = 28
+    # ===========================
+    # PALETA (COLORES FIJOS)
+    # ===========================
 
-# --- FUNCIÓN AUXILIAR: exportar figura a PNG ---
-def export_fig_png(fig, w, h, scale=3):
-    if fig is None:
-        return None
-    f = go.Figure(fig)
-    f.update_layout(
-        width=int(w),
-        height=int(h),
-        template="plotly_dark",
-        margin=dict(l=40, r=40, t=40, b=40),
-    )
-    try:
-        return f.to_image(format="png", scale=scale)
-    except Exception:
-        st.warning("⚠️ No se pudo exportar una figura (falta 'kaleido'?).")
-        return None
+    CIBAO_ORANGE = "#FF8C00"
+    CIBAO_GRAY = "#D3D3D3"
 
-# --- FIGURA KPI (tabla superior) ---
-def _fmt_percent(x):
-    if pd.isna(x): return "-"
-    try: return f"{float(x):.2f}%"
-    except: return str(x)
-
-def _fmt_num(x):
-    if pd.isna(x): return "-"
-    try: 
-        v = float(x)
-        return f"{v:.0f}" if abs(v - round(v)) < 1e-9 else f"{v:.2f}"
-    except:
-        return str(x)
-
-def _fmt_text(x):
-    if pd.isna(x) or x == "": return "-"
-    return str(x)
-
-def build_fig_kpi(df_base: pd.DataFrame) -> go.Figure:
-    if df_base is None or df_base.empty:
-        df_use = df_cibao.copy()
-    else:
-        df_use = df_base.copy()
-
-    if "Date" in df_use.columns:
-        df_use = df_use.sort_values("Date")
-    last = df_use.iloc[-1]
-
-    date_raw   = last.get("Date", "")
-    date_fmt   = pd.to_datetime(date_raw).strftime("%d-%m-%Y") if pd.notna(date_raw) and str(date_raw) != "" else "-"
-    jornada    = last.get("Jornada", "-")
-    match      = last.get("Match", "-")
-    final_res  = last.get("Final Result", last.get("Resultado Final", "-"))
-    alineacion = last.get("Alineacion", last.get("Alineación", "-"))
-    xg         = last.get("xg", last.get("xG", np.nan))
-    poss       = last.get("possession_percent", last.get("Posesión (%)", np.nan))
-    yc         = last.get("yellow_cards", last.get("tarjetas_amarillas", np.nan))
-    rc         = last.get("red_cards", last.get("tarjetas_rojas", np.nan))
-
-    labels = [
-        "Fecha", "Jornada", "Partido", "Resultado Final", "Alineación",
-        "Goles Esperados (xG)", "Posesión (%)", "Tarjetas amarillas", "Tarjetas rojas"
+    HEATMAP_COLORSCALE = [
+        [0.0, "#2a2a2a"],   # bajo — gris oscuro
+        [0.5, "#ff7b00"],   # medio — naranja fuerte
+        [1.0, "#ffae42"]    # alto — naranja claro
     ]
-    values = [
-        _fmt_text(date_fmt),
-        _fmt_text(jornada),
-        _fmt_text(match),
-        _fmt_text(final_res),
-        _fmt_text(alineacion),
-        _fmt_num(xg),
-        _fmt_percent(poss),
-        _fmt_num(yc),
-        _fmt_num(rc),
-    ]
 
-    fig = go.Figure(data=[
-        go.Table(
-            header=dict(
-                values=["<b>KPI</b>", "<b>Valor</b>"],
-                fill_color="#1D232F",
-                font=dict(color="#F3F4F6", size=16),
-                align="left",
-                height=34
-            ),
-            cells=dict(
-                values=[labels, values],
-                fill_color=[["#0B0F17"] * len(labels), ["#0B0F17"] * len(values)],
-                font=dict(color="#E5E7EB", size=15),
-                align="left",
-                height=30
+    import numpy as np
+    import plotly.graph_objects as go
+
+    # ===========================
+    # FUNCIÓN DEL HEATMAP (COLORES FIJOS POR RANKING)
+    # ===========================
+
+    def plot_heatmap(nombre_grupo, mapping):
+
+        dfp = df_filtrado.copy()
+
+        cols = [v for v in mapping.values() if v in dfp.columns]
+        labels = [k for k, v in mapping.items() if v in dfp.columns]
+
+        if len(cols) == 0:
+            st.warning(f"No hay datos disponibles para: {nombre_grupo}")
+            return
+
+        # --- Datos reales
+        series_real = dfp[cols].mean().fillna(0)
+
+        # --- Ranking → convierte valores a 0,1,2 (bajo–medio–alto)
+        rank = series_real.rank(method="dense") - 1
+        rank = rank.astype(int)
+
+        # Convertimos ranking a matriz 1×N
+        z_vals = rank.to_numpy().reshape(1, -1)
+
+        # --- HEATMAP
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=z_vals,
+                x=labels,
+                y=[""],
+                colorscale=HEATMAP_COLORSCALE,
+                showscale=True,
+                colorbar=dict(
+                    thickness=10,
+                    tickvals=[0, 1, 2],
+                    ticktext=["Bajo", "Medio", "Alto"],
+                    bgcolor="#111",
+                    tickfont=dict(color=CIBAO_GRAY)
+                )
             )
         )
-    ])
-    fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#0B0F17",
-        plot_bgcolor="#0B0F17",
-        margin=dict(l=10, r=10, t=10, b=10),
-        height=260,
-    )
-    return fig
 
-# --- PLACEHOLDERS DE SEGURIDAD ---
-def _placeholder_fig(text, color="#FF8C00"):
-    fig = go.Figure()
-    fig.add_annotation(
-        text=text,
-        x=0.5, y=0.5,
-        showarrow=False,
-        font=dict(size=22, color=color, family="Arial"),
-        xref="paper", yref="paper"
-    )
-    fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#0B0F17",
-        plot_bgcolor="#0B0F17",
-        margin=dict(l=0, r=0, t=0, b=0),
-        height=300
-    )
-    return fig
+        # --- Texto dentro de las celdas (valores reales)
+        annotations = []
+        for j, label in enumerate(labels):
+            annotations.append(
+                dict(
+                    x=label,
+                    y="",
+                    text=f"{series_real.iloc[j]:.2f}",
+                    font=dict(color="white", size=13),
+                    showarrow=False
+                )
+            )
 
-# --- Verificar o crear figuras base ---
-try:
-    fig_kpi = build_fig_kpi(df_filtrado if 'df_filtrado' in globals() else df_cibao)
-except Exception as e:
-    st.warning(f"No se pudo construir fig_kpi: {e}")
-    fig_kpi = _placeholder_fig("KPIs no disponibles")
-
-if "fig_defense" not in globals():
-    fig_defense = _placeholder_fig("⚠️ No hay gráfico defensivo disponible")
-
-if "fig_heatmap" not in globals():
-    fig_heatmap = _placeholder_fig("⚠️ No hay heatmap disponible")
-
-if "fig_tables" not in globals():
-    fig_tables = _placeholder_fig("⚠️ No hay tablas comparativas disponibles")
-
-if "fig_off" not in globals():
-    fig_off = _placeholder_fig("⚠️ No hay gráfico ofensivo disponible")
-
-if "fig_pass" not in globals():
-    fig_pass = _placeholder_fig("⚠️ No hay gráfico de construcción disponible")
-
-# --- FUNCIÓN PRINCIPAL PDF ---
-def generar_informe_pdf(figs, logo_path=None):
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=(PAGE_W, PAGE_H))
-
-    BG = HexColor("#0B0F17")
-    FG = HexColor("#F3F4F6")
-    ORANGE = HexColor("#FF8C00")
-    MUTED = HexColor("#9AA2AD")
-
-    # ---------- PÁGINA 1 ----------
-    c.setFillColor(BG)
-    c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
-    c.setFillColor(FG)
-    c.setFont("Helvetica-Bold", 40)
-    c.drawString(MARGIN, PAGE_H - MARGIN - 10, "ANÁLISIS DE RENDIMIENTO COLECTIVO")
-    c.setFont("Helvetica", 20)
-    c.setFillColor(MUTED)
-    c.drawString(MARGIN, PAGE_H - MARGIN - 45, "Temporada 2024/25 — Últimos partidos")
-    c.setFont("Helvetica", 16)
-    c.setFillColor(FG)
-    c.drawRightString(PAGE_W - MARGIN, PAGE_H - MARGIN - 20, datetime.now().strftime("%d/%m/%Y"))
-
-    if logo_path:
-        try:
-            logo = ImageReader(logo_path)
-            c.drawImage(logo, PAGE_W - 320, PAGE_H - 220, width=220, height=140, mask='auto')
-        except:
-            pass
-
-    # --- KPIs ---
-    if figs.get("kpis"):
-        c.setFont("Helvetica-Bold", 24)
-        c.setFillColor(ORANGE)
-        c.drawString(MARGIN, PAGE_H - 230, "Indicadores Clave de Rendimiento (KPIs)")
-        hero_img = ImageReader(io.BytesIO(figs["kpis"]))
-        c.drawImage(hero_img, MARGIN, PAGE_H - 230 - 300, width=PAGE_W - 2*MARGIN, height=260, mask='auto')
-
-    # --- OFENSIVA Y CONSTRUCCIÓN ---
-    y_base = PAGE_H - 600
-    sec_h = 420
-    cell_w = (PAGE_W - 3*MARGIN) / 2
-    if figs.get("offensive") or figs.get("passing"):
-        c.setFont("Helvetica-Bold", 26)
-        c.setFillColor(ORANGE)
-        c.drawString(MARGIN, y_base + sec_h + 40, "Rendimiento Ofensivo y Construcción")
-        if figs.get("offensive"):
-            off_img = ImageReader(io.BytesIO(figs["offensive"]))
-            c.drawImage(off_img, MARGIN, y_base, width=cell_w, height=sec_h, mask='auto')
-        if figs.get("passing"):
-            pass_img = ImageReader(io.BytesIO(figs["passing"]))
-            c.drawImage(pass_img, MARGIN + cell_w + GAP, y_base, width=cell_w, height=sec_h, mask='auto')
-
-    # ---------- PÁGINA 2 ----------
-    c.showPage()
-    c.setFillColor(BG)
-    c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
-    c.setFillColor(FG)
-    c.setFont("Helvetica-Bold", 38)
-    c.drawString(MARGIN, PAGE_H - MARGIN - 10, "Bloque Defensivo y Análisis Táctico")
-
-    if logo_path:
-        try:
-            logo = ImageReader(logo_path)
-            c.drawImage(logo, PAGE_W - 300, PAGE_H - 200, width=200, height=120, mask='auto')
-        except:
-            pass
-
-    if figs.get("defense"):
-        c.setFont("Helvetica-Bold", 26)
-        c.setFillColor(ORANGE)
-        c.drawString(MARGIN, PAGE_H - 260, "Defensa y Eficiencia")
-        def_img = ImageReader(io.BytesIO(figs["defense"]))
-        c.drawImage(def_img, MARGIN, PAGE_H - 800, width=PAGE_W - 2*MARGIN, height=480, mask='auto')
-
-    if figs.get("heatmap"):
-        c.setFont("Helvetica-Bold", 26)
-        c.setFillColor(ORANGE)
-        c.drawString(MARGIN, PAGE_H - 840, "Distribución Táctica — Presión y Recuperaciones")
-        heat_img = ImageReader(io.BytesIO(figs["heatmap"]))
-        c.drawImage(heat_img, MARGIN, PAGE_H - 1400, width=PAGE_W - 2*MARGIN, height=480, mask='auto')
-
-    if figs.get("tables"):
-        c.setFont("Helvetica-Bold", 26)
-        c.setFillColor(ORANGE)
-        c.drawString(MARGIN, PAGE_H - 1460, "Tablas Comparativas")
-        table_img = ImageReader(io.BytesIO(figs["tables"]))
-        c.drawImage(table_img, MARGIN, MARGIN + 40, width=PAGE_W - 2*MARGIN, height=340, mask='auto')
-
-    c.showPage()
-    c.save()
-    return buf.getvalue()
-
-# ==============================
-# 📦 GENERACIÓN INTERACTIVA
-# ==============================
-
-st.markdown("### 📘 Exportar Informe Técnico de Rendimiento Colectivo")
-
-include_kpis = st.checkbox("Incluir KPIs", True)
-include_off  = st.checkbox("Incluir bloque Ofensivo", True)
-include_pass = st.checkbox("Incluir bloque de Construcción y Pase", True)
-include_def  = st.checkbox("Incluir bloque Defensivo", True)
-include_heat = st.checkbox("Incluir Distribución Táctica (Heatmaps)", True)
-include_tab  = st.checkbox("Incluir Tablas Comparativas", True)
-
-if st.button("📄 Generar Informe en PDF"):
-    try:
-        figs = {}
-        if include_kpis: figs["kpis"] = export_fig_png(fig_kpi, PAGE_W - 2*MARGIN, 260)
-        if include_off:  figs["offensive"] = export_fig_png(fig_off, (PAGE_W - 3*MARGIN)/2, 420)
-        if include_pass: figs["passing"] = export_fig_png(fig_pass, (PAGE_W - 3*MARGIN)/2, 420)
-        if include_def:  figs["defense"] = export_fig_png(fig_defense, PAGE_W - 2*MARGIN, 480)
-        if include_heat: figs["heatmap"] = export_fig_png(fig_heatmap, PAGE_W - 2*MARGIN, 480)
-        if include_tab:  figs["tables"] = export_fig_png(fig_tables, PAGE_W - 2*MARGIN, 340)
-
-        pdf_bytes = generar_informe_pdf(figs, logo_path="logo_cibao.png")
-        st.download_button(
-            "⬇️ Descargar Informe PDF (2 páginas)",
-            data=pdf_bytes,
-            file_name=f"Informe_Rendimiento_Colectivo_{datetime.now().strftime('%Y%m%d')}.pdf",
-            mime="application/pdf",
-            use_container_width=True,
+        fig.update_layout(
+            annotations=annotations,
+            height=280,
+            template="plotly_dark",
+            title=dict(
+                text=f"<b>{nombre_grupo}</b>",
+                font=dict(size=18, color=CIBAO_ORANGE)
+            ),
+            title_x=0.5,
+            paper_bgcolor="#111",
+            plot_bgcolor="#111",
+            margin=dict(l=20, r=20, t=50, b=20)
         )
-    except Exception as e:
-        st.error(f"❌ Error generando PDF: {e}")
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- CONCLUSIONES TÁCTICAS ---
+        max_m = series_real.idxmax()
+        min_m = series_real.idxmin()
+
+        c1 = [k for k, v in mapping.items() if v == max_m][0]
+        c2 = [k for k, v in mapping.items() if v == min_m][0]
+
+        st.markdown(f"""
+        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
+
+        <b>Conclusiones tácticas</b><br><br>
+
+        • <b>Zona de mayor incidencia:</b> mayor actividad en <b>{c1}</b>.<br><br>
+
+        • <b>Zona con menor actividad:</b> menor intervención en <b>{c2}</b>.<br><br>
+
+        </div>
+        """, unsafe_allow_html=True)
+
+
+    # ===========================
+    # LAYOUT — 2 HEATMAPS
+    # ===========================
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        plot_heatmap("Mapa de Recuperaciones por Altura", grupos_tacticos["Mapa de Recuperaciones por Altura"])
+
+    with col2:
+        plot_heatmap("Mapa de Presión por Altura", grupos_tacticos["Mapa de Presión por Altura"])
+
+with tab5:
+
+    # ============================================================
+    # 🔶 ANÁLISIS COMPARATIVO — BLOQUE COMPLETO
+    # ============================================================
+
+    st.markdown("""
+    <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Análisis Comparativo (Tablas)</h2>
+    <p style='text-align:center; color:#ccc;'>
+        Comparación de métricas clave del Cibao FC por fase del juego: ofensiva, construcción/pase y defensa.
+        Los valores más altos se resaltan mediante un gradiente en tonos naranja institucional.
+    </p>
+    """, unsafe_allow_html=True)
+
+
+    # ============================================================
+    # 📋 NUEVO DICCIONARIO DE BLOQUES (AMPLIADO Y DEPURADO)
+    # ============================================================
+
+    metrics_blocks = {
+
+        # ---------------------------------------------------------
+        # 🔥 BLOQUE OFENSIVO — Rendimiento General + Eficiencia
+        # ---------------------------------------------------------
+        "Ofensivas": {
+            "Goles por partido": "goals",
+            "xG (Goles esperados)": "xg",
+            "Disparos por 90": "shots",
+            "Disparos a puerta por 90": "shots_on_target",
+            "xG por disparo": "xg_per_shot",
+            "Conversión de disparos (%)": "shot_conversion_percent",
+            "Acciones de ataque por 90": "attacking_actions",
+            "Acciones exitosas (%)": "successful_attacking_actions_percent",
+            "Contraataques por 90": "counter_attacks",
+            "Disparos tras contraataque": "counter_attack_shots",
+            "Centros por 90": "crosses",
+            "Precisión de centros (%)": "crosses_accurate_percent",
+            "Pases clave por 90": "key_passes",
+            "Asistencias esperadas (xA)": "xa",
+            "Corners por 90": "corners"
+        },
+
+        # ---------------------------------------------------------
+        # 🔶 BLOQUE CONSTRUCCIÓN / POSESIÓN
+        # ---------------------------------------------------------
+        "Construcción y Pase": {
+            "Posesión (%)": "possession_percent",
+            "Pases por 90": "passes",
+            "Precisión de pase (%)": "passes_accurate_percent",
+            "Precisión hacia adelante (%)": "forward_passes_accurate_percent",
+            "Precisión hacia atrás (%)": "back_passes_accurate_percent",
+            "Precisión lateral (%)": "lateral_passes_accurate_percent",
+            "Precisión pases progresivos (%)": "progressive_passes_accurate_percent",
+            "Pases progresivos por 90": "progressive_passes",
+            "Pases al último tercio (%)": "passes_to_final_third_accurate_percent",
+            "Pases largos precisos (%)": "long_passes_accurate_percent",
+            "Pases inteligentes precisos (%)": "smart_passes_accurate_percent",
+            "Pases al área por 90": "passes_to_penalty_area",
+            "Longitud media de pase": "average_pass_length"
+        },
+
+        # ---------------------------------------------------------
+        # 🛡 BLOQUE DEFENSIVO — Defensa + Presión + Duelos
+        # ---------------------------------------------------------
+        "Defensivas": {
+            "Intercepciones por 90": "interceptions",
+            "Despejes por 90": "clearances",
+            "Entradas por 90": "sliding_tackles",
+            "Éxito en entradas (%)": "sliding_tackles_successful_percent",
+            "Duelos ganados (%)": "duels_won_percent",
+            "Duelos ofensivos ganados (%)": "offensive_duels_won_percent",
+            "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
+            "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
+            "Pérdidas por 90": "losses",
+            "Disparos en contra por 90": "shots_against",
+            "Disparos en contra a puerta": "shots_against_on_target",
+            "Eficiencia rival (%)": "shots_against_on_target_percent",
+            "PPDA": "ppda"
+        }
+    }
+
+
+    # ============================================================
+    # 🎨 PALETA CIBAO — VIVA (LA ORIGINAL DE 5 TONOS)
+    # ============================================================
+
+    from matplotlib.colors import LinearSegmentedColormap
+    import matplotlib
+    import io
+    import pandas as pd
+
+    CIBAO_ORANGE_CMAP = LinearSegmentedColormap.from_list(
+        "cibao_orange",
+        [
+            "#ff6600",  # naranja fuerte
+            "#ff7b00",  # naranja medio
+            "#ff9933",  # ámbar
+            "#ffb84d",  # naranja suave
+            "#ffd699"   # crema cálido
+        ]
+    )
+
+    matplotlib.colormaps.register(
+        CIBAO_ORANGE_CMAP,
+        name="cibao_orange",
+        force=True
+    )
+
+
+    # ============================================================
+    # 🔍 PREPARAR DATOS BASE
+    # ============================================================
+
+    df_base = df_filtrado.copy()
+
+    if df_base.empty:
+        st.info("No hay datos disponibles para los filtros seleccionados.")
+    else:
+        df_base = df_base.sort_values("Date", ascending=False)
+        partidos_disponibles = df_base["Match"].nunique()
+        df_base = df_base.head(min(partidos_disponibles, 5))
+
+        st.caption(
+            f"Mostrando los últimos {len(df_base)} partidos disponibles (máximo 5)."
+        )
+
+
+        # ============================================================
+        # ⚙️ FUNCIÓN PARA TABLAS (SIN ERRORES + 2 DECIMALES)
+        # ============================================================
+
+        def build_table(df, metrics_dict, title):
+
+            columnas = ["Match"] + list(metrics_dict.values())
+            df_local = df[columnas].copy()
+
+            df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
+
+            # 👉 FORZAR REDONDEO REAL ANTES DEL STYLER
+            df_local = df_local.applymap(
+                lambda x: round(x, 2) if isinstance(x, (int, float)) else x
+            )
+
+            st.markdown(
+                f"### <span style='color:#ff8c00;'>⬤ {title}</span>",
+                unsafe_allow_html=True
+            )
+
+            styled = df_local.style.background_gradient(
+                cmap="cibao_orange"
+            ).set_properties(
+                **{
+                    "text-align": "center",
+                    "font-size": "12px",
+                    "border-color": "#333",
+                }
+            )
+
+            # 👉 FORZAR FORMATO VISUAL A 2 DECIMALES
+            styled = styled.format("{:.2f}")
+
+            height = max(220, len(df_local) * 45 + 80)
+            st.dataframe(styled, use_container_width=True, height=height)
+
+            return df_local
+
+
+        # ============================================================
+        # 📊 GENERAR TABLAS
+        # ============================================================
+
+        st.divider()
+        df_off = build_table(df_base, metrics_blocks["Ofensivas"], "Bloque Ofensivo")
+
+        st.divider()
+        df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"], "Bloque Construcción y Pase")
+
+        st.divider()
+        df_def = build_table(df_base, metrics_blocks["Defensivas"], "Bloque Defensivo")
+
+
+        # ============================================================
+        # 📥 DESCARGA EN EXCEL
+        # ============================================================
+
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            df_off.to_excel(writer, sheet_name="Ofensivo", index=False)
+            df_pass.to_excel(writer, sheet_name="Construccion_Pase", index=False)
+            df_def.to_excel(writer, sheet_name="Defensivo", index=False)
+
+        buffer.seek(0)
+
+        st.download_button(
+            label="📥 Descargar análisis completo en Excel",
+            data=buffer,
+            file_name="analisis_comparativo_cibao.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+
+        # ============================================================
+        # 📌 INSIGHT FINAL
+        # ============================================================
+
+        st.markdown("""
+        <div style='background:#111; padding:12px; border-left:3px solid #ff8c00; margin-top:20px;'>
+            <b>Resumen general:</b><br><br>
+            Las tablas comparativas muestran de forma clara el rendimiento del equipo por fase del juego.
+            El gradiente naranja resalta qué áreas se destacan y cuáles requieren ajustes tácticos.
+        </div>
+        """, unsafe_allow_html=True)
