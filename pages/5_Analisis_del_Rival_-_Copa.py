@@ -21,7 +21,7 @@ from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
 # ===========================================
 st.set_page_config(
     page_title="Análisis del Rival - Copa Concacaf | Cibao FC",
-    page_icon="⚽",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -753,7 +753,7 @@ def get_recent_form(matches: List[Dict], team_name: str, num_matches: Optional[i
 def display_recent_form(recent_matches: List[Dict], team_name: str):
     """Muestra el formulario reciente en un formato visual."""
     if not recent_matches:
-        st.info("📊 No hay suficientes partidos jugados para mostrar el formulario reciente.")
+        st.info("No hay suficientes partidos jugados para mostrar el formulario reciente.")
         return
     
     # Calcular estadísticas de forma
@@ -799,12 +799,12 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
     
     # Mostrar tabla de partidos recientes
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>📋 Detalle de Partidos Recientes</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Detalle de Partidos Recientes</h3>
     """, unsafe_allow_html=True)
     
     matches_data = []
     for i, match in enumerate(recent_matches, 1):
-        venue = "🏠 Casa" if match["is_home"] else "✈️ Fuera"
+        venue = "Casa" if match["is_home"] else "✈Fuera"
         matches_data.append({
             "#": i,
             "Fecha": match["date"],
@@ -822,7 +822,7 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
     # Gráfico de tendencia de goles
     if len(recent_matches) > 1:
         st.markdown("""
-        <h3 style='color:#ff8c00; margin-top:20px;'>📈 Tendencia de Goles</h3>
+        <h3 style='color:#ff8c00; margin-top:20px;'>Tendencia de Goles</h3>
         """, unsafe_allow_html=True)
         
         dates = [m["date"] for m in reversed(recent_matches)]
@@ -1275,11 +1275,11 @@ def analyze_set_pieces(matches: List[Dict], team_name: str) -> Dict:
 def display_set_pieces_analysis(set_pieces_stats: Dict, team_name: str):
     """Muestra análisis de set pieces."""
     if not set_pieces_stats or set_pieces_stats["matches"] == 0:
-        st.info("📊 No hay datos de set pieces disponibles.")
+        st.info("No hay datos de set pieces disponibles.")
         return
     
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>📐 Análisis de Set Pieces</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Análisis de Set Pieces</h3>
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -1287,7 +1287,7 @@ def display_set_pieces_analysis(set_pieces_stats: Dict, team_name: str):
     
     with col1:
         st.markdown("""
-        <h4 style='color:#ff8c00; margin-top:15px;'>🎯 Corners</h4>
+        <h4 style='color:#ff8c00; margin-top:15px;'>Corners</h4>
         """, unsafe_allow_html=True)
         corners_won = set_pieces_stats["corners"]["won"]
         corners_lost = set_pieces_stats["corners"]["lost"]
@@ -1303,7 +1303,7 @@ def display_set_pieces_analysis(set_pieces_stats: Dict, team_name: str):
     
     with col2:
         st.markdown("""
-        <h4 style='color:#ff8c00; margin-top:15px;'>⚽ Tiros Libres</h4>
+        <h4 style='color:#ff8c00; margin-top:15px;'>Tiros Libres</h4>
         """, unsafe_allow_html=True)
         fk_won = set_pieces_stats["free_kicks"]["won"]
         fk_lost = set_pieces_stats["free_kicks"]["lost"]
@@ -1319,7 +1319,7 @@ def display_set_pieces_analysis(set_pieces_stats: Dict, team_name: str):
     
     with col3:
         st.markdown("""
-        <h4 style='color:#ff8c00; margin-top:15px;'>⚖️ Penales</h4>
+        <h4 style='color:#ff8c00; margin-top:15px;'>Penales</h4>
         """, unsafe_allow_html=True)
         penalties_taken = set_pieces_stats["penalties"]["taken"]
         penalties_scored = set_pieces_stats["penalties"]["scored"]
@@ -1335,7 +1335,7 @@ def display_set_pieces_analysis(set_pieces_stats: Dict, team_name: str):
     # Gráfico de set pieces
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>📊 Comparación de Set Pieces</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Comparación de Set Pieces</h3>
     """, unsafe_allow_html=True)
     
     categories = ["Corners\nGanados", "Corners\nRecibidos", "Faltas a\nFavor", "Faltas en\nContra"]
@@ -1428,11 +1428,11 @@ def analyze_timeline_patterns(matches: List[Dict], team_name: str) -> Dict:
 def display_timeline_patterns(timeline_stats: Dict, team_name: str):
     """Muestra patrones temporales de goles."""
     if timeline_stats["total_goals_for"] == 0 and timeline_stats["total_goals_against"] == 0:
-        st.info("📊 No hay datos de goles para análisis temporal.")
+        st.info("No hay datos de goles para análisis temporal.")
         return
     
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>⏰ Patrones Temporales de Goles</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Patrones Temporales de Goles</h3>
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -1483,7 +1483,7 @@ def display_timeline_patterns(timeline_stats: Dict, team_name: str):
     # Estadísticas clave
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>📈 Insights Temporales</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Insights Temporales</h3>
     """, unsafe_allow_html=True)
     
     # Encontrar períodos más productivos
@@ -1540,7 +1540,7 @@ def display_timeline_patterns(timeline_stats: Dict, team_name: str):
     if timeline_stats["total_goals_for"] > 0:
         second_half_pct = (second_half_goals / timeline_stats["total_goals_for"]) * 100
         if second_half_pct >= 60:
-            st.success(f"💡 **Insight:** Este equipo marca {second_half_pct:.1f}% de sus goles en la segunda parte. Mantener la concentración defensiva en el segundo tiempo es crucial.")
+            st.success(f"**Insight:** Este equipo marca {second_half_pct:.1f}% de sus goles en la segunda parte. Mantener la concentración defensiva en el segundo tiempo es crucial.")
 
 
 def analyze_vulnerabilities(opponent_metrics: Dict, cibao_metrics: Dict, opponent_name: str) -> List[str]:
@@ -1551,35 +1551,35 @@ def analyze_vulnerabilities(opponent_metrics: Dict, cibao_metrics: Dict, opponen
     opp_goals_conceded = opponent_metrics.get("goalsConceded", 0)
     cibao_goals_conceded = cibao_metrics.get("goalsConceded", 0)
     if opp_goals_conceded > cibao_goals_conceded * 1.2:  # 20% más
-        vulnerabilities.append(f"🛡️ **Defensa vulnerable:** Recibe {opp_goals_conceded:.2f} goles por partido (vs {cibao_goals_conceded:.2f} de Cibao). Oportunidad para atacar.")
+        vulnerabilities.append(f"🛡**Defensa vulnerable:** Recibe {opp_goals_conceded:.2f} goles por partido (vs {cibao_goals_conceded:.2f} de Cibao). Oportunidad para atacar.")
     
     # Comparar precisión de pases
     opp_pass_acc = opponent_metrics.get("passAccuracy", 0)
     cibao_pass_acc = cibao_metrics.get("passAccuracy", 0)
     if opp_pass_acc < cibao_pass_acc - 5:  # 5% menos
-        vulnerabilities.append(f"🔄 **Pases imprecisos:** {opp_pass_acc:.1f}% de precisión (vs {cibao_pass_acc:.1f}% de Cibao). Presionar alto puede forzar errores.")
+        vulnerabilities.append(f"**Pases imprecisos:** {opp_pass_acc:.1f}% de precisión (vs {cibao_pass_acc:.1f}% de Cibao). Presionar alto puede forzar errores.")
     
     # Comparar tackles exitosos
     opp_tackle_success = opponent_metrics.get("tackleSuccess", 0)
     cibao_tackle_success = cibao_metrics.get("tackleSuccess", 0)
     if opp_tackle_success < cibao_tackle_success - 10:  # 10% menos
-        vulnerabilities.append(f"💪 **Tackles débiles:** {opp_tackle_success:.1f}% de efectividad (vs {cibao_tackle_success:.1f}% de Cibao). Aprovechar espacios en el medio campo.")
+        vulnerabilities.append(f"**Tackles débiles:** {opp_tackle_success:.1f}% de efectividad (vs {cibao_tackle_success:.1f}% de Cibao). Aprovechar espacios en el medio campo.")
     
     # Analizar tarjetas (disciplina)
     opp_yellow = opponent_metrics.get("totalYellowCard", 0)
     opp_red = opponent_metrics.get("totalRedCard", 0)
     if opp_yellow > 2.5:  # Más de 2.5 tarjetas amarillas por partido
-        vulnerabilities.append(f"🟨 **Disciplina débil:** {opp_yellow:.1f} tarjetas amarillas por partido. Aprovechar faltas y situaciones de set pieces.")
+        vulnerabilities.append(f"**Disciplina débil:** {opp_yellow:.1f} tarjetas amarillas por partido. Aprovechar faltas y situaciones de set pieces.")
     
     # Analizar corners recibidos
     opp_corners_lost = opponent_metrics.get("lostCorners", 0)
     if opp_corners_lost > 5:  # Más de 5 corners recibidos por partido
-        vulnerabilities.append(f"📐 **Vulnerable en corners:** Recibe {opp_corners_lost:.1f} corners por partido. Trabajar jugadas a balón parado.")
+        vulnerabilities.append(f"**Vulnerable en corners:** Recibe {opp_corners_lost:.1f} corners por partido. Trabajar jugadas a balón parado.")
     
     # Analizar posesión (si es baja, pueden ser vulnerables a presión)
     opp_possession = opponent_metrics.get("possessionPercentage", 0)
     if opp_possession < 45:
-        vulnerabilities.append(f"📊 **Baja posesión:** Solo {opp_possession:.1f}% de posesión promedio. Presionar alto puede recuperar balones rápidamente.")
+        vulnerabilities.append(f"**Baja posesión:** Solo {opp_possession:.1f}% de posesión promedio. Presionar alto puede recuperar balones rápidamente.")
     
     return vulnerabilities
 
@@ -1604,34 +1604,34 @@ def generate_match_recommendations(
             formation = most_used[0]
             usage_pct = (most_used[1]["count"] / sum(s["count"] for _, s in formation_stats.items())) * 100
             if usage_pct >= 60:
-                recommendations.append(f"📐 **Formación esperada:** {formation} (usada en {usage_pct:.0f}% de partidos). Preparar tácticas específicas para esta formación.")
+                recommendations.append(f"**Formación esperada:** {formation} (usada en {usage_pct:.0f}% de partidos). Preparar tácticas específicas para esta formación.")
     
     # Recomendaciones basadas en patrones temporales
     if timeline_stats["total_goals_for"] > 0:
         second_half_pct = (sum(timeline_stats["goals_for"][p] for p in ["46-60", "61-75", "76-90", "90+"]) / timeline_stats["total_goals_for"]) * 100
         if second_half_pct >= 60:
-            recommendations.append(f"⏰ **Concentración en segunda parte:** Marcan {second_half_pct:.0f}% de goles después del minuto 45. Mantener intensidad defensiva todo el partido.")
+            recommendations.append(f"**Concentración en segunda parte:** Marcan {second_half_pct:.0f}% de goles después del minuto 45. Mantener intensidad defensiva todo el partido.")
     
     # Recomendaciones basadas en set pieces
     if set_pieces_stats["matches"] > 0:
         corners_avg = set_pieces_stats["corners"].get("avg_won", 0)
         if corners_avg > 6:
-            recommendations.append(f"📐 **Atención a corners:** Obtienen {corners_avg:.1f} corners por partido. Trabajar defensa de balón parado y transiciones rápidas.")
+            recommendations.append(f"**Atención a corners:** Obtienen {corners_avg:.1f} corners por partido. Trabajar defensa de balón parado y transiciones rápidas.")
     
     # Recomendaciones basadas en vulnerabilidades
     if vulnerabilities:
-        recommendations.extend([f"🎯 **Explotar:** {v}" for v in vulnerabilities[:3]])  # Top 3 vulnerabilidades
+        recommendations.extend([f"**Explotar:** {v}" for v in vulnerabilities[:3]])  # Top 3 vulnerabilidades
     
     # Recomendaciones generales basadas en comparación
     opp_goals = opponent_metrics.get("goals", 0)
     cibao_goals = cibao_metrics.get("goals", 0)
     if opp_goals < cibao_goals * 0.8:
-        recommendations.append(f"⚽ **Ventaja ofensiva:** Cibao marca más goles ({cibao_goals:.2f} vs {opp_goals:.2f}). Mantener presión ofensiva.")
+        recommendations.append(f"**Ventaja ofensiva:** Cibao marca más goles ({cibao_goals:.2f} vs {opp_goals:.2f}). Mantener presión ofensiva.")
     
     opp_possession = opponent_metrics.get("possessionPercentage", 0)
     cibao_possession = cibao_metrics.get("possessionPercentage", 0)
     if opp_possession < cibao_possession - 10:
-        recommendations.append(f"📊 **Control del juego:** Cibao tiene ventaja en posesión ({cibao_possession:.1f}% vs {opp_possession:.1f}%). Dominar el ritmo del partido.")
+        recommendations.append(f"**Control del juego:** Cibao tiene ventaja en posesión ({cibao_possession:.1f}% vs {opp_possession:.1f}%). Dominar el ritmo del partido.")
     
     return recommendations
 
@@ -1639,7 +1639,7 @@ def generate_match_recommendations(
 def display_key_players_analysis(player_stats: Dict, team_name: str):
     """Muestra análisis de jugadores clave."""
     if not player_stats:
-        st.info("📊 No hay datos de jugadores disponibles para este equipo.")
+        st.info("No hay datos de jugadores disponibles para este equipo.")
         return
     
     # Convertir a lista y ordenar
@@ -1655,7 +1655,7 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
     regular_starters = sorted(players_list, key=lambda x: x["matches_started"], reverse=True)[:11]
     
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>⚽ Top Goleadores</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Top Goleadores</h3>
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -1677,15 +1677,15 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
             df_scorers = pd.DataFrame(scorers_data)
             st.dataframe(df_scorers, use_container_width=True, hide_index=True)
         else:
-            st.info("📊 No hay goleadores registrados.")
+            st.info("No hay goleadores registrados.")
     else:
-        st.info("📊 No hay goleadores registrados.")
+        st.info("No hay goleadores registrados.")
     
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("---")
     
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>🎯 Top Asistentes</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Top Asistentes</h3>
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -1706,15 +1706,15 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
             df_assists = pd.DataFrame(assists_data)
             st.dataframe(df_assists, use_container_width=True, hide_index=True)
         else:
-            st.info("📊 No hay asistencias registradas.")
+            st.info("No hay asistencias registradas.")
     else:
-        st.info("📊 No hay asistencias registradas.")
+        st.info("No hay asistencias registradas.")
     
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("---")
     
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>👥 Jugadores Más Regulares (Alineación Inicial)</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Jugadores Más Regulares (Alineación Inicial)</h3>
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -1739,7 +1739,7 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
     if top_scorers and (any(p["goals"] > 0 for p in top_scorers) or any(p["assists"] > 0 for p in top_scorers)):
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("""
-        <h3 style='color:#ff8c00; margin-top:20px;'>📊 Goles y Asistencias por Jugador</h3>
+        <h3 style='color:#ff8c00; margin-top:20px;'>Goles y Asistencias por Jugador</h3>
         """, unsafe_allow_html=True)
         
         # Preparar datos para el gráfico
@@ -1795,7 +1795,7 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
 def display_formation_analysis(formation_stats: Dict, team_name: str):
     """Muestra el análisis de formaciones."""
     if not formation_stats:
-        st.info("📊 No hay datos de formaciones disponibles para este equipo.")
+        st.info("No hay datos de formaciones disponibles para este equipo.")
         return
     
     # Ordenar por frecuencia
@@ -1806,7 +1806,7 @@ def display_formation_analysis(formation_stats: Dict, team_name: str):
     )
     
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>📐 Formaciones Más Utilizadas</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Formaciones Más Utilizadas</h3>
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -1888,7 +1888,7 @@ def display_formation_analysis(formation_stats: Dict, team_name: str):
         if sorted_formations:
             most_used = sorted_formations[0]
             st.markdown(f"""
-            <h3 style='color:#ff8c00; margin-top:20px;'>🎯 Formación Principal: <strong>{most_used[0]}</strong></h3>
+            <h3 style='color:#ff8c00; margin-top:20px;'>Formación Principal: <strong>{most_used[0]}</strong></h3>
             """, unsafe_allow_html=True)
             st.markdown(f"**Utilizada en {most_used[1]['count']} partidos** ({most_used[1]['count']/sum(s['count'] for _, s in sorted_formations)*100:.1f}% del total)")
             
@@ -1906,12 +1906,12 @@ def display_comparison_charts(opponent_metrics: Dict[str, float], cibao_metrics:
     
     # Métricas para comparar
     comparison_metrics = [
-        ("Goles", "goals", "⚽", "Por partido"),
-        ("Goles Recibidos", "goalsConceded", "🛡️", "Por partido"),
-        ("Disparos", "totalScoringAtt", "🎯", "Por partido"),
-        ("Posesión", "possessionPercentage", "📊", "%"),
-        ("Precisión Pases", "passAccuracy", "🔄", "%"),
-        ("Corners Ganados", "wonCorners", "📐", "Por partido"),
+        ("Goles", "goals", "", "Por partido"),
+        ("Goles Recibidos", "goalsConceded", "", "Por partido"),
+        ("Disparos", "totalScoringAtt", "", "Por partido"),
+        ("Posesión", "possessionPercentage", "", "%"),
+        ("Precisión Pases", "passAccuracy", "", "%"),
+        ("Corners Ganados", "wonCorners", "", "Por partido"),
     ]
     
     # Crear gráfico de barras comparativo
@@ -1978,12 +1978,12 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Cargar datos
-    with st.spinner("📥 Cargando datos de partidos..."):
+    with st.spinner("Cargando datos de partidos..."):
         all_matches = load_all_matches()
         cibao_matches = get_cibao_matches(all_matches)
     
     if not cibao_matches:
-        st.error("❌ No se encontraron partidos de Cibao. Verifique que los archivos JSON estén en la carpeta correcta.")
+        st.error("No se encontraron partidos de Cibao. Verifique que los archivos JSON estén en la carpeta correcta.")
         return
     
     # Sidebar: Selector de equipo
@@ -2024,7 +2024,7 @@ def main():
                 opponent_map[CIBAO_TEAM_NAME] = CIBAO_TEAM_NAME
             
             selected_display = st.selectbox(
-                "👥 Seleccionar Equipo",
+                "Seleccionar Equipo",
                 options=opponent_options,
                 key="opponent_selector",
                 help="Selecciona el equipo que deseas analizar"
@@ -2034,7 +2034,7 @@ def main():
         else:
             # Si no hay próximos, mostrar todos los equipos
             selected_opponent = st.selectbox(
-                "👥 Seleccionar Equipo",
+                "Seleccionar Equipo",
                 options=all_teams_list,
                 key="opponent_selector",
                 help="Selecciona el equipo que deseas analizar"
@@ -2043,7 +2043,7 @@ def main():
         st.markdown("---")
         
         # Información del equipo seleccionado
-        st.subheader("ℹ️ Información")
+        st.subheader("Información")
         
         # Encontrar partidos con este equipo (contra Cibao si es oponente, o todos si es otro equipo)
         if selected_opponent == CIBAO_TEAM_NAME:
@@ -2071,18 +2071,18 @@ def main():
                     break
             
             if next_match:
-                st.info(f"📅 **Próximo partido:**\n{next_match.get('date_str', 'Por definir')}")
+                st.info(f"**Próximo partido:**\n{next_match.get('date_str', 'Por definir')}")
                 if not is_cibao:
-                    st.info(f"🏟️ **Lugar:** {'Casa' if next_match.get('is_home') else 'Fuera'}")
+                    st.info(f"**Lugar:** {'Casa' if next_match.get('is_home') else 'Fuera'}")
             elif last_match:
-                st.info(f"📅 **Último encuentro:**\n{last_match.get('date_str', 'N/D')}")
+                st.info(f"**Último encuentro:**\n{last_match.get('date_str', 'N/D')}")
                 if not is_cibao:
-                    st.info(f"🏟️ **Lugar:** {'Casa' if last_match.get('is_home') else 'Fuera'}")
+                    st.info(f"**Lugar:** {'Casa' if last_match.get('is_home') else 'Fuera'}")
             
             if is_cibao:
-                st.info(f"📊 **Partidos totales:** {len(team_matches)}")
+                st.info(f"**Partidos totales:** {len(team_matches)}")
             else:
-                st.info(f"📊 **Partidos vs Cibao:** {len(team_matches)}")
+                st.info(f"**Partidos vs Cibao:** {len(team_matches)}")
     
     # Contenido principal
     st.markdown("---")
@@ -2101,7 +2101,7 @@ def main():
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Obtener todos los partidos del equipo seleccionado y métricas
-    with st.spinner(f"📊 Calculando métricas de {selected_opponent} y Cibao..."):
+    with st.spinner(f"Calculando métricas de {selected_opponent} y Cibao..."):
         if selected_opponent == CIBAO_TEAM_NAME:
             # Si es Cibao, usar función específica
             team_all_matches = get_opponent_matches_data(all_matches, CIBAO_TEAM_NAME)
@@ -2129,13 +2129,13 @@ def main():
     
     # Crear pestañas para organizar el contenido
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "📊 Resumen",
-        "📈 Comparación",
-        "📅 Forma Reciente",
-        "⚽ Cara a Cara",
-        "👥 Jugadores Clave",
-        "🎯 Análisis Táctico",
-        "💡 Recomendaciones"
+        "Resumen",
+        "Comparación",
+        "Forma Reciente",
+        "Cara a Cara",
+        "Jugadores Clave",
+        "Análisis Táctico",
+        "Recomendaciones"
     ])
     
     # TAB 1: RESUMEN (Métricas clave + Radar)
@@ -2143,7 +2143,7 @@ def main():
         if team_averages:
             # Selector de filtro de partidos
             st.markdown(f"""
-            <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>📈 Métricas Clave de {selected_opponent}</h2>
+            <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Métricas Clave de {selected_opponent}</h2>
             """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -2157,7 +2157,7 @@ def main():
                 filter_options["Partidos vs Cibao"] = "vs_cibao"
             
             selected_filter = st.radio(
-                "🔍 Filtrar por:",
+                "Filtrar por:",
                 options=list(filter_options.keys()),
                 horizontal=True,
                 key="match_filter"
@@ -2376,14 +2376,14 @@ def main():
             
             # Forma Reciente (movido desde tab3) - usar partidos filtrados
             st.markdown("""
-            <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>📅 Forma Reciente</h2>
+            <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Forma Reciente</h2>
             """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
             if filtered_matches:
                 # Selector de número de partidos a mostrar
                 num_matches_option = st.radio(
-                    "📊 Mostrar:",
+                    "Mostrar:",
                     options=["Todos los partidos", "Últimos 3 partidos", "Últimos 5 partidos"],
                     horizontal=True,
                     key="recent_form_num_matches"
@@ -2403,16 +2403,16 @@ def main():
                 if recent_form:
                     display_recent_form(recent_form, selected_opponent)
                 else:
-                    st.info("📊 No hay suficientes partidos jugados para mostrar el formulario reciente.")
+                    st.info("No hay suficientes partidos jugados para mostrar el formulario reciente.")
             else:
-                st.info("📊 No hay partidos disponibles para este equipo.")
+                st.info("No hay partidos disponibles para este equipo.")
             
             # Radar Chart: Fortalezas y Debilidades (solo si no es Cibao) - Movido después de Forma Reciente
             if cibao_averages and selected_opponent != CIBAO_TEAM_NAME:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown("---")
                 st.markdown("""
-                <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>🎯 Comparación de Fortalezas y Debilidades</h2>
+                <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Comparación de Fortalezas y Debilidades</h2>
                 """, unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True)
                 
@@ -2430,7 +2430,7 @@ def main():
                 ]
                 
                 selected_radar_metrics = st.multiselect(
-                    "📊 Seleccionar métricas para comparar:",
+                    "Seleccionar métricas para comparar:",
                     options=all_available_metrics,
                     default=default_metrics,
                     key="radar_metrics_selector",
@@ -2442,43 +2442,43 @@ def main():
                     radar_fig = create_radar_chart(display_averages, cibao_averages, selected_opponent, selected_radar_metrics)
                     st.plotly_chart(radar_fig, use_container_width=True)
                 else:
-                    st.info("💡 Selecciona al menos una métrica para mostrar el gráfico de radar.")
+                    st.info("Selecciona al menos una métrica para mostrar el gráfico de radar.")
             elif selected_opponent == CIBAO_TEAM_NAME:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown("---")
                 st.markdown("""
-                <h3 style='color:#ff8c00; margin-top:20px;'>📊 Resumen de Rendimiento</h3>
+                <h3 style='color:#ff8c00; margin-top:20px;'>Resumen de Rendimiento</h3>
                 """, unsafe_allow_html=True)
-                st.info("💡 Selecciona otro equipo para ver comparación con Cibao")
+                st.info("Selecciona otro equipo para ver comparación con Cibao")
         else:
-            st.warning("⚠️ No se pudieron calcular las métricas del equipo.")
+            st.warning("No se pudieron calcular las métricas del equipo.")
     
     # TAB 2: COMPARACIÓN (Gráficos comparativos)
     with tab2:
         if team_averages and cibao_averages and selected_opponent != CIBAO_TEAM_NAME:
-            st.markdown(f"### 📊 Comparación Directa: {selected_opponent} vs Cibao")
+            st.markdown(f"### Comparación Directa: {selected_opponent} vs Cibao")
             st.markdown("<br>", unsafe_allow_html=True)
             display_comparison_charts(team_averages, cibao_averages, selected_opponent)
         elif selected_opponent == CIBAO_TEAM_NAME:
-            st.info("💡 Selecciona otro equipo para ver comparación con Cibao")
+            st.info("Selecciona otro equipo para ver comparación con Cibao")
         else:
-            st.warning("⚠️ No se pudieron calcular las métricas para la comparación.")
+            st.warning("⚠No se pudieron calcular las métricas para la comparación.")
     
     # TAB 3: FORMA RECIENTE (ahora vacío - contenido movido a Resumen)
     with tab3:
-        st.info("💡 El contenido de Forma Reciente se ha movido a la pestaña 'Resumen' para una mejor organización.")
+        st.info("El contenido de Forma Reciente se ha movido a la pestaña 'Resumen' para una mejor organización.")
     
     # TAB 4: CARA A CARA (Head-to-Head)
     with tab4:
         if selected_opponent == CIBAO_TEAM_NAME:
             st.markdown("""
-            <h3 style='color:#ff8c00; margin-top:20px;'>⚽ Historial de Partidos</h3>
+            <h3 style='color:#ff8c00; margin-top:20px;'>Historial de Partidos</h3>
             """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
-            st.info("💡 Selecciona otro equipo para ver historial cara a cara con Cibao")
+            st.info("Selecciona otro equipo para ver historial cara a cara con Cibao")
         else:
             st.markdown("""
-            <h3 style='color:#ff8c00; margin-top:20px;'>⚽ Historial contra Cibao</h3>
+            <h3 style='color:#ff8c00; margin-top:20px;'>Historial contra Cibao</h3>
             """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -2549,50 +2549,50 @@ def main():
                             "Local": m.get("home_team", "N/D"),
                             "Visitante": m.get("away_team", "N/D"),
                             "Resultado": extract_match_result(m.get("match_data"), CIBAO_TEAM_NAME).get("score", "N/D") if m.get("match_data") else "N/D",
-                            "Lugar": "🏠 Casa" if m.get("is_home") else "✈️ Fuera"
+                            "Lugar": "Casa" if m.get("is_home") else "✈Fuera"
                         }
                         for m in played_matches
                     ])
                     
                     st.dataframe(matches_df, use_container_width=True, hide_index=True)
                 else:
-                    st.info("📅 No hay partidos jugados contra este oponente aún.")
+                    st.info("No hay partidos jugados contra este oponente aún.")
             else:
-                st.info("📅 No hay partidos programados contra este oponente.")
+                st.info("No hay partidos programados contra este oponente.")
     
     # TAB 5: JUGADORES CLAVE
     with tab5:
-        st.markdown(f"### 👥 Jugadores Clave de {selected_opponent}")
+        st.markdown(f"### Jugadores Clave de {selected_opponent}")
         st.markdown("<br>", unsafe_allow_html=True)
         
         if matches_with_data:
-            with st.spinner("👥 Analizando jugadores..."):
+            with st.spinner("Analizando jugadores..."):
                 player_stats = extract_player_stats_from_matches(matches_with_data, selected_opponent)
                 display_key_players_analysis(player_stats, selected_opponent)
         else:
-            st.info("📊 No hay datos de jugadores disponibles.")
+            st.info("No hay datos de jugadores disponibles.")
     
     # TAB 6: ANÁLISIS TÁCTICO
     with tab6:
         st.markdown("""
-        <h3 style='color:#ff8c00; margin-top:20px;'>🎯 Análisis Táctico</h3>
+        <h3 style='color:#ff8c00; margin-top:20px;'>Análisis Táctico</h3>
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         
         # Análisis de Formaciones
         if matches_with_data:
-            with st.spinner("📐 Analizando formaciones..."):
+            with st.spinner("Analizando formaciones..."):
                 formation_stats = analyze_formations(matches_with_data, selected_opponent)
                 display_formation_analysis(formation_stats, selected_opponent)
         else:
-            st.info("📊 No hay partidos disponibles para análisis de formaciones.")
+            st.info("No hay partidos disponibles para análisis de formaciones.")
         
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("---")
         
         # Análisis de Set Pieces
         if team_all_matches:
-            with st.spinner("📐 Analizando set pieces..."):
+            with st.spinner("Analizando set pieces..."):
                 set_pieces_stats = analyze_set_pieces(team_all_matches, selected_opponent)
                 display_set_pieces_analysis(set_pieces_stats, selected_opponent)
         
@@ -2601,7 +2601,7 @@ def main():
         
         # Patrones Temporales
         if matches_with_data:
-            with st.spinner("⏰ Analizando patrones temporales..."):
+            with st.spinner("Analizando patrones temporales..."):
                 timeline_stats = analyze_timeline_patterns(matches_with_data, selected_opponent)
                 display_timeline_patterns(timeline_stats, selected_opponent)
     
@@ -2609,13 +2609,13 @@ def main():
     with tab7:
         if selected_opponent == CIBAO_TEAM_NAME:
             st.markdown("""
-            <h3 style='color:#ff8c00; margin-top:20px;'>💡 Análisis de Cibao</h3>
+            <h3 style='color:#ff8c00; margin-top:20px;'>Análisis de Cibao</h3>
             """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
-            st.info("💡 Selecciona otro equipo para ver recomendaciones de preparación contra ese oponente")
+            st.info("Selecciona otro equipo para ver recomendaciones de preparación contra ese oponente")
         else:
             st.markdown("""
-            <h3 style='color:#ff8c00; margin-top:20px;'>💡 Recomendaciones de Preparación</h3>
+            <h3 style='color:#ff8c00; margin-top:20px;'>Recomendaciones de Preparación</h3>
             """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -2647,7 +2647,7 @@ def main():
                 # Mostrar vulnerabilidades
                 if vulnerabilities:
                     st.markdown("""
-                    <h3 style='color:#ff8c00; margin-top:20px;'>🎯 Vulnerabilidades Identificadas</h3>
+                    <h3 style='color:#ff8c00; margin-top:20px;'>Vulnerabilidades Identificadas</h3>
                     """, unsafe_allow_html=True)
                     st.markdown("<br>", unsafe_allow_html=True)
                     for i, vuln in enumerate(vulnerabilities, 1):
@@ -2658,15 +2658,15 @@ def main():
                 # Mostrar recomendaciones
                 if recommendations:
                     st.markdown("""
-                    <h3 style='color:#ff8c00; margin-top:20px;'>📋 Recomendaciones Estratégicas</h3>
+                    <h3 style='color:#ff8c00; margin-top:20px;'>Recomendaciones Estratégicas</h3>
                     """, unsafe_allow_html=True)
                     st.markdown("<br>", unsafe_allow_html=True)
                     for i, rec in enumerate(recommendations, 1):
                         st.success(f"{i}. {rec}")
                 else:
-                    st.info("📊 No se pudieron generar recomendaciones automáticas con los datos disponibles.")
+                    st.info("No se pudieron generar recomendaciones automáticas con los datos disponibles.")
             else:
-                st.warning("⚠️ Se necesitan métricas del oponente y Cibao para generar recomendaciones.")
+                st.warning("Se necesitan métricas del oponente y Cibao para generar recomendaciones.")
 
 
 if __name__ == "__main__":
