@@ -348,4 +348,76 @@ with tab_ofensivo:
 
     plot_horizontal_group("Ventajas generadas", _dedup_pairs(grupo3))
 
-# (Las otras pestañas las llenaremos después)
+with tab_pases:
+    st.markdown(
+        """
+        <h3 style='text-align:center; color:#ff8c00;'>Construcción y Pases</h3>
+        <p style='text-align:center; color:#bbb; font-size:14px;'>
+            Volumen total, precisión y control aproximado de posesión medidos a partir de los registros de Copa Concacaf.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    passes_mapping = {
+        "Total de Pases": "totalPass",
+        "Pases Precisos": "accuratePass",
+        "Posesión (aprox.)": "totalPass",
+    }
+
+    def build_radial_indicator(label, column):
+        if column not in df_copa_cibao.columns:
+            st.warning(f"No hay datos para {label}.")
+            return
+
+        serie = pd.to_numeric(df_copa_cibao[column], errors="coerce").fillna(0)
+        value = float(serie.mean())
+
+        max_val = max(value * 1.3, 50)
+        fig = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=value,
+                number={"font": {"color": CIBAO_ORANGE, "size": 26}},
+                title={"text": f"<b>{label}</b>", "font": {"color": CIBAO_GRAY}},
+                gauge={
+                    "axis": {"range": [0, max_val], "tickcolor": "#555"},
+                    "bar": {"color": CIBAO_ORANGE},
+                    "bgcolor": "#1a1a1a",
+                    "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, max_val * 0.5], "color": "#1f1f1f"},
+                        {"range": [max_val * 0.5, max_val], "color": "#262626"},
+                    ],
+                },
+            )
+        )
+        fig.update_layout(
+            height=260,
+            margin=dict(l=10, r=10, t=30, b=10),
+            paper_bgcolor="#0B0B0B",
+            font=dict(color=CIBAO_GRAY),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        build_radial_indicator("Total de Pases", passes_mapping["Total de Pases"])
+    with col2:
+        build_radial_indicator("Pases Precisos", passes_mapping["Pases Precisos"])
+    with col3:
+        build_radial_indicator("Posesión (aprox.)", passes_mapping["Posesión (aprox.)"])
+
+    st.markdown(
+        f"""
+        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:10px; border-radius:6px;'>
+            • <b>Lectura táctica:</b> el volumen total describe la capacidad del equipo para sostener el balón;
+            la precisión confirma la estabilidad en la circulación y el proxy de posesión sirve como termómetro
+            para entender la cuota de control en Copa Concacaf.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# (Las pestañas tab_defensivo, tab_set_pieces y tab_general se rellenan a continuación)
