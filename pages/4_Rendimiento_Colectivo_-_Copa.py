@@ -1,10 +1,23 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+
+from src.data_processing.load_concacaf_matchstats_data import load_concacaf_matchstats_data
+from src.utils.metrics_dictionary_concacaf import METRICS_CONCACAF, METRIC_GROUPS_CONCACAF
+from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
+from graficos_de_navaja_suiza import make_team_scatter
+
+CIBAO_ORANGE = "#FF8C00"
+CIBAO_GRAY = "#D3D3D3"
+
+st.set_page_config(page_title="Rendimiento Colectivo - Copa", layout="wide")
+inject_dark_theme()
+
 # =========================================================
 # 📊 ANÁLISIS DE MÉTRICAS EN COPA CONCACAF
 # =========================================================
-from src.data_processing.load_concacaf_matchstats_data import load_concacaf_matchstats_data
-from src.utils.metrics_dictionary_concacaf import METRICS_CONCACAF, METRIC_GROUPS_CONCACAF
-from src.utils.global_dark_theme import titulo_naranja  # usa tu mismo tema global
-
 titulo_naranja("Análisis de Métricas — Copa Concacaf")
 st.markdown(
     f"""
@@ -16,9 +29,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ==============================
-# 📂 Carga de datos de Copa
-# ==============================
 try:
     df_copa_merged, df_copa_cibao, df_copa_rivales = load_concacaf_matchstats_data()
 except Exception as e:
@@ -28,9 +38,6 @@ except Exception as e:
 if df_copa_cibao.empty:
     st.warning("No hay registros de partidos de Copa Concacaf disponibles.")
 else:
-    # ==============================
-    # 🧩 BLOQUE 0 — ANÁLISIS RÁPIDO CIBAO VS RIVAL (Copa)
-    # ==============================
     def titulo_naranja_copa(texto: str):
         st.markdown(
             f"""
@@ -93,7 +100,6 @@ else:
         if x_column_copa is None or y_column_copa is None:
             st.error("No se encontró la métrica seleccionada en el dataset de Copa.")
         else:
-            # --- ✨ Preparar dataset completo de Copa
             df_copa_adapter = df_copa_cibao.copy()
             df_copa_adapter["Team"] = df_copa_adapter["team"]
             df_copa_adapter["Opponent"] = df_copa_adapter.apply(
@@ -112,8 +118,7 @@ else:
             for col_num in [x_column_copa, y_column_copa]:
                 if col_num in df_copa_adapter.columns:
                     df_copa_adapter[col_num] = (
-                        pd.to_numeric(df_copa_adapter[col_num], errors="coerce")
-                        .fillna(0)
+                        pd.to_numeric(df_copa_adapter[col_num], errors="coerce").fillna(0)
                     )
 
             df_copa_view = df_copa_adapter.fillna(0)
@@ -159,8 +164,6 @@ else:
                     st.warning(
                         f"No se pudo usar make_team_scatter ({e}). Se muestra un scatter básico."
                     )
-                    import plotly.express as px
-
                     fig_basic = px.scatter(
                         df_copa_view,
                         x=x_column_copa,
@@ -177,10 +180,6 @@ else:
                     )
                     st.plotly_chart(fig_basic, use_container_width=True)
 
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-
 def _ensure_numeric(df, cols):
     for c in cols:
         if c in df.columns:
@@ -188,7 +187,6 @@ def _ensure_numeric(df, cols):
     return df
 
 def _map_metrics(names):
-    """Devuelve lista de columnas reales a partir de nombres del diccionario."""
     cols = []
     for n in names:
         col = METRICS_CONCACAF.get(n)
