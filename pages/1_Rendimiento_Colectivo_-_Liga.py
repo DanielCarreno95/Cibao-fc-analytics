@@ -981,44 +981,54 @@ with tab3:
         """, unsafe_allow_html=True)
 
 
-    # --- GAUGE LINEAL ---
-    def plot_gauge(mapping):
+# --- GAUGE LINEAL (UNIFICADO) ---
+def plot_gauge(mapping):
 
-        col = list(mapping.values())[0]
-        label = list(mapping.keys())[0]
+    col = list(mapping.values())[0]
+    label = list(mapping.keys())[0]
 
-        if col not in df_filtrado.columns:
-            st.warning("No hay datos disponibles.")
-            return
+    if col not in df_filtrado.columns:
+        st.warning("No hay datos disponibles.")
+        return
 
-        value = df_filtrado[col].mean()
+    value = df_filtrado[col].mean()
 
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=value,
-            title={'text': f"<b>{label}</b>", 'font': {'color': CIBAO_ORANGE, 'size': 18}},
-            gauge={
-                'axis': {'range': [0, value*2]},
-                'bar': {'color': CIBAO_ORANGE},
-                'bgcolor': "#333",
-            }
-        ))
+    # 🔥 Rango uniforme para TODAS las métricas
+    min_rango = 0
+    max_rango = max(40, value * 1.8)
 
-        fig.update_layout(
-            paper_bgcolor=CIBAO_BLACK,
-            height=220,
-            font=dict(color=CIBAO_GRAY)
-        )
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        title={'text': f"<b>{label}</b>", 'font': {'color': CIBAO_ORANGE, 'size': 18}},
+        gauge={
+            'axis': {'range': [min_rango, max_rango]},
+            'bar': {'color': CIBAO_ORANGE},
+            'bgcolor': "#333",
+            'borderwidth': 1,
+            'bordercolor': "#555",
+        }
+    ))
 
-        st.plotly_chart(fig, use_container_width=True)
+    fig.update_layout(
+        paper_bgcolor=CIBAO_BLACK,
+        plot_bgcolor=CIBAO_BLACK,
+        height=260,                     # 🔥 unificado
+        margin=dict(l=20, r=20, t=60, b=20),
+        font=dict(color=CIBAO_GRAY)
+    )
 
-        st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};margin-top:-5px;margin-bottom:25px;'>
+    st.plotly_chart(fig, use_container_width=True)
+
+    # 🔥 MISMA estructura que antes, sin tocar texto
+    st.markdown(f"""
+    <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                margin-top:-5px;margin-bottom:25px;'>
         <b>Conclusión táctica</b><br><br>
         • La <b>distancia media de disparo ({value:.1f} m)</b> refleja la capacidad del equipo para empujar al rival
           a zonas menos ventajosas, reduciendo la probabilidad de ocasiones claras.
-        </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
 
 
     # ===========================
