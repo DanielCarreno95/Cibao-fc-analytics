@@ -598,44 +598,6 @@ with col4:
 # Último grupo → ancho completo
 plot_group("Juego interior y profundidad", grupos["Juego interior y profundidad"])
 
-#=============================================================
-# 🔶 CSS PARA PESTAÑAS TIPO CHROME
-# ============================================================
-
-tabs_css = """
-<style>
-
-div[data-baseweb="tab-list"] {
-    gap: 6px !important;
-}
-
-div[role="tab"] {
-    background-color: #111 !important;
-    padding: 10px 20px !important;
-    border-radius: 8px 8px 0 0 !important;
-    color: #ccc !important;
-    border: 1px solid #333 !important;
-    font-weight: 600 !important;
-    cursor: pointer !important;
-}
-
-div[role="tab"][aria-selected="true"] {
-    background-color: #ff7b00 !important;
-    color: black !important;
-    border-bottom: 1px solid #ff7b00 !important;
-}
-
-div[role="tabpanel"] {
-    border: 1px solid #333 !important;
-    padding: 20px !important;
-    border-radius: 0 8px 8px 8px !important;
-    background-color: #0a0a0a !important;
-}
-
-</style>
-"""
-
-st.markdown(tabs_css, unsafe_allow_html=True)
 
 # ============================================================
 # 🔶 CREACIÓN DE LAS 5 PESTAÑAS
