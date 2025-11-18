@@ -1201,68 +1201,101 @@ with tab5:
     st.markdown("""
     <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Análisis Comparativo (Tablas)</h2>
     <p style='text-align:center; color:#ccc;'>
-        Comparación de métricas clave del Cibao FC por fase del juego: ofensiva, construcción/pase y defensa.
-        Los valores más altos se resaltan mediante un gradiente en tonos naranja institucional.
+        Comparación completa del rendimiento del Cibao FC por fase del juego.
+        Las métricas se agrupan en ofensivas, construcción/posesión y defensivas.
     </p>
     """, unsafe_allow_html=True)
 
     # ============================================================
-    # 📋 DICCIONARIO DE MÉTRICAS POR BLOQUE
+    # 📋 DICCIONARIOS DEFINITIVOS POR BLOQUE (OPTIMIZADOS)
     # ============================================================
 
     metrics_blocks = {
 
+        # ----------------------------------------------
+        # 🟠 BLOQUE OFENSIVO — RENDIMIENTO + EFICIENCIA
+        # ----------------------------------------------
         "Ofensivas": {
+            # RENDIMIENTO GENERAL
             "Goles por partido": "goals",
             "xG (Goles esperados)": "xg",
             "Disparos por partido": "shots",
             "Disparos a puerta por partido": "shots_on_target",
-            "Contraataques por 90": "counter_attacks",
-            "Penaltis por 90": "penalties",
+            "Porcentaje de disparos a puerta (%)": "shots_on_target_percent",
+
+            # ATAQUE / EFICIENCIA
+            "Disparos desde fuera del área a puerta (%)": "shots_from_outside_penalty_area_on_target_percent",
+            "Ataques posicionales con disparo (%)": "positional_attacks_with_shots_percent",
+            "Contraataques con disparo (%)": "counter_attacks_with_shots_percent",
+            "Balones parados con disparo (%)": "set_pieces_with_shots_percent",
+            "Corners con disparo (%)": "corners_with_shots_percent",
+            "Faltas directas con disparo (%)": "free_kicks_with_shots_percent",
+            "Conversión de penaltis (%)": "penalties_converted_percent",
+            "Entradas al área por 90": "penalty_area_entries",
+            "Toques en el área por 90": "touches_in_penalty_area",
             "Centros por 90": "crosses",
-            "Precisión de centros (%)": "crosses_accurate_percent",
-            "Corners por 90": "corners",
+            "Centros precisos (%)": "crosses_accurate_percent",
         },
 
+        # -----------------------------------------------------
+        # 🟡 CONSTRUCCIÓN Y POSESIÓN — MÉTRICAS PORCENTUALES
+        # -----------------------------------------------------
         "Construcción y Pase": {
+            "Posesión (%)": "possession_percent",
             "Precisión de pase (%)": "passes_accurate_percent",
-            "Precisión hacia adelante (%)": "forward_passes_accurate_percent",
-            "Precisión pases largos (%)": "long_passes_accurate_percent",
-            "Precisión al último tercio (%)": "passes_to_final_third_accurate_percent",
+            "Precisión pases hacia adelante (%)": "forward_passes_accurate_percent",
+            "Precisión pases hacia atrás (%)": "back_passes_accurate_percent",
+            "Precisión pases laterales (%)": "lateral_passes_accurate_percent",
+            "Precisión pases largos (%)": "long_pass_percent",
+            "Precisión último tercio (%)": "passes_to_final_third_accurate_percent",
+            "Precisión pases progresivos (%)": "progressive_passes_accurate_percent",
             "Precisión pases inteligentes (%)": "smart_passes_accurate_percent",
+            "Precisión saques de banda (%)": "throw_ins_accurate_percent",
         },
 
+        # ---------------------------------------------------------
+        # 🔵 DEFENSIVA — DEFENSA + PRESIÓN + DUELOS (SIN HEATMAP)
+        # ---------------------------------------------------------
         "Defensivas": {
-            "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
-            "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
+            # Defensa
             "Intercepciones por 90": "interceptions",
             "Despejes por 90": "clearances",
+            "Entradas exitosas (%)": "sliding_tackles_successful_percent",
+            "Disparos en contra por 90": "shots_against",
+            "Disparos en contra a puerta": "shots_against_on_target",
+            "Eficiencia rival (%)": "shots_against_on_target_percent",
+            "PPDA": "ppda",
+
+            # Presión (sin las de heatmap)
+            # heatmap usa losses_high/medium/low, así que NO se repiten
+
+            # Duelos y físico
+            "Duelos ganados (%)": "duels_won_percent",
+            "Duelos ofensivos ganados (%)": "offensive_duels_won_percent",
+            "Duelos defensivos ganados (%)": "defensive_duels_won_percent",
+            "Duelos aéreos ganados (%)": "aerial_duels_won_percent",
+
+            # Volumen útil
             "Recuperaciones por 90": "recoveries",
             "Pérdidas de balón por 90": "losses",
-            "PPDA": "ppda",
-            "Disparos en contra por 90": "shots_against",
-            "Disparos en contra a puerta por 90": "shots_against_on_target",
-            "Eficiencia rival (%)": "shots_against_on_target_percent",
-        },
+        }
     }
 
     # ============================================================
-    # 🎨 PALETA CIBAO — GRADIENTE
+    # 🎨 PALETA CIBAO — ORIGINAL VIVA (MUY VISUAL)
     # ============================================================
 
     from matplotlib.colors import LinearSegmentedColormap
-    import matplotlib
-    import io
-    import pandas as pd
+    import matplotlib, io, pandas as pd
 
     CIBAO_ORANGE_CMAP = LinearSegmentedColormap.from_list(
         "cibao_orange",
-        ["#2a2a2a", "#ff7b00", "#ffae42"]
+        ["#2a2a2a", "#ff6600", "#ff7b00", "#ff9933", "#ffb84d"]
     )
 
     matplotlib.colormaps.register(
-        CIBAO_ORANGE_CMAP, 
-        name="cibao_orange", 
+        CIBAO_ORANGE_CMAP,
+        name="cibao_orange",
         force=True
     )
 
@@ -1274,93 +1307,82 @@ with tab5:
 
     if df_base.empty:
         st.info("No hay datos disponibles para los filtros seleccionados.")
-    else:
-        df_base = df_base.sort_values("Date", ascending=False)
+        st.stop()
 
-        partidos_disponibles = df_base["Match"].nunique()
-        df_base = df_base.head(min(partidos_disponibles, 5))
+    df_base = df_base.sort_values("Date", ascending=False)
+    partidos = df_base["Match"].nunique()
+    df_base = df_base.head(min(partidos, 5))
 
-        st.caption(
-            f"Mostrando los últimos {len(df_base)} partidos disponibles (máximo 5)."
+    st.caption(f"Mostrando los últimos {len(df_base)} partidos (máx 5).")
+
+    # ============================================================
+    # ⚙️ FUNCIÓN DE TABLA ESTILIZADA
+    # ============================================================
+
+    def build_table(df, metrics_dict, title):
+
+        columnas = ["Match"] + list(metrics_dict.values())
+        df_local = df[columnas].copy()
+
+        df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
+        df_local = df_local.round(2)
+
+        st.markdown(
+            f"### <span style='color:#ff8c00;'>⬤ {title}</span>",
+            unsafe_allow_html=True
         )
 
-        # ============================================================
-        # ⚙️ FUNCIÓN PARA GENERAR TABLA FORMATEADA
-        # ============================================================
-
-        def build_table(df, metrics_dict, title):
-
-            columnas = ["Match"] + list(metrics_dict.values())
-            df_local = df[columnas].copy()
-
-            df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
-            df_local = df_local.round(2)
-
-            st.markdown(
-                f"### <span style='color:#ff8c00;'>⬤ {title}</span>", 
-                unsafe_allow_html=True
-            )
-
-            styled = df_local.style.background_gradient(
-                cmap="cibao_orange"
-            ).set_properties(
-                **{
-                    "text-align": "center",
-                    "font-size": "12px",
-                    "border-color": "#333",
-                }
-            )
-
-            height = max(220, len(df_local) * 45 + 80)
-
-            st.dataframe(styled, use_container_width=True, height=height)
-
-            return df_local
-
-        # ============================================================
-        # 📊 BLOQUES
-        # ============================================================
-
-        st.divider()
-        df_off = build_table(df_base, metrics_blocks["Ofensivas"], "Bloque Ofensivo")
-
-        st.divider()
-        df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"], "Bloque Construcción y Pase")
-
-        st.divider()
-        df_def = build_table(df_base, metrics_blocks["Defensivas"], "Bloque Defensivo")
-
-        # ============================================================
-        # 📥 DESCARGA EN EXCEL
-        # ============================================================
-
-        buffer = io.BytesIO()
-
-        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            df_off.to_excel(writer, sheet_name="Ofensivo", index=False)
-            df_pass.to_excel(writer, sheet_name="Construccion_Pase", index=False)
-            df_def.to_excel(writer, sheet_name="Defensivo", index=False)
-
-        buffer.seek(0)
-
-        st.download_button(
-            label="📥 Descargar análisis completo en Excel",
-            data=buffer,
-            file_name="analisis_comparativo_cibao.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        styled = df_local.style.background_gradient(
+            cmap="cibao_orange"
+        ).set_properties(
+            **{
+                "text-align": "center",
+                "font-size": "12px",
+                "border-color": "#333",
+            }
         )
 
-        # ============================================================
-        # 📌 INSIGHT FINAL
-        # ============================================================
+        height = max(240, len(df_local) * 45 + 80)
+        st.dataframe(styled, use_container_width=True, height=height)
 
-        st.markdown("""
-        <div style='background:#111; padding:12px; border-left:3px solid #ff8c00; margin-top:20px;'>
-            <b>Resumen general:</b><br><br>
-            Las tablas comparativas permiten identificar rápidamente qué fases del juego están mostrando mayor rendimiento
-            y en cuáles existe margen de mejora. El gradiente naranja destaca de manera intuitiva los valores más influyentes
-            dentro de cada bloque analizado.
-        </div>
-        """, unsafe_allow_html=True)
+        return df_local
 
+    # ============================================================
+    # 📊 BLOQUES
+    # ============================================================
 
+    st.divider()
+    df_off = build_table(df_base, metrics_blocks["Ofensivas"], "Bloque Ofensivo")
+
+    st.divider()
+    df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"], "Bloque Construcción y Pase")
+
+    st.divider()
+    df_def = build_table(df_base, metrics_blocks["Defensivas"], "Bloque Defensivo")
+
+    # ============================================================
+    # 📥 DESCARGA EXCEL
+    # ============================================================
+
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df_off.to_excel(writer, sheet_name="Ofensivo", index=False)
+        df_pass.to_excel(writer, sheet_name="Construccion_Pase", index=False)
+        df_def.to_excel(writer, sheet_name="Defensivo", index=False)
+    buffer.seek(0)
+
+    st.download_button(
+        label="📥 Descargar análisis completo en Excel",
+        data=buffer,
+        file_name="analisis_comparativo_cibao.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+    st.markdown("""
+    <div style='background:#111; padding:12px; border-left:3px solid #ff8c00; margin-top:20px;'>
+        <b>Resumen general:</b><br><br>
+        El análisis por bloques permite detectar patrones, fortalezas y puntos de mejora
+        en ataque, construcción y defensa. El gradiente naranja resalta rápidamente los valores
+        de mayor impacto en cada fase del juego.
+    </div>
+    """, unsafe_allow_html=True)
