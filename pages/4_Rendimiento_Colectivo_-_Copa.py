@@ -3,7 +3,7 @@
 # =========================================================
 from src.data_processing.load_concacaf_matchstats_data import load_concacaf_matchstats_data
 from src.utils.metrics_dictionary_concacaf import METRICS_CONCACAF, METRIC_GROUPS_CONCACAF
-from src.utils.global_dark_theme import titulo_naranja  # ya disponible en tu proyecto
+from src.utils.global_dark_theme import titulo_naranja  # usa tu mismo tema global
 
 titulo_naranja("Análisis de Métricas — Copa Concacaf")
 st.markdown(
@@ -31,7 +31,6 @@ else:
     # ==============================
     # 🧩 BLOQUE 0 — ANÁLISIS RÁPIDO CIBAO VS RIVAL (Copa)
     # ==============================
-
     def titulo_naranja_copa(texto: str):
         st.markdown(
             f"""
@@ -135,7 +134,6 @@ else:
                         filters=None,
                     )
 
-                    #🔧 limpiar anotaciones superiores y ajustar márgenes
                     fig_copa.layout.annotations = [
                         ann
                         for ann in fig_copa.layout.annotations
@@ -179,18 +177,15 @@ else:
                     )
                     st.plotly_chart(fig_basic, use_container_width=True)
 
-
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-
 
 def _ensure_numeric(df, cols):
     for c in cols:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
     return df
-
 
 def _map_metrics(names):
     """Devuelve lista de columnas reales a partir de nombres del diccionario."""
