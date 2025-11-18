@@ -1075,10 +1075,9 @@ with tab4:
     # ===========================
 
     HEATMAP_COLORSCALE = [
-        [0.0, "#2a2a2a"],
-        [0.4, "#5c5c5c"],
-        [0.7, "#ff7b00"],
-        [1.0, "#ffae42"]
+    [0.0, "#2a2a2a"],   # gris oscuro
+    [0.5, "#ff7b00"],   # naranja cibao fuerte
+    [1.0, "#ffae42"]    # naranja claro
     ]
 
     import numpy as np
