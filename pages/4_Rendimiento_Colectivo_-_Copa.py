@@ -234,102 +234,118 @@ def _map_metrics(names):
             cols.append(col)
     return cols
 # =========================================================
-# 📊 ANÁLISIS POR BLOQUES DE MÉTRICAS — COPA CONCACAF
+# 🔶 PESTAÑAS DE ANÁLISIS ESPECÍFICO — COPA
 # =========================================================
-st.markdown(
-    f"""
-    <h2 style='text-align:center; color:{CIBAO_ORANGE}; font-weight:900; margin-top:30px;'>
-        Análisis de métricas clave por fase (Copa)
-    </h2>
-    <p style='text-align:center; color:{CIBAO_GRAY}; font-size:15px;'>
-        Promedio por partido del Cibao FC en la Copa Concacaf, organizado por bloques tácticos.
-        Cada bloque destaca la métrica más influyente y el área con menor incidencia.
-    </p>
-    """,
-    unsafe_allow_html=True,
+tab_ofensivo, tab_pases, tab_defensivo, tab_set_pieces, tab_general = st.tabs(
+    [
+        "Eficiencia y Ataque",
+        "Construcción y Pases",
+        "Defensa y Eficiencia",
+        "Acciones a balón parado",
+        "Disciplina y General",
+    ]
 )
 
-def _dedup_names(metric_names):
-    """Elimina duplicados que apunten a la misma columna real."""
+def _dedup_pairs(metric_mapping):
     seen = set()
-    result = []
-    for name in metric_names:
-        col = METRICS_CONCACAF.get(name)
-        if col and col not in seen:
-            seen.add(col)
-            result.append((name, col))
-    return result
+    pairs = []
+    for label, col in metric_mapping.items():
+        real_col = METRICS_CONCACAF.get(label, col)
+        if real_col and real_col not in seen and real_col in df_copa_cibao.columns:
+            seen.add(real_col)
+            pairs.append((label, real_col))
+    return pairs
 
-def plot_block(group_name, group_list):
-    pairs = _dedup_names(group_list)
-    if not pairs:
-        st.warning(f"No hay métricas disponibles para {group_name}.")
-        return
-
-    cols = [col for _, col in pairs if col in df_copa_cibao.columns]
-    if not cols:
-        st.warning(f"No hay columnas numéricas para {group_name}.")
+def plot_horizontal_group(group_title, mapping_pairs):
+    if not mapping_pairs:
+        st.warning(f"No hay datos para {group_title}.")
         return
 
     df_block = df_copa_cibao.copy()
+    cols = [col for _, col in mapping_pairs]
     for col in cols:
         df_block[col] = pd.to_numeric(df_block[col], errors="coerce").fillna(0)
 
-    mean_values = df_block[cols].mean()
-    labels = [name for name, col in pairs if col in mean_values.index]
-    valores = [mean_values[col] for _, col in pairs if col in mean_values.index]
-
-    df_plot = pd.DataFrame({"label": labels, "valor": valores}).sort_values("valor", ascending=True)
+    mean_vals = df_block[cols].mean()
+    df_plot = (
+        pd.DataFrame(
+            {
+                "label": [label for label, col in mapping_pairs],
+                "valor": [mean_vals[col] for _, col in mapping_pairs],
+            }
+        )
+        .sort_values("valor", ascending=True)
+        .reset_index(drop=True)
+    )
 
     fig = px.bar(
         df_plot,
         x="valor",
         y="label",
-        orientation="h",
         text_auto=".2f",
+        orientation="h",
         color_discrete_sequence=[CIBAO_ORANGE],
-        height=320,
+        height=300,
     )
-
     fig.update_layout(
         template="plotly_dark",
         plot_bgcolor="#0B0B0B",
         paper_bgcolor="#0B0B0B",
-        margin=dict(l=30, r=20, t=40, b=20),
-        title=dict(text=f"<b>{group_name}</b>", font=dict(color=CIBAO_ORANGE, size=20)),
+        margin=dict(l=20, r=20, t=40, b=20),
+        title=dict(text=f"<b>{group_title}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
         title_x=0.5,
         font=dict(color=CIBAO_GRAY, size=12),
         showlegend=False,
     )
-
     st.plotly_chart(fig, use_container_width=True)
 
     max_row = df_plot.iloc[-1]
     min_row = df_plot.iloc[0]
-
     st.markdown(
         f"""
         <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                     margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
             <b>Conclusiones tácticas</b><br><br>
-            • <b>Punto fuerte:</b> Mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
-            • <b>Área a potenciar:</b> Menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+            • <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+            • <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-# Layout en grid 2 x 2 + bloque final
-col_a, col_b = st.columns(2)
-with col_a:
-    plot_block("Ataque", METRIC_GROUPS_CONCACAF["Ataque"])
-with col_b:
-    plot_block("Pases", METRIC_GROUPS_CONCACAF["Pases"])
+with tab_ofensivo:
+    st.markdown(
+        """
+        <h3 style='text-align:center; color:#ff8c00;'>Eficiencia y Ataque</h3>
+        <p style='text-align:center; color:#bbb; font-size:14px;'>
+            Producción ofensiva, volumen de tiro y ventajas obtenidas en acciones ofensivas.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
 
-col_c, col_d = st.columns(2)
-with col_c:
-    plot_block("Defensivo", METRIC_GROUPS_CONCACAF["Defensivo"])
-with col_d:
-    plot_block("Set Pieces", METRIC_GROUPS_CONCACAF["Set Pieces"])
+    grupo1 = {
+        "Goles": "goals",
+        "Intentos de Gol": "totalScoringAtt",
+        "Asistencias de Gol": "goalAssist",
+    }
+    grupo2 = {
+        "Disparos Totales": "totalScoringAtt",
+        "Disparos al Arco": "ontargetScoringAtt",
+        "Disparos Fuera del Arco": "shotOffTarget",
+        "Disparos Bloqueados": "blockedScoringAtt",
+    }
+    grupo3 = {
+        "Faltas a Favor": "wasFouled",
+        "Fuera de Juego": "totalOffside",
+    }
 
-plot_block("General", METRIC_GROUPS_CONCACAF["General"])
+    col1, col2 = st.columns(2)
+    with col1:
+        plot_horizontal_group("Productividad ofensiva directa", _dedup_pairs(grupo1))
+    with col2:
+        plot_horizontal_group("Distribución de disparos", _dedup_pairs(grupo2))
+
+    plot_horizontal_group("Ventajas generadas", _dedup_pairs(grupo3))
+
+# (Las otras pestañas las llenaremos después)
