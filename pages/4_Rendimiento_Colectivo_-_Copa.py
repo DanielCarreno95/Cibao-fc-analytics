@@ -46,20 +46,22 @@ df_copa_cibao["Match_Date"] = pd.to_datetime(df_copa_cibao["match_date"], errors
 df_copa_cibao = df_copa_cibao.sort_values("Match_Date")
 
 ultima_fecha = df_copa_cibao["Match_Date"].dropna().max()
-df_ultima_jornada = (
-    df_copa_cibao[df_copa_cibao["Match_Date"] == ultima_fecha].copy()
-    if pd.notna(ultima_fecha)
-    else df_copa_cibao.head(0)
-)
+df_ultima_jornada = df_copa_cibao[df_copa_cibao["Match_Date"] == ultima_fecha].copy() if pd.notna(ultima_fecha) else df_copa_cibao.head(0)
 
 if df_ultima_jornada.empty:
     st.warning("No se pudo determinar la última jornada de Copa.")
     st.stop()
 
-fecha_str = ultima_fecha.strftime("%d-%m-%Y")
-fila_principal = df_ultima_jornada.iloc[0]
+# Filtrar sólo Cibao (ajusta el nombre si usas otro club)
+df_ultima_cibao = df_ultima_jornada[df_ultima_jornada["team"].str.contains("Cibao", case=False, na=False)].copy()
+if df_ultima_cibao.empty:
+    st.warning("No hay registros de Cibao en la última fecha.")
+    st.stop()
 
-# --------- KPIs textuales (fila 1)
+fecha_str = ultima_fecha.strftime("%d-%m-%Y")
+# Para encabezado textual, tomamos el primer registro del partido filtrado
+fila_principal = df_ultima_cibao.iloc[0]
+
 kpi_texts = [
     ("Fecha", fecha_str),
     ("Fase", fila_principal.get("stage", "-")),
@@ -87,18 +89,27 @@ for (label, value), col in zip(kpi_texts, cols_text):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --------- KPIs adicionales (fila 2)
+# --- Agregados del partido (sólo Cibao)
+agg_metrics = {
+    "minsPlayed": "mean",      # promedio de minutos
+    "formation_place": lambda s: s.mode().iloc[0] if not s.mode().empty else "-",
+    "totalSubOff": "sum",
+    "yellowCard": "sum",
+    "redCard": "sum",
+}
+
+df_agg = df_ultima_cibao.agg(agg_metrics)
 kpi_extra = [
-    ("Minutos Jugados", fila_principal.get("minsPlayed", "-")),
-    ("Formación", fila_principal.get("formation_place", "-")),
-    ("Sustituciones Hechas", fila_principal.get("totalSubOff", "-")),
-    ("Tarjetas Amarillas", fila_principal.get("yellowCard", "-")),
-    ("Tarjetas Rojas", fila_principal.get("redCard", "-")),
+    ("Minutos Jugados (avg)", f"{df_agg['minsPlayed']:.1f}" if pd.notna(df_agg["minsPlayed"]) else "-"),
+    ("Formación más usada", df_agg["formation_place"]),
+    ("Sustituciones Hechas", int(df_agg["totalSubOff"]) if pd.notna(df_agg["totalSubOff"]) else "-"),
+    ("Tarjetas Amarillas", int(df_agg["yellowCard"]) if pd.notna(df_agg["yellowCard"]) else "-"),
+    ("Tarjetas Rojas", int(df_agg["redCard"]) if pd.notna(df_agg["redCard"]) else "-"),
 ]
 
 cols_extra = st.columns(len(kpi_extra))
 for (label, value), col in zip(kpi_extra, cols_extra):
-    display = "-" if pd.isna(value) else value
+    display = value if value not in [None, "", np.nan] else "-"
     with col:
         st.markdown(
             f"""
