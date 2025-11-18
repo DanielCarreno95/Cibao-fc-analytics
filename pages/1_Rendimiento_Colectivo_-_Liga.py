@@ -1206,7 +1206,6 @@ with tab5:
     </p>
     """, unsafe_allow_html=True)
 
-
     # ============================================================
     # 📋 DICCIONARIO DE MÉTRICAS (AMPLIADO)
     # ============================================================
@@ -1227,7 +1226,7 @@ with tab5:
             "Precisión de centros (%)": "crosses_accurate_percent",
             "Pases clave por 90": "key_passes",
             "Asistencias esperadas (xA)": "xa",
-            "Corners por 90": "corners"
+            "Corners por 90": "corners",
         },
 
         "Construcción y Pase": {
@@ -1239,11 +1238,11 @@ with tab5:
             "Precisión lateral (%)": "lateral_passes_accurate_percent",
             "Pases progresivos por 90": "progressive_passes",
             "Precisión pases progresivos (%)": "progressive_passes_accurate_percent",
-            "Pases al último tercio (%)": "passes_to_final_third_accurate_percent",
-            "Pases largos precisos (%)": "long_passes_accurate_percent",
-            "Pases inteligentes precisos (%)": "smart_passes_accurate_percent",
+            "Precisión último tercio (%)": "passes_to_final_third_accurate_percent",
+            "Precisión pases largos (%)": "long_passes_accurate_percent",
+            "Precisión pases inteligentes (%)": "smart_passes_accurate_percent",
             "Pases al área por 90": "passes_to_penalty_area",
-            "Longitud media de pase": "average_pass_length"
+            "Longitud media de pase": "average_pass_length",
         },
 
         "Defensivas": {
@@ -1259,13 +1258,12 @@ with tab5:
             "Disparos en contra por 90": "shots_against",
             "Disparos en contra a puerta": "shots_against_on_target",
             "Eficiencia rival (%)": "shots_against_on_target_percent",
-            "PPDA": "ppda"
-        }
+            "PPDA": "ppda",
+        },
     }
 
-
     # ============================================================
-    # 🎨 PALETA NARANJA CIBAO (5 TONOS)
+    # 🎨 PALETA CIBAO — GRADIENTE VIVO
     # ============================================================
 
     from matplotlib.colors import LinearSegmentedColormap
@@ -1278,8 +1276,11 @@ with tab5:
         ["#ff6600", "#ff7b00", "#ff9933", "#ffb84d", "#ffd699"]
     )
 
-    matplotlib.colormaps.register(CIBAO_ORANGE_CMAP, name="cibao_orange", force=True)
-
+    matplotlib.colormaps.register(
+        CIBAO_ORANGE_CMAP,
+        name="cibao_orange",
+        force=True
+    )
 
     # ============================================================
     # 🔍 PREPARAR DATOS BASE
@@ -1291,45 +1292,53 @@ with tab5:
         st.info("No hay datos disponibles para los filtros seleccionados.")
     else:
         df_base = df_base.sort_values("Date", ascending=False)
+
         partidos_disponibles = df_base["Match"].nunique()
         df_base = df_base.head(min(partidos_disponibles, 5))
 
-        st.caption(f"Mostrando los últimos {len(df_base)} partidos disponibles (máximo 5).")
-
+        st.caption(
+            f"Mostrando los últimos {len(df_base)} partidos disponibles (máximo 5)."
+        )
 
         # ============================================================
-        # ⚙️ FUNCIÓN PARA TABLAS — SIN ERROR + 2 DECIMALES
+        # ⚙️ FUNCIÓN PARA GENERAR TABLA FORMATEADA
         # ============================================================
 
         def build_table(df, metrics_dict, title):
 
-            # ----- QUEDARNOS SOLO CON LAS COLUMNAS QUE EXISTEN -----
+            # solo columnas que EXISTEN en df
             columnas_existentes = [c for c in metrics_dict.values() if c in df.columns]
 
             if len(columnas_existentes) == 0:
                 st.warning(f"No hay datos disponibles para {title}.")
-                return df.iloc[:0]   # devolver vacío sin fallar
+                return df.iloc[:0]
 
             df_local = df[["Match"] + columnas_existentes].copy()
 
-            # Renombrar según etiquetas legibles
+            # renombrar
             label_map = {v: k for k, v in metrics_dict.items() if v in columnas_existentes}
             df_local = df_local.rename(columns=label_map)
 
-            # Redondeo a 2 decimales (REAL, NO SOLO VISUAL)
-            df_local = df_local.applymap(lambda x: round(x, 2) if isinstance(x, (int, float)) else x)
+            # redondeo REAL a 2 decimales solo en numéricas
+            numeric_cols = df_local.select_dtypes(include=["number"]).columns
+            df_local[numeric_cols] = df_local[numeric_cols].round(2)
 
-            st.markdown(f"### <span style='color:#ff8c00;'>⬤ {title}</span>", unsafe_allow_html=True)
+            st.markdown(
+                f"### <span style='color:#ff8c00;'>⬤ {title}</span>",
+                unsafe_allow_html=True
+            )
 
             styled = (
                 df_local.style
-                .background_gradient(cmap="cibao_orange")
-                .set_properties(**{
-                    "text-align": "center",
-                    "font-size": "12px",
-                    "border-color": "#333"
-                })
-                .format("{:.2f}")
+                .background_gradient(cmap="cibao_orange", subset=numeric_cols)
+                .set_properties(
+                    **{
+                        "text-align": "center",
+                        "font-size": "12px",
+                        "border-color": "#333",
+                    }
+                )
+                .format("{:.2f}", subset=numeric_cols)
             )
 
             height = max(220, len(df_local) * 45 + 80)
@@ -1338,9 +1347,8 @@ with tab5:
 
             return df_local
 
-
         # ============================================================
-        # 📊 GENERAR TABLAS
+        # 📊 BLOQUES
         # ============================================================
 
         st.divider()
@@ -1352,9 +1360,8 @@ with tab5:
         st.divider()
         df_def = build_table(df_base, metrics_blocks["Defensivas"], "Bloque Defensivo")
 
-
         # ============================================================
-        # 📥 DESCARGA EXCEL
+        # 📥 DESCARGA EN EXCEL
         # ============================================================
 
         buffer = io.BytesIO()
@@ -1373,7 +1380,6 @@ with tab5:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-
         # ============================================================
         # 📌 INSIGHT FINAL
         # ============================================================
@@ -1381,7 +1387,8 @@ with tab5:
         st.markdown("""
         <div style='background:#111; padding:12px; border-left:3px solid #ff8c00; margin-top:20px;'>
             <b>Resumen general:</b><br><br>
-            Las tablas comparativas permiten visualizar el rendimiento real del equipo
-            en ataque, organización y defensa sin perder claridad táctica.
+            Las tablas comparativas permiten identificar de forma rápida qué bloques del modelo
+            (ofensivo, construcción y defensivo) están sosteniendo el rendimiento del equipo
+            y en cuáles existe margen para ajustar comportamientos.
         </div>
         """, unsafe_allow_html=True)
