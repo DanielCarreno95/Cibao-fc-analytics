@@ -46,30 +46,31 @@ df_copa_cibao["Match_Date"] = pd.to_datetime(df_copa_cibao["match_date"], errors
 df_copa_cibao = df_copa_cibao.sort_values("Match_Date")
 
 ultima_fecha = df_copa_cibao["Match_Date"].dropna().max()
-df_ultima_jornada = df_copa_cibao[df_copa_cibao["Match_Date"] == ultima_fecha].copy() if pd.notna(ultima_fecha) else df_copa_cibao.head(0)
+df_ultima_jornada = (
+    df_copa_cibao[df_copa_cibao["Match_Date"] == ultima_fecha].copy()
+    if pd.notna(ultima_fecha)
+    else df_copa_cibao.head(0)
+)
 
 if df_ultima_jornada.empty:
     st.warning("No se pudo determinar la última jornada de Copa.")
     st.stop()
 
-# Filtrar sólo Cibao (ajusta el nombre si usas otro club)
 df_ultima_cibao = df_ultima_jornada[df_ultima_jornada["team"].str.contains("Cibao", case=False, na=False)].copy()
 if df_ultima_cibao.empty:
-    st.warning("No hay registros de Cibao en la última fecha.")
+    st.warning("No hay registros del Cibao FC en la última fecha.")
     st.stop()
 
 fecha_str = ultima_fecha.strftime("%d-%m-%Y")
-# Para encabezado textual, tomamos el primer registro del partido filtrado
 fila_principal = df_ultima_cibao.iloc[0]
 
+st.markdown("### Indicadores del último partido (Copa)")
 kpi_texts = [
     ("Fecha", fecha_str),
     ("Fase", fila_principal.get("stage", "-")),
     ("Equipo Local", fila_principal.get("home_team", "-")),
     ("Equipo Visitante", fila_principal.get("away_team", "-")),
 ]
-
-st.markdown("### Indicadores del último partido (Copa)")
 cols_text = st.columns(len(kpi_texts))
 for (label, value), col in zip(kpi_texts, cols_text):
     display = str(value) if pd.notna(value) else "-"
@@ -89,27 +90,13 @@ for (label, value), col in zip(kpi_texts, cols_text):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- Agregados del partido (sólo Cibao)
-agg_metrics = {
-    "minsPlayed": "mean",      # promedio de minutos
-    "formation_place": lambda s: s.mode().iloc[0] if not s.mode().empty else "-",
-    "totalSubOff": "sum",
-    "yellowCard": "sum",
-    "redCard": "sum",
-}
-
-df_agg = df_ultima_cibao.agg(agg_metrics)
-kpi_extra = [
-    ("Minutos Jugados (avg)", f"{df_agg['minsPlayed']:.1f}" if pd.notna(df_agg["minsPlayed"]) else "-"),
-    ("Formación más usada", df_agg["formation_place"]),
-    ("Sustituciones Hechas", int(df_agg["totalSubOff"]) if pd.notna(df_agg["totalSubOff"]) else "-"),
-    ("Tarjetas Amarillas", int(df_agg["yellowCard"]) if pd.notna(df_agg["yellowCard"]) else "-"),
-    ("Tarjetas Rojas", int(df_agg["redCard"]) if pd.notna(df_agg["redCard"]) else "-"),
+tarjetas = df_ultima_cibao[["yellowCard", "redCard"]].apply(pd.to_numeric, errors="coerce").fillna(0).sum()
+kpi_cards = [
+    ("Tarjetas Amarillas", int(tarjetas["yellowCard"])),
+    ("Tarjetas Rojas", int(tarjetas["redCard"])),
 ]
-
-cols_extra = st.columns(len(kpi_extra))
-for (label, value), col in zip(kpi_extra, cols_extra):
-    display = value if value not in [None, "", np.nan] else "-"
+cols_cards = st.columns(len(kpi_cards))
+for (label, value), col in zip(kpi_cards, cols_cards):
     with col:
         st.markdown(
             f"""
@@ -117,7 +104,7 @@ for (label, value), col in zip(kpi_extra, cols_extra):
                         border:1px solid rgba(255,140,0,0.35);
                         border-radius:14px;padding:18px;
                         text-align:center;box-shadow:0 0 18px rgba(255,140,0,0.12);'>
-                <div style='font-size:1.4rem;color:{CIBAO_ORANGE};font-weight:800;'>{display}</div>
+                <div style='font-size:1.8rem;color:{CIBAO_ORANGE};font-weight:800;'>{value}</div>
                 <div style='color:#cfcfcf;font-size:0.9rem;'>{label}</div>
             </div>
             """,
