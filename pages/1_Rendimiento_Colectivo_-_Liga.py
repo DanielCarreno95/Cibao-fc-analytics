@@ -1049,11 +1049,10 @@ with tab4:
     st.markdown("""
     <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Distribución Táctica</h2>
     <p style='text-align:center; color:#ccc;'>
-    Análisis de la estructura defensiva del Cibao FC a partir del comportamiento por zonas: 
-    alturas de recuperación y niveles de presión ejercida.
+        Análisis de la estructura defensiva del Cibao FC a partir del comportamiento por zonas:
+        alturas de recuperación y niveles de presión ejercida.
     </p>
     """, unsafe_allow_html=True)
-
 
     # ===========================
     # DEFINICIÓN DE GRUPOS
@@ -1074,15 +1073,14 @@ with tab4:
         }
     }
 
+    # ===========================
+    # PALETA CIBAO PARA HEATMAP
+    # ===========================
 
-    # ===========================
-    # PALETA CIBAO ESPECIAL PARA HEATMAP
-    # ===========================
     CIBAO_ORANGE = "#FF8C00"
     CIBAO_DARK = "#111"
     CIBAO_GRAY = "#D3D3D3"
 
-    # Heatmap elegante: gris oscuro → naranja brillante
     HEATMAP_COLORSCALE = [
         [0.0, "#2a2a2a"],
         [0.4, "#5c5c5c"],
@@ -1090,9 +1088,8 @@ with tab4:
         [1.0, "#ffae42"]
     ]
 
-
     # ===========================
-    # FUNCIÓN PARA HEATMAP
+    # FUNCIÓN PARA HEATMAP (CORREGIDA)
     # ===========================
 
     def plot_heatmap(nombre_grupo, mapping):
@@ -1106,69 +1103,79 @@ with tab4:
             st.warning(f"No hay datos para: {nombre_grupo}")
             return
 
-        # Matriz: 1 fila (grupo), n columnas (zonas)
-        valores = dfp[cols].mean().values.reshape(1, -1)
+        # Reemplazar NaN para evitar fallo del Heatmap
+        serie = dfp[cols].mean().fillna(0)
 
-        fig = go.Figure(data=go.Heatmap(
-            z=valores,
-            x=labels,
-            y=[""],
-            colorscale=HEATMAP_COLORSCALE,
-            showscale=True,
-            colorbar=dict(
-                title="Intensidad",
-                thickness=12,
-                tickfont=dict(color=CIBAO_GRAY),
-                titlefont=dict(color=CIBAO_GRAY),
+        valores = serie.values.reshape(1, -1)
+
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=valores,
+                x=labels,
+                y=[""],
+                colorscale=HEATMAP_COLORSCALE,
+                showscale=True,
+                colorbar=dict(
+                    title=dict(text="Intensidad"),
+                    thickness=10,
+                    tickfont=dict(color=CIBAO_GRAY),
+                    titlefont=dict(color=CIBAO_GRAY),
+                )
             )
-        ))
+        )
 
         fig.update_layout(
             height=280,
             template="plotly_dark",
-            title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
+            title=dict(
+                text=f"<b>{nombre_grupo}</b>",
+                font=dict(size=18, color=CIBAO_ORANGE)
+            ),
             title_x=0.5,
             paper_bgcolor=CIBAO_DARK,
             plot_bgcolor=CIBAO_DARK,
             font=dict(color=CIBAO_GRAY),
-            margin=dict(l=20, r=20, t=60, b=20)
+            margin=dict(l=20, r=20, t=60, b=20),
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
         # -------- CONCLUSIONES TÁCTICAS --------
-        series = dfp[cols].mean()
-        max_metric = series.idxmax()
-        min_metric = series.idxmin()
+        max_metric = serie.idxmax()
+        min_metric = serie.idxmin()
 
         st.markdown(f"""
         <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                     margin-top:-8px; margin-bottom:25px;'>
             <b>Conclusiones tácticas</b><br><br>
 
-            • <b>Zona de mayor actividad:</b> El equipo muestra una mayor incidencia en 
-              <b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>, reflejando dónde 
-              se concentra el comportamiento defensivo o la recuperación del balón.<br><br>
+            • <b>Zona de mayor influencia:</b> El equipo registra mayor actividad en 
+              <b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>, lo que indica la altura donde el bloque ejerce
+              mayor impacto defensivo.<br><br>
 
-            • <b>Zona con menor intervención:</b> La menor contribución aparece en 
-              <b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, indicando un sector que puede representar 
-              una oportunidad para ajustar la intensidad o la altura del bloque.<br><br>
+            • <b>Zona menos activa:</b> La menor intervención aparece en 
+              <b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, un área donde ajustar intensidad 
+              puede mejorar la ocupación espacial del bloque.<br><br>
         </div>
         """, unsafe_allow_html=True)
 
-
     # ===========================
-    # LAYOUT — 2 HEATMAPS
+    # LAYOUT 2 HEATMAPS
     # ===========================
 
     col1, col2 = st.columns(2)
 
     with col1:
-        plot_heatmap("Mapa de Recuperaciones por Altura", grupos_tacticos["Mapa de Recuperaciones por Altura"])
+        plot_heatmap(
+            "Mapa de Recuperaciones por Altura",
+            grupos_tacticos["Mapa de Recuperaciones por Altura"]
+        )
 
     with col2:
-        plot_heatmap("Mapa de Presión por Altura", grupos_tacticos["Mapa de Presión por Altura"])
-
+        plot_heatmap(
+            "Mapa de Presión por Altura",
+            grupos_tacticos["Mapa de Presión por Altura"]
+        )
 
 with tab5:
 
@@ -1179,11 +1186,10 @@ with tab5:
     st.markdown("""
     <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Análisis Comparativo (Tablas)</h2>
     <p style='text-align:center; color:#ccc;'>
-    Comparación de métricas clave del Cibao FC por fase del juego: ofensiva, construcción/pase y defensa.
-    Los valores más altos se resaltan mediante un gradiente en tonos naranja institucional.
+        Comparación de métricas clave del Cibao FC por fase del juego: ofensiva, construcción/pase y defensa.
+        Los valores más altos se resaltan mediante un gradiente en tonos naranja institucional.
     </p>
     """, unsafe_allow_html=True)
-
 
     # ============================================================
     # 📋 DICCIONARIO DE MÉTRICAS POR BLOQUE
@@ -1225,9 +1231,8 @@ with tab5:
         },
     }
 
-
     # ============================================================
-    # 🎨 PALETA NARANJA CIBAO (GRADIENTE)
+    # 🎨 PALETA CIBAO — GRADIENTE
     # ============================================================
 
     from matplotlib.colors import LinearSegmentedColormap
@@ -1239,8 +1244,12 @@ with tab5:
         "cibao_orange",
         ["#2a2a2a", "#ff7b00", "#ffae42"]
     )
-    matplotlib.colormaps.register(CIBAO_ORANGE_CMAP, name="cibao_orange", force=True)
 
+    matplotlib.colormaps.register(
+        CIBAO_ORANGE_CMAP, 
+        name="cibao_orange", 
+        force=True
+    )
 
     # ============================================================
     # 🔍 PREPARAR DATOS BASE
@@ -1254,34 +1263,31 @@ with tab5:
         df_base = df_base.sort_values("Date", ascending=False)
 
         partidos_disponibles = df_base["Match"].nunique()
-
-        # Mostrar máximo 5 partidos
         df_base = df_base.head(min(partidos_disponibles, 5))
 
         st.caption(
             f"Mostrando los últimos {len(df_base)} partidos disponibles (máximo 5)."
         )
 
-
         # ============================================================
-        # ⚙️ FUNCIÓN PARA GENERAR TABLAS
+        # ⚙️ FUNCIÓN PARA GENERAR TABLA FORMATEADA
         # ============================================================
 
         def build_table(df, metrics_dict, title):
 
-            # Filtrar columnas necesarias
-            cols = ["Match"] + list(metrics_dict.values())
-            df_local = df[cols].copy()
+            columnas = ["Match"] + list(metrics_dict.values())
+            df_local = df[columnas].copy()
 
-            # Renombrar a etiquetas visibles
             df_local = df_local.rename(columns={v: k for k, v in metrics_dict.items()})
             df_local = df_local.round(2)
 
-            st.markdown(f"### <span style='color:#ff8c00;'>⬤ {title}</span>", unsafe_allow_html=True)
+            st.markdown(
+                f"### <span style='color:#ff8c00;'>⬤ {title}</span>", 
+                unsafe_allow_html=True
+            )
 
             styled = df_local.style.background_gradient(
-                cmap="cibao_orange",
-                axis=0
+                cmap="cibao_orange"
             ).set_properties(
                 **{
                     "text-align": "center",
@@ -1296,36 +1302,25 @@ with tab5:
 
             return df_local
 
-
         # ============================================================
-        # 📊 BLOQUE 1 — OFENSIVO
+        # 📊 BLOQUES
         # ============================================================
 
         st.divider()
         df_off = build_table(df_base, metrics_blocks["Ofensivas"], "Bloque Ofensivo")
 
-
-        # ============================================================
-        # 📊 BLOQUE 2 — CONSTRUCCIÓN Y PASE
-        # ============================================================
-
         st.divider()
         df_pass = build_table(df_base, metrics_blocks["Construcción y Pase"], "Bloque Construcción y Pase")
 
-
-        # ============================================================
-        # 📊 BLOQUE 3 — DEFENSIVO
-        # ============================================================
-
         st.divider()
         df_def = build_table(df_base, metrics_blocks["Defensivas"], "Bloque Defensivo")
-
 
         # ============================================================
         # 📥 DESCARGA EN EXCEL
         # ============================================================
 
         buffer = io.BytesIO()
+
         with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
             df_off.to_excel(writer, sheet_name="Ofensivo", index=False)
             df_pass.to_excel(writer, sheet_name="Construccion_Pase", index=False)
@@ -1340,20 +1335,17 @@ with tab5:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-
         # ============================================================
         # 📌 INSIGHT FINAL
         # ============================================================
 
-        st.markdown(
-            """
-            <div style='background:#111; padding:12px; border-left:3px solid #ff8c00; margin-top:20px;'>
+        st.markdown("""
+        <div style='background:#111; padding:12px; border-left:3px solid #ff8c00; margin-top:20px;'>
             <b>Resumen general:</b><br><br>
             Las tablas comparativas permiten identificar rápidamente qué fases del juego están mostrando mayor rendimiento
             y en cuáles existe margen de mejora. El gradiente naranja destaca de manera intuitiva los valores más influyentes
-            dentro de cada grupo de métricas.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+            dentro de cada bloque analizado.
+        </div>
+        """, unsafe_allow_html=True)
+
 
