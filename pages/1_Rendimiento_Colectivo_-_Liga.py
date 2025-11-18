@@ -623,7 +623,184 @@ with tab1:
 # ================= TABS VACÍAS POR AHORA =====================
 
 with tab2:
-    st.info("🔧 Contenido de Construcción y Pases — pendiente por definir.")
+    # ============================================================
+# 🔶 CONSTRUCCIÓN Y PASES — BLOQUE COMPLETO
+# ============================================================
+
+st.markdown("""
+<h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Construcción y Pases</h2>
+<p style='text-align:center; color:#ccc;'>
+Evaluación de la estructura asociativa del Cibao FC: precisión, progresión, control de ritmo, distribución y mecanismos de reinicio del juego.
+</p>
+""", unsafe_allow_html=True)
+
+# ===========================
+# DEFINICIÓN DE GRUPOS
+# ===========================
+
+grupos_pases = {
+
+    "Control y estabilidad en la circulación": {
+        "Posesión (%)": "possession_percent",
+        "Precisión de pase (%)": "passes_accurate_percent",
+        "Precisión pases largos (%)": "long_pass_percent",
+    },
+
+    "Seguridad en la progresión": {
+        "Precisión pases progresivos (%)": "progressive_passes_accurate_percent",
+        "Precisión pases hacia atrás (%)": "back_passes_accurate_percent",
+        "Precisión pases laterales (%)": "lateral_passes_accurate_percent",
+    },
+
+    "Conexiones de alto valor táctico": {
+        "Precisión pases al último tercio (%)": "passes_to_final_third_accurate_percent",
+        "Precisión pases inteligentes (%)": "smart_passes_accurate_percent",
+    },
+
+    "Reinicios del juego": {
+        "Saques de banda por 90": "throw_ins",
+        "Saques de meta por 90": "goal_kicks",
+    },
+
+    "Longitud media de pase": {
+        "Longitud media de pase": "average_pass_length",
+    }
+}
+
+
+# ===========================
+# FUNCIÓN: BARRAS VERTICALES
+# ===========================
+
+def plot_group_vertical(nombre_grupo, mapping):
+
+    df_plot = df_filtrado.copy()
+
+    columnas = [v for v in mapping.values() if v in df_plot.columns]
+    etiquetas = {v: k for k, v in mapping.items() if v in df_plot.columns}
+
+    if len(columnas) == 0:
+        st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
+        return
+
+    df_mean = (
+        df_plot[columnas]
+        .mean()
+        .reset_index()
+        .rename(columns={"index": "metric", 0: "valor"})
+    )
+
+    df_mean["label"] = df_mean["metric"].map(etiquetas)
+    df_mean = df_mean.sort_values("valor", ascending=False)
+
+    fig = px.bar(
+        df_mean,
+        x="label",
+        y="valor",
+        orientation="v",
+        text_auto=".2f",
+        color_discrete_sequence=["#FF8C00"],
+    )
+
+    fig.update_layout(
+        height=360,
+        template="plotly_dark",
+        plot_bgcolor="#111",
+        paper_bgcolor="#111",
+        font=dict(color="#D3D3D3", size=12),
+        title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color="#FF8C00")),
+        title_x=0.5,
+        margin=dict(l=20, r=20, t=50, b=20),
+        showlegend=False,
+        xaxis=dict(tickangle=-35),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # -------- CONCLUSIONES TÁCTICAS --------
+    max_row = df_mean.iloc[0]
+    min_row = df_mean.iloc[-1]
+
+    conclusion = f"""
+    <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-8px; margin-bottom:25px;'>
+    <b>Conclusiones tácticas</b><br><br>
+
+    • <b>Fortaleza estructural:</b> El equipo muestra mayor fiabilidad en <b>{max_row['label']}</b>, indicador de estabilidad en la fase de construcción.<br><br>
+
+    • <b>Área por optimizar:</b> La métrica con menor incidencia es <b>{min_row['label']}</b>, aspecto donde aumentar la claridad puede mejorar la fluidez asociativa.<br><br>
+    </div>
+    """
+
+    st.markdown(conclusion, unsafe_allow_html=True)
+
+
+# ===========================
+# FUNCIÓN: GAUGE LINEAL (GRUPO 5)
+# ===========================
+
+def plot_longitud_pase(mapping):
+
+    col = list(mapping.values())[0]
+    label = list(mapping.keys())[0]
+
+    if col not in df_filtrado.columns:
+        st.warning("No hay datos para Longitud media de pase.")
+        return
+
+    value = df_filtrado[col].mean()
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        title={'text': f"<b>{label}</b>", 'font': {'color': '#FF8C00', 'size': 18}},
+        gauge={
+            'axis': {'range': [0, max(40, value * 1.5)]},
+            'bar': {'color': "#FF8C00"},
+            'bgcolor': "#333",
+            'borderwidth': 1,
+            'bordercolor': "#555",
+        },
+    ))
+
+    fig.update_layout(
+        height=220,
+        margin=dict(l=20, r=20, t=60, b=20),
+        paper_bgcolor="#111",
+        font=dict(color="#D3D3D3")
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown(f"""
+    <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
+    <b>Conclusión táctica</b><br><br>
+    • La <b>longitud media de pase ({value:.2f} m)</b> describe el perfil del equipo en cuanto a riesgo y distancia de circulación. 
+      Este valor sirve como referencia para calibrar la intención de progresar por combinación o por envío largo.
+    </div>
+    """, unsafe_allow_html=True)
+
+
+
+# ===========================
+# LAYOUT 2×2 + 1 FINAL
+# ===========================
+
+col1, col2 = st.columns(2)
+with col1:
+    plot_group_vertical("Control y estabilidad en la circulación", grupos_pases["Control y estabilidad en la circulación"])
+with col2:
+    plot_group_vertical("Seguridad en la progresión", grupos_pases["Seguridad en la progresión"])
+
+col3, col4 = st.columns(2)
+with col3:
+    plot_group_vertical("Conexiones de alto valor táctico", grupos_pases["Conexiones de alto valor táctico"])
+with col4:
+    plot_group_vertical("Reinicios del juego", grupos_pases["Reinicios del juego"])
+
+# Gráfico final → gauge lineal
+plot_longitud_pase(grupos_pases["Longitud media de pase"])
 
 with tab3:
     st.info("🔧 Contenido de Defensa y Eficiencia — pendiente por definir.")
