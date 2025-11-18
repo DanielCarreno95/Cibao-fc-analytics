@@ -500,6 +500,90 @@ with tab_defensivo:
             unsafe_allow_html=True,
         )
 
+with tab_set_pieces:
+    st.markdown(
+        """
+        <h3 style='text-align:center; color:#ff8c00;'>Acciones a balón parado</h3>
+        <p style='text-align:center; color:#bbb; font-size:14px;'>
+            Lectura de reinicios y saques que activan el juego en Copa Concacaf.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    grupo_sp1 = {
+        "Saques de Meta": "goalKicks",
+        "Saques de Banda": "totalThrows",
+    }
+
+    grupo_sp2 = {
+        "Saques de Esquina Ganados": "wonCorners",
+        "Saques de Esquina Perdidos": "lostCorners",
+        "Saques de Esquina Ejecutados": "cornerTaken",
+    }
+
+    def plot_setpiece_group(title, mapping):
+        pares = _dedup_pairs(mapping)
+        if not pares:
+            st.warning(f"No hay datos para {title}.")
+            return
+
+        cols = [col for _, col in pares]
+        df_sp = df_copa_cibao.copy()
+        for col in cols:
+            df_sp[col] = pd.to_numeric(df_sp[col], errors="coerce").fillna(0)
+
+        mean_vals = df_sp[cols].mean()
+        df_plot = (
+            pd.DataFrame(
+                {"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]}
+            )
+            .sort_values("valor", ascending=True)
+            .reset_index(drop=True)
+        )
+
+        fig = px.bar(
+            df_plot,
+            x="valor",
+            y="label",
+            orientation="h",
+            text_auto=".2f",
+            color_discrete_sequence=[CIBAO_ORANGE],
+            height=320,
+        )
+        fig.update_layout(
+            template="plotly_dark",
+            plot_bgcolor="#0B0B0B",
+            paper_bgcolor="#0B0B0B",
+            margin=dict(l=20, r=20, t=40, b=20),
+            title=dict(text=f"<b>{title}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
+            title_x=0.5,
+            font=dict(color=CIBAO_GRAY, size=12),
+            showlegend=False,
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        max_row = df_plot.iloc[-1]
+        min_row = df_plot.iloc[0]
+        st.markdown(
+            f"""
+            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
+                <b>Conclusiones tácticas</b><br><br>
+                • <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                • <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    col_sp1, col_sp2 = st.columns(2)
+    with col_sp1:
+        plot_setpiece_group("Reinicios básicos", grupo_sp1)
+    with col_sp2:
+        plot_setpiece_group("Saques de esquina", grupo_sp2)
+
     col_def1, col_def2 = st.columns(2)
     with col_def1:
         plot_def_block("Acciones defensivas y disputas", grupo_def1)
