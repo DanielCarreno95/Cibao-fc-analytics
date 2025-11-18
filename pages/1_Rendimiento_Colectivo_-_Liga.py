@@ -578,27 +578,6 @@ def plot_group(nombre_grupo, mapping):
 
     st.markdown(conclusion, unsafe_allow_html=True)
 
-
-# ===========================
-# LAYOUT 2 × 2 + 1 FINAL
-# ===========================
-
-col1, col2 = st.columns(2)
-with col1:
-    plot_group("Producción ofensiva directa", grupos["Producción ofensiva directa"])
-with col2:
-    plot_group("Eficiencia en el tiro", grupos["Eficiencia en el tiro"])
-
-col3, col4 = st.columns(2)
-with col3:
-    plot_group("Patrones de ataque", grupos["Patrones de ataque"])
-with col4:
-    plot_group("Balón parado y definición", grupos["Balón parado y definición"])
-
-# Último grupo → ancho completo
-plot_group("Juego interior y profundidad", grupos["Juego interior y profundidad"])
-
-
 # ============================================================
 # 🔶 CREACIÓN DE LAS 5 PESTAÑAS
 # ============================================================
@@ -617,20 +596,40 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # ============================================================
 
 with tab1:
-    bloque_eficiencia_ataque(df_filtrado)
 
+    st.markdown("### Eficiencia y Ataque")
+    st.caption("Evaluación del comportamiento ofensivo del Cibao FC...")
+
+    # ===========================
+    # LAYOUT 2 × 2 + 1 FINAL
+    # ===========================
+
+    col1, col2 = st.columns(2)
+    with col1:
+        plot_group("Producción ofensiva directa", grupos["Producción ofensiva directa"])
+    with col2:
+        plot_group("Eficiencia en el tiro", grupos["Eficiencia en el tiro"])
+
+    col3, col4 = st.columns(2)
+    with col3:
+        plot_group("Patrones de ataque", grupos["Patrones de ataque"])
+    with col4:
+        plot_group("Balón parado y definición", grupos["Balón parado y definición"])
+
+    # Último grupo → ancho completo
+    plot_group("Juego interior y profundidad", grupos["Juego interior y profundidad"])
+
+
+# ================= TABS VACÍAS POR AHORA =====================
 
 with tab2:
     st.info("🔧 Contenido de Construcción y Pases — pendiente por definir.")
 
-
 with tab3:
     st.info("🔧 Contenido de Defensa y Eficiencia — pendiente por definir.")
 
-
 with tab4:
     st.info("🔧 Distribución táctica — pendiente por definir.")
-
 
 with tab5:
     st.info("📊 Tablas comparativas — pendiente por definir.")
