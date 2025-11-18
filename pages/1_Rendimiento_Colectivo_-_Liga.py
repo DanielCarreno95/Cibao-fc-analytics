@@ -1092,72 +1092,64 @@ with tab4:
     # FUNCIÓN PARA HEATMAP (CORREGIDA)
     # ===========================
 
-    def plot_heatmap(nombre_grupo, mapping):
+   def plot_heatmap(nombre_grupo, mapping):
 
-        dfp = df_filtrado.copy()
+    dfp = df_filtrado.copy()
 
-        cols = [v for v in mapping.values() if v in dfp.columns]
-        labels = [k for k, v in mapping.items() if v in dfp.columns]
+    cols = [v for v in mapping.values() if v in dfp.columns]
+    labels = [k for k, v in mapping.items() if v in dfp.columns]
 
-        if len(cols) == 0:
-            st.warning(f"No hay datos para: {nombre_grupo}")
-            return
+    if len(cols) == 0:
+        st.warning(f"No hay datos para: {nombre_grupo}")
+        return
 
-        # Reemplazar NaN para evitar fallo del Heatmap
-        serie = dfp[cols].mean().fillna(0)
+    # Evitar NaN
+    serie = dfp[cols].mean().fillna(0)
+    valores = serie.values.reshape(1, -1)
 
-        valores = serie.values.reshape(1, -1)
-
-        fig = go.Figure(
-            data=go.Heatmap(
-                z=valores,
-                x=labels,
-                y=[""],
-                colorscale=HEATMAP_COLORSCALE,
-                showscale=True,
-                colorbar=dict(
-                    title=dict(text="Intensidad"),
-                    thickness=10,
-                    tickfont=dict(color=CIBAO_GRAY),
-                    titlefont=dict(color=CIBAO_GRAY),
-                )
-            )
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=valores,
+            x=labels,
+            y=[""],
+            colorscale=HEATMAP_COLORSCALE,
+            showscale=True,  # DEJAMOS EL COLORBAR POR DEFECTO (SIN PERSONALIZAR)
         )
+    )
 
-        fig.update_layout(
-            height=280,
-            template="plotly_dark",
-            title=dict(
-                text=f"<b>{nombre_grupo}</b>",
-                font=dict(size=18, color=CIBAO_ORANGE)
-            ),
-            title_x=0.5,
-            paper_bgcolor=CIBAO_DARK,
-            plot_bgcolor=CIBAO_DARK,
-            font=dict(color=CIBAO_GRAY),
-            margin=dict(l=20, r=20, t=60, b=20),
-        )
+    fig.update_layout(
+        height=280,
+        template="plotly_dark",
+        title=dict(
+            text=f"<b>{nombre_grupo}</b>",
+            font=dict(size=18, color=CIBAO_ORANGE)
+        ),
+        title_x=0.5,
+        paper_bgcolor=CIBAO_DARK,
+        plot_bgcolor=CIBAO_DARK,
+        font=dict(color=CIBAO_GRAY),
+        margin=dict(l=20, r=20, t=60, b=20)
+    )
 
-        st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-        # -------- CONCLUSIONES TÁCTICAS --------
-        max_metric = serie.idxmax()
-        min_metric = serie.idxmin()
+    # -------- CONCLUSIONES TÁCTICAS --------
+    max_metric = serie.idxmax()
+    min_metric = serie.idxmin()
 
-        st.markdown(f"""
-        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                    margin-top:-8px; margin-bottom:25px;'>
-            <b>Conclusiones tácticas</b><br><br>
+    st.markdown(f"""
+    <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                margin-top:-8px; margin-bottom:25px;'>
+        <b>Conclusiones tácticas</b><br><br>
 
-            • <b>Zona de mayor influencia:</b> El equipo registra mayor actividad en 
-              <b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>, lo que indica la altura donde el bloque ejerce
-              mayor impacto defensivo.<br><br>
+        • <b>Zona de mayor influencia:</b> El equipo registra mayor actividad en 
+          <b>{[k for k,v in mapping.items() if v == max_metric][0]}</b>.<br><br>
 
-            • <b>Zona menos activa:</b> La menor intervención aparece en 
-              <b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, un área donde ajustar intensidad 
-              puede mejorar la ocupación espacial del bloque.<br><br>
-        </div>
-        """, unsafe_allow_html=True)
+        • <b>Zona menos activa:</b> La menor intervención aparece en 
+          <b>{[k for k,v in mapping.items() if v == min_metric][0]}</b>, un área donde aumentar la intensidad 
+          puede optimizar la estructura del bloque.<br><br>
+    </div>
+    """, unsafe_allow_html=True)
 
     # ===========================
     # LAYOUT 2 HEATMAPS
