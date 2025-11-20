@@ -9,12 +9,39 @@ import plotly.io as pio
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
+import csv
 
 # Tema Plotly oscuro
 pio.templates.default = "plotly_dark"
 
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
+
+# ===========================================
+# COLORES DE EQUIPOS
+# ===========================================
+def load_team_colors():
+    """Carga los colores de los equipos desde el CSV."""
+    colors = {}
+    color_file = Path(__file__).resolve().parent.parent / "assets" / "Esquema de Colores.csv"
+    try:
+        with open(color_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                team_name = row['Equipo'].strip()
+                hex_color = row['Hex Color'].strip()
+                # Asegurar que el color tenga el formato correcto
+                if not hex_color.startswith('#'):
+                    hex_color = '#' + hex_color
+                colors[team_name] = hex_color
+    except Exception as e:
+        st.warning(f"No se pudo cargar el archivo de colores: {e}")
+        # Color por defecto para Cibao
+        colors['Cibao'] = '#FF9900'
+    return colors
+
+TEAM_COLORS = load_team_colors()
+CIBAO_COLOR = TEAM_COLORS.get('Cibao', '#FF9900')  # Color oficial de Cibao
 
 # ===========================================
 # CONFIGURACIÓN
@@ -211,6 +238,12 @@ def extract_match_info(match_data: Dict) -> Optional[Dict]:
             "Not Started": "No Iniciado"
         }
         match_status = status_translation.get(match_status_raw, match_status_raw)
+        
+        # Si el status está vacío o es Unknown, verificar si hay score (indica que fue jugado)
+        if not match_status or match_status == "Unknown" or match_status == {}:
+            scores = match_details.get("scores", {})
+            if scores and (scores.get("ft") or scores.get("total")):
+                match_status = "Jugado"  # Si hay score, el partido fue jugado
         
         return {
             "match_id": match_info.get("id", ""),
@@ -491,11 +524,12 @@ def get_opponent_matches_data(all_matches: List[Dict], opponent_name: str) -> Li
                      away_lower.replace(' fc', '').strip() in opponent_base)
         
         if home_match or away_match:
-            # Extraer estadísticas del oponente
+            # Extraer estadísticas del oponente (si están disponibles)
             opponent_stats = extract_team_stats_from_match(match_data, opponent_name)
             if opponent_stats:
                 match_info["opponent_stats"] = opponent_stats
-                opponent_matches.append(match_info)
+            # Agregar el partido incluso si no hay estadísticas (para contar partidos jugados)
+            opponent_matches.append(match_info)
     
     return opponent_matches
 
@@ -525,6 +559,160 @@ def get_cibao_average_metrics(all_matches: List[Dict]) -> Dict[str, float]:
 def calculate_average_metrics(opponent_matches: List[Dict]) -> Dict[str, float]:
     """Calcula promedios de métricas clave para el oponente."""
     return calculate_average_metrics_from_matches(opponent_matches, "opponent_stats")
+
+
+def get_all_teams_average_metrics(all_matches: List[Dict], filter_type: str = "all", opponent_name: str = None) -> Dict[str, float]:
+    """Calcula promedios de métricas clave para todos los equipos en la competencia, opcionalmente filtrados."""
+    all_teams_stats = []
+    
+    # Obtener todos los equipos únicos
+    all_teams = get_all_teams_from_matches(all_matches)
+    
+    # Para cada equipo, obtener sus partidos y estadísticas
+    for team_name in all_teams:
+        team_matches = get_opponent_matches_data(all_matches, team_name)
+        
+        # Aplicar filtro si es necesario
+        if filter_type != "all":
+            if filter_type == "vs_cibao":
+                # Para "vs_cibao", filtrar partidos donde el equipo jugó contra Cibao
+                team_matches = filter_matches_by_type(team_matches, team_name, filter_type, all_matches)
+            else:
+                # Para otros filtros (home, away)
+                team_matches = filter_matches_by_type(team_matches, team_name, filter_type, all_matches)
+        
+        for match in team_matches:
+            stats = match.get("opponent_stats", {})
+            if stats:
+                all_teams_stats.append(stats)
+    
+    # Calcular promedios de todas las estadísticas
+    if not all_teams_stats:
+        return {}
+    
+    # Métricas a calcular
+    metrics_to_sum = {
+        "goals": 0,
+        "goalsConceded": 0,
+        "totalScoringAtt": 0,
+        "ontargetScoringAtt": 0,
+        "wonCorners": 0,
+        "lostCorners": 0,
+        "fkFoulWon": 0,
+        "fkFoulLost": 0,
+        "totalYellowCard": 0,
+        "totalRedCard": 0,
+        "saves": 0,
+        "possessionPercentage": 0,
+        "totalPass": 0,
+        "accuratePass": 0,
+        "totalTackle": 0,
+        "wonTackle": 0,
+        "totalClearance": 0,
+    }
+    
+    match_count = len(all_teams_stats)
+    
+    for stats in all_teams_stats:
+        for metric in metrics_to_sum:
+            value = stats.get(metric, 0)
+            try:
+                metrics_to_sum[metric] += float(value)
+            except:
+                pass
+    
+    if match_count == 0:
+        return {}
+    
+    # Calcular promedios
+    averages = {}
+    for metric, total in metrics_to_sum.items():
+        averages[metric] = total / match_count
+    
+    # Calcular métricas derivadas
+    if averages.get("totalPass", 0) > 0:
+        pass_accuracy = (averages.get("accuratePass", 0) / averages["totalPass"]) * 100
+        averages["passAccuracy"] = round(pass_accuracy, 1)
+    else:
+        averages["passAccuracy"] = 0
+    
+    if averages.get("totalTackle", 0) > 0:
+        tackle_success = (averages.get("wonTackle", 0) / averages["totalTackle"]) * 100
+        averages["tackleSuccess"] = round(tackle_success, 1)
+    else:
+        averages["tackleSuccess"] = 0
+    
+    if averages.get("totalScoringAtt", 0) > 0:
+        shot_accuracy = (averages.get("ontargetScoringAtt", 0) / averages["totalScoringAtt"]) * 100
+        averages["shotAccuracy"] = round(shot_accuracy, 1)
+    else:
+        averages["shotAccuracy"] = 0
+    
+    # Redondear valores
+    for key, value in averages.items():
+        if isinstance(value, float):
+            averages[key] = round(value, 2)
+    
+    return averages
+
+
+def get_cibao_average_metrics_filtered(all_matches: List[Dict], filter_type: str = "all", opponent_name: str = None) -> Dict[str, float]:
+    """Calcula promedios de métricas clave para Cibao, opcionalmente filtrados por tipo de partido."""
+    cibao_matches = []
+    
+    for match_data in all_matches:
+        match_info = extract_match_info(match_data)
+        if not match_info:
+            continue
+        
+        home = match_info.get("home_team", "")
+        away = match_info.get("away_team", "")
+        
+        # Verificar si Cibao juega en este partido
+        if CIBAO_TEAM_NAME.lower() in home.lower() or CIBAO_TEAM_NAME.lower() in away.lower():
+            cibao_stats = extract_team_stats_from_match(match_data, CIBAO_TEAM_NAME)
+            if cibao_stats:
+                match_info["cibao_stats"] = cibao_stats
+                cibao_matches.append(match_info)
+    
+    # Aplicar filtro si es necesario
+    if filter_type != "all":
+        if filter_type == "vs_cibao" and opponent_name:
+            # Para "vs_cibao", filtrar partidos donde Cibao jugó contra el oponente seleccionado
+            filtered_cibao_matches = []
+            cibao_name_lower = CIBAO_TEAM_NAME.lower().strip()
+            opponent_name_lower = opponent_name.lower().strip() if opponent_name else ""
+            opponent_base = opponent_name_lower.replace(' fc', '').strip()
+            cibao_base = cibao_name_lower.replace(' fc', '').strip()
+            
+            for match in cibao_matches:
+                home = match.get("home_team", "")
+                away = match.get("away_team", "")
+                home_str = str(home).lower().strip() if home else ""
+                away_str = str(away).lower().strip() if away else ""
+                
+                home_match_cibao = (cibao_name_lower in home_str or home_str in cibao_name_lower or
+                                   cibao_base in home_str.replace(' fc', '').strip() or
+                                   home_str.replace(' fc', '').strip() in cibao_base)
+                away_match_cibao = (cibao_name_lower in away_str or away_str in cibao_name_lower or
+                                   cibao_base in away_str.replace(' fc', '').strip() or
+                                   away_str.replace(' fc', '').strip() in cibao_base)
+                home_match_opponent = (opponent_name_lower in home_str or home_str in opponent_name_lower or
+                                      opponent_base in home_str.replace(' fc', '').strip() or
+                                      home_str.replace(' fc', '').strip() in opponent_base)
+                away_match_opponent = (opponent_name_lower in away_str or away_str in opponent_name_lower or
+                                      opponent_base in away_str.replace(' fc', '').strip() or
+                                      away_str.replace(' fc', '').strip() in opponent_base)
+                
+                if (home_match_cibao or away_match_cibao) and (home_match_opponent or away_match_opponent):
+                    filtered_cibao_matches.append(match)
+            
+            cibao_matches = filtered_cibao_matches
+        else:
+            # Para otros filtros (home, away), usar la función estándar
+            cibao_matches = filter_matches_by_type(cibao_matches, CIBAO_TEAM_NAME, filter_type, all_matches)
+    
+    return calculate_average_metrics_from_matches(cibao_matches, "cibao_stats")
 
 
 def calculate_average_metrics_from_matches(matches: List[Dict], stats_key: str) -> Dict[str, float]:
@@ -603,8 +791,9 @@ def calculate_average_metrics_from_matches(matches: List[Dict], stats_key: str) 
     return averages
 
 
-def display_metric_card(label: str, value: str, icon: str = "", delta: str = "", color: str = "normal"):
-    """Muestra una tarjeta de métrica con estilo."""
+def display_metric_card(label: str, value: str, icon: str = "", delta: str = "", color: str = "normal", 
+                       competition_avg: str = None, cibao_avg: str = None, higher_is_better: bool = True):
+    """Muestra una tarjeta de métrica con estilo mejorado, incluyendo indicadores visuales de comparación."""
     color_map = {
         "normal": "#1E293B",
         "good": "#10B981",
@@ -622,13 +811,87 @@ def display_metric_card(label: str, value: str, icon: str = "", delta: str = "",
     # Construir el HTML evitando conflictos de comillas
     delta_html = f'<div style="color: #94A3B8; font-size: 1.0rem; margin-top: 0.5rem;">{delta}</div>' if delta else ''
     
+    # Calcular diferencias y crear indicadores visuales
+    comparison_html = ""
+    if competition_avg is not None or cibao_avg is not None:
+        comparison_parts = []
+        
+        # Comparar con competencia
+        if competition_avg is not None:
+            try:
+                value_num = float(value.replace('%', '').replace('A', '').replace('R', '').strip())
+                comp_num = float(str(competition_avg).replace('%', '').replace('A', '').replace('R', '').strip())
+                diff = value_num - comp_num
+                
+                # Determinar si es mejor o peor
+                if higher_is_better:
+                    is_better = diff > 0
+                else:
+                    is_better = diff < 0
+                
+                # Crear indicador visual
+                if abs(diff) > 0.01:  # Solo mostrar si hay diferencia significativa
+                    arrow = "↑" if is_better else "↓"
+                    arrow_color = "#10B981" if is_better else "#EF4444"
+                    diff_str = f"{diff:+.2f}".replace('+', '+').replace('-', '-')
+                    if '%' in value:
+                        diff_str += '%'
+                    indicator = f'<span style="color: {arrow_color}; font-weight: bold; margin-left: 0.3rem;">{arrow} {diff_str}</span>'
+                else:
+                    indicator = '<span style="color: #94A3B8; margin-left: 0.3rem;">≈</span>'
+                
+                comparison_parts.append(
+                    f'<div style="color: #64748B; font-size: 0.85rem; margin-top: 0.5rem; display: flex; align-items: center; justify-content: center;">'
+                    f'<span>Comp: {competition_avg}</span>{indicator}'
+                    f'</div>'
+                )
+            except (ValueError, AttributeError):
+                # Si no se puede calcular, mostrar sin indicador
+                comparison_parts.append(f'<div style="color: #64748B; font-size: 0.85rem; margin-top: 0.5rem;">Comp: {competition_avg}</div>')
+        
+        # Comparar con Cibao
+        if cibao_avg is not None:
+            try:
+                value_num = float(value.replace('%', '').replace('A', '').replace('R', '').strip())
+                cibao_num = float(str(cibao_avg).replace('%', '').replace('A', '').replace('R', '').strip())
+                diff = value_num - cibao_num
+                
+                # Determinar si es mejor o peor
+                if higher_is_better:
+                    is_better = diff > 0
+                else:
+                    is_better = diff < 0
+                
+                # Crear indicador visual
+                if abs(diff) > 0.01:  # Solo mostrar si hay diferencia significativa
+                    arrow = "↑" if is_better else "↓"
+                    arrow_color = "#10B981" if is_better else "#EF4444"
+                    diff_str = f"{diff:+.2f}".replace('+', '+').replace('-', '-')
+                    if '%' in value:
+                        diff_str += '%'
+                    indicator = f'<span style="color: {arrow_color}; font-weight: bold; margin-left: 0.3rem;">{arrow} {diff_str}</span>'
+                else:
+                    indicator = '<span style="color: #94A3B8; margin-left: 0.3rem;">≈</span>'
+                
+                comparison_parts.append(
+                    f'<div style="color: #FF9900; font-size: 0.85rem; margin-top: 0.25rem; display: flex; align-items: center; justify-content: center;">'
+                    f'<span>Cibao: {cibao_avg}</span>{indicator}'
+                    f'</div>'
+                )
+            except (ValueError, AttributeError):
+                # Si no se puede calcular, mostrar sin indicador
+                comparison_parts.append(f'<div style="color: #FF9900; font-size: 0.85rem; margin-top: 0.25rem;">Cibao: {cibao_avg}</div>')
+        
+        comparison_html = ''.join(comparison_parts)
+    
     # Construir HTML de forma más segura
     html_parts = [
-        f'<div style="background: linear-gradient(135deg, {bg_color} 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 1.5rem; text-align: center; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);">',
+        f'<div style="background: linear-gradient(135deg, {bg_color} 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 1.5rem; text-align: center; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); transition: transform 0.2s;">',
         icon_html,
         f'<div style="color: #94A3B8; font-size: 1.2rem; margin-bottom: 0.5rem; font-weight: 500;">{label}</div>',
         f'<div style="color: #FFFFFF; font-size: 2rem; font-weight: bold;">{value}</div>',
         delta_html,
+        comparison_html,
         '</div>'
     ]
     
@@ -741,6 +1004,9 @@ def get_recent_form(matches: List[Dict], team_name: str, num_matches: Optional[i
         
         result = extract_match_result(match_data, team_name)
         if result:
+            # Incluir match_data para poder acceder a las estadísticas detalladas
+            result["match_data"] = match_data
+            result["match_id"] = match_id
             recent_matches.append(result)
             
             # Detener cuando tengamos suficientes partidos únicos (solo si num_matches no es None)
@@ -790,9 +1056,10 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
         margin-bottom: 1rem;
     '>
         <div style='color: #94A3B8; font-size: 0.9rem; margin-bottom: 0.5rem;'>Forma Reciente</div>
-        <div style='color: #FFFFFF; font-size: 2.5rem; font-weight: bold; letter-spacing: 0.5rem;'>{form_string}</div>
-        <div style='color: #94A3B8; font-size: 0.8rem; margin-top: 0.5rem;'>
-            {'Más reciente' if len(recent_matches) > 0 else ''} ← {'Más antiguo' if len(recent_matches) > 0 else ''}
+        <div style='display: flex; align-items: center; justify-content: center; gap: 1rem; color: #FFFFFF; font-size: 2.5rem; font-weight: bold; letter-spacing: 0.5rem;'>
+            <span style='color: #94A3B8; font-size: 0.8rem; font-weight: normal; letter-spacing: normal;'>Más reciente</span>
+            <span>{form_string}</span>
+            <span style='color: #94A3B8; font-size: 0.8rem; font-weight: normal; letter-spacing: normal;'>Más antiguo</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -802,82 +1069,752 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
     <h3 style='color:#ff8c00; margin-top:20px;'>Detalle de Partidos Recientes</h3>
     """, unsafe_allow_html=True)
     
-    matches_data = []
-    for i, match in enumerate(recent_matches, 1):
-        venue = "Casa" if match["is_home"] else "✈Fuera"
-        matches_data.append({
-            "#": i,
-            "Fecha": match["date"],
-            "Oponente": match["opponent"],
-            "Resultado": match["result_emoji"],
-            "Marcador": match["score"],
-            "Lugar": venue,
-            "Goles a Favor": match["team_goals"],
-            "Goles en Contra": match["opponent_goals"]
+    # Removed matches_data list as we're using custom HTML table now
+    # This was only used for display, but we're rendering directly with columns
+    
+    # Initialize session state for selected match and timeline
+    if "selected_match_index" not in st.session_state:
+        st.session_state.selected_match_index = None
+    if "selected_timeline_index" not in st.session_state:
+        st.session_state.selected_timeline_index = None
+    
+    # Create a clickable table using Streamlit components
+    # Header row - updated column widths for new headers
+    header_cols = st.columns([0.5, 1.5, 2, 1, 1, 1, 1.5, 1.5])
+    headers = ["#", "Fecha", "Oponente", "Resultado", "Marcador", "Lugar", "Disparos/Precisión", "Disparos Recibidos/Precisión"]
+    for i, header in enumerate(headers):
+        with header_cols[i]:
+            st.markdown(f"""
+            <div style='color:#FF9900; font-weight:600; padding:0.5rem 0; border-bottom:2px solid #FF9900;'>
+                {header}
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Data rows - each row is clickable via a button
+    for idx, match in enumerate(recent_matches, 1):
+        venue = "Casa" if match["is_home"] else "Fuera"
+        
+        # Extract shots statistics from match data
+        match_data = match.get("match_data")
+        team_shots = 0
+        team_shots_on_target = 0
+        team_shots_pct = 0.0
+        opp_shots = 0
+        opp_shots_on_target = 0
+        opp_shots_pct = 0.0
+        
+        if match_data:
+            team_stats = extract_team_stats_from_match(match_data, team_name)
+            opponent_name = match.get("opponent", "")
+            opponent_stats = extract_team_stats_from_match(match_data, opponent_name) if opponent_name else None
+            
+            if team_stats:
+                team_shots = int(team_stats.get("totalScoringAtt", 0))
+                team_shots_on_target = int(team_stats.get("ontargetScoringAtt", 0))
+                if team_shots > 0:
+                    team_shots_pct = (team_shots_on_target / team_shots) * 100
+            
+            if opponent_stats:
+                opp_shots = int(opponent_stats.get("totalScoringAtt", 0))
+                opp_shots_on_target = int(opponent_stats.get("ontargetScoringAtt", 0))
+                if opp_shots > 0:
+                    opp_shots_pct = (opp_shots_on_target / opp_shots) * 100
+        
+        # Create columns for this row - updated widths
+        row_cols = st.columns([0.5, 1.5, 2, 1, 1, 1, 1.5, 1.5])
+        
+        with row_cols[0]:
+            st.markdown(f"<div style='padding:0.5rem 0; color:#D1D5DB;'>{idx}</div>", unsafe_allow_html=True)
+        with row_cols[1]:
+            st.markdown(f"<div style='padding:0.5rem 0; color:#D1D5DB;'>{match['date']}</div>", unsafe_allow_html=True)
+        with row_cols[2]:
+            # Make the opponent name clickable
+            if st.button(f"📊 {match['opponent']}", key=f"row_btn_{idx-1}", use_container_width=True):
+                st.session_state.selected_match_index = idx - 1
+                st.rerun()
+        with row_cols[3]:
+            # Make the result emoji clickable for timeline
+            if st.button(f"{match['result_emoji']}", key=f"timeline_btn_{idx-1}", use_container_width=True, help="Ver línea de tiempo"):
+                # Toggle timeline - if already selected, close it; otherwise open it
+                if st.session_state.selected_timeline_index == idx - 1:
+                    st.session_state.selected_timeline_index = None
+                else:
+                    st.session_state.selected_timeline_index = idx - 1
+                st.rerun()
+        with row_cols[4]:
+            st.markdown(f"<div style='padding:0.5rem 0; color:#D1D5DB;'>{match['score']}</div>", unsafe_allow_html=True)
+        with row_cols[5]:
+            st.markdown(f"<div style='padding:0.5rem 0; color:#D1D5DB;'>{venue}</div>", unsafe_allow_html=True)
+        with row_cols[6]:
+            # Team shots / shots on target %
+            shots_display = f"{team_shots}/{team_shots_on_target} ({team_shots_pct:.0f}%)"
+            st.markdown(f"<div style='padding:0.5rem 0; color:#D1D5DB;'>{shots_display}</div>", unsafe_allow_html=True)
+        with row_cols[7]:
+            # Opponent shots / shots on target %
+            opp_shots_display = f"{opp_shots}/{opp_shots_on_target} ({opp_shots_pct:.0f}%)"
+            st.markdown(f"<div style='padding:0.5rem 0; color:#D1D5DB;'>{opp_shots_display}</div>", unsafe_allow_html=True)
+        
+        # Display timeline popout if this row is selected
+        if st.session_state.selected_timeline_index == idx - 1:
+            display_match_timeline(match, team_name, match.get("opponent", "Oponente"), idx - 1)
+        
+        # Add separator line
+        st.markdown("<div style='border-bottom:1px solid rgba(255,255,255,0.1); margin:0.25rem 0;'></div>", unsafe_allow_html=True)
+    
+    # Display modal popup if a match is selected
+    if st.session_state.selected_match_index is not None:
+        selected_match = recent_matches[st.session_state.selected_match_index]
+        display_match_modal(selected_match, team_name)
+
+
+def extract_match_events(match_data: Dict, team_name: str, opponent_name: str) -> List[Dict]:
+    """Extrae todos los eventos del partido (goles, tarjetas, sustituciones, VAR) y los ordena cronológicamente."""
+    if not match_data:
+        return []
+    
+    live_data = match_data.get("liveData", {})
+    if not live_data:
+        return []
+    
+    events = []
+    
+    # Get team IDs from matchInfo
+    match_info_data = match_data.get("matchInfo", {})
+    contestants = match_info_data.get("contestant", [])
+    
+    # Map contestant IDs to team names
+    contestant_to_team = {}
+    for contestant in contestants:
+        contestant_id = contestant.get("id", "")
+        team_name_from_contestant = contestant.get("name") or contestant.get("shortName", "")
+        contestant_to_team[contestant_id] = team_name_from_contestant
+    
+    # Extract goals
+    goals = live_data.get("goal", [])
+    for goal in goals:
+        contestant_id = goal.get("contestantId", "")
+        event_team = contestant_to_team.get(contestant_id, "")
+        is_team_event = (event_team == team_name)
+        
+        goal_type = goal.get("type", "G")
+        goal_type_text = {
+            "G": "Gol",
+            "PG": "Gol de Penalti",
+            "OG": "Gol en Contra",
+            "FG": "Gol de Falta"
+        }.get(goal_type, "Gol")
+        
+        scorer_name = goal.get("scorerName", "Desconocido")
+        assist_name = goal.get("assistPlayerName", "")
+        
+        home_score = goal.get("homeScore", 0)
+        away_score = goal.get("awayScore", 0)
+        
+        # Build goal description with assist if available
+        if assist_name:
+            goal_details = f"{goal_type_text} - {scorer_name} (Asistencia: {assist_name})"
+        else:
+            goal_details = f"{goal_type_text} - {scorer_name}"
+        
+        events.append({
+            "type": "goal",
+            "time": goal.get("timeMin", 0),
+            "time_display": goal.get("timeMinSec", f"{goal.get('timeMin', 0)}'"),
+            "period": goal.get("periodId", 1),
+            "player": scorer_name,
+            "assist": assist_name,
+            "team": team_name if is_team_event else opponent_name,
+            "details": goal_details,
+            "score": f"{home_score}-{away_score}",
+            "icon": "⚽",
+            "color": "#10B981" if is_team_event else "#EF4444"
         })
     
-    df_form = pd.DataFrame(matches_data)
-    st.dataframe(df_form, use_container_width=True, hide_index=True)
+    # Extract cards
+    cards = live_data.get("card", [])
+    for card in cards:
+        contestant_id = card.get("contestantId", "")
+        event_team = contestant_to_team.get(contestant_id, "")
+        is_team_event = (event_team == team_name)
+        
+        card_type = card.get("type", "")
+        card_type_text = {
+            "YC": "Tarjeta Amarilla",
+            "RC": "Tarjeta Roja",
+            "Y2C": "Segunda Amarilla"
+        }.get(card_type, "Tarjeta")
+        
+        card_reason = card.get("cardReason", "")
+        reason_text = f" - {card_reason}" if card_reason else ""
+        
+        events.append({
+            "type": "card",
+            "time": card.get("timeMin", 0),
+            "time_display": card.get("timeMinSec", f"{card.get('timeMin', 0)}'"),
+            "period": card.get("periodId", 1),
+            "player": card.get("playerName", "Desconocido"),
+            "team": team_name if is_team_event else opponent_name,
+            "details": f"{card_type_text}{reason_text} - {card.get('playerName', 'Desconocido')}",
+            "icon": "🟨" if card_type == "YC" else "🟥",
+            "color": "#F59E0B" if card_type == "YC" else "#EF4444"
+        })
     
-    # Gráfico de tendencia de goles
-    if len(recent_matches) > 1:
-        st.markdown("""
-        <h3 style='color:#ff8c00; margin-top:20px;'>Tendencia de Goles</h3>
+    # Extract substitutions
+    substitutions = live_data.get("substitute", [])
+    for sub in substitutions:
+        contestant_id = sub.get("contestantId", "")
+        event_team = contestant_to_team.get(contestant_id, "")
+        is_team_event = (event_team == team_name)
+        
+        player_on = sub.get("playerOnName", "Desconocido")
+        player_off = sub.get("playerOffName", "Desconocido")
+        sub_reason = sub.get("subReason", "Táctica")
+        
+        events.append({
+            "type": "substitution",
+            "time": sub.get("timeMin", 0),
+            "time_display": sub.get("timeMinSec", f"{sub.get('timeMin', 0)}'"),
+            "period": sub.get("periodId", 1),
+            "player": f"{player_off} → {player_on}",
+            "team": team_name if is_team_event else opponent_name,
+            "details": f"Sustitución: {player_off} sale, {player_on} entra ({sub_reason})",
+            "icon": "🔄",
+            "color": "#3B82F6"
+        })
+    
+    # Extract VAR decisions
+    var_decisions = live_data.get("VAR", [])
+    for var in var_decisions:
+        contestant_id = var.get("contestantId", "")
+        event_team = contestant_to_team.get(contestant_id, "")
+        is_team_event = (event_team == team_name)
+        
+        var_type = var.get("type", "VAR")
+        decision = var.get("decision", "")
+        outcome = var.get("outcome", "")
+        
+        events.append({
+            "type": "var",
+            "time": var.get("timeMin", 0),
+            "time_display": var.get("timeMinSec", f"{var.get('timeMin', 0)}'"),
+            "period": var.get("periodId", 1),
+            "player": var.get("playerName", ""),
+            "team": team_name if is_team_event else opponent_name,
+            "details": f"VAR: {var_type} - {decision} ({outcome})",
+            "icon": "📺",
+            "color": "#8B5CF6"
+        })
+    
+    # Sort events by period and time
+    events.sort(key=lambda x: (x["period"], x["time"]))
+    
+    return events
+
+
+def display_match_timeline(match: Dict, team_name: str, opponent_name: str, match_index: int):
+    """Muestra la línea de tiempo de eventos del partido en un popout."""
+    match_data = match.get("match_data")
+    if not match_data:
+        return
+    
+    events = extract_match_events(match_data, team_name, opponent_name)
+    
+    # Get match summary info
+    live_data = match_data.get("liveData", {})
+    match_details = live_data.get("matchDetails", {})
+    match_info_data = match_data.get("matchInfo", {})
+    match_details_extra = live_data.get("matchDetailsExtra", {})
+    
+    # Extract final score
+    scores = match_details.get("scores", {})
+    ft_score = scores.get("ft", {})
+    home_score = ft_score.get("home", 0) if ft_score else 0
+    away_score = ft_score.get("away", 0) if ft_score else 0
+    
+    # Get team names
+    contestants = match_info_data.get("contestant", [])
+    home_team_name = ""
+    away_team_name = ""
+    for contestant in contestants:
+        position = contestant.get("position", "").lower()
+        name = contestant.get("name") or contestant.get("shortName", "")
+        if position == "home":
+            home_team_name = name
+        elif position == "away":
+            away_team_name = name
+    
+    # Get attendance and referee
+    attendance = match_details_extra.get("attendance", "")
+    match_official = match_details_extra.get("matchOfficial", [])
+    referee_name = ""
+    if match_official:
+        for official in match_official:
+            if official.get("type") == "Referee":
+                referee_name = official.get("name", "")
+                break
+    
+    # Get injury time info (convert from seconds to minutes)
+    periods = match_details.get("period", [])
+    injury_time_info = []
+    for period in periods:
+        period_id = period.get("id", 0)
+        injury_time_seconds = period.get("announcedInjuryTime", 0)
+        if injury_time_seconds > 0:
+            injury_time_minutes = injury_time_seconds // 60  # Convert seconds to minutes
+            period_name = "1er Tiempo" if period_id == 1 else "2do Tiempo"
+            injury_time_info.append(f"{period_name}: +{injury_time_minutes}'")
+    
+    if not events:
+        st.info("No hay eventos disponibles para este partido.")
+        return
+    
+    # Display timeline
+    st.markdown("""
+    <style>
+    .timeline-container {
+        background: rgba(30, 41, 59, 0.8);
+        border: 2px solid #FF9900;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    .timeline-summary {
+        background: rgba(255, 153, 0, 0.1);
+        border: 1px solid rgba(255, 153, 0, 0.3);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .timeline-summary-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 0.5rem 0;
+        color: #D1D5DB;
+    }
+    .timeline-summary-label {
+        color: #94A3B8;
+        font-weight: 500;
+    }
+    .timeline-event {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        margin: 0.5rem 0;
+        border-left: 3px solid;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .timeline-time {
+        font-weight: bold;
+        min-width: 60px;
+        color: #FF9900;
+    }
+    .timeline-icon {
+        font-size: 1.5rem;
+        margin: 0 1rem;
+    }
+    .timeline-details {
+        flex: 1;
+        color: #D1D5DB;
+    }
+    .timeline-team {
+        font-size: 0.9rem;
+        color: #94A3B8;
+        margin-top: 0.25rem;
+    }
+    </style>
+    <div class="timeline-container">
+        <h4 style='color:#FF9900; margin-top:0; margin-bottom:1rem;'>Línea de Tiempo del Partido</h4>
+    """, unsafe_allow_html=True)
+    
+    # Display match summary
+    st.markdown("""
+    <div class="timeline-summary">
+    """, unsafe_allow_html=True)
+    
+    # Result row
+    st.markdown(f"""
+    <div class="timeline-summary-row">
+        <span class="timeline-summary-label">Resultado Final:</span>
+        <span style="font-weight: bold; color: #FF9900;">{home_team_name} {home_score} - {away_score} {away_team_name}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if referee_name:
+        st.markdown(f"""
+        <div class="timeline-summary-row">
+            <span class="timeline-summary-label">Árbitro:</span>
+            <span>{referee_name}</span>
+        </div>
         """, unsafe_allow_html=True)
-        
-        dates = [m["date"] for m in reversed(recent_matches)]
-        goals_for = [m["team_goals"] for m in reversed(recent_matches)]
-        goals_against = [m["opponent_goals"] for m in reversed(recent_matches)]
-        
-        fig = go.Figure()
-        
-        # Línea de goles a favor
-        fig.add_trace(go.Scatter(
-            x=dates,
-            y=goals_for,
-            mode='lines+markers',
-            name='Goles a Favor',
-            line=dict(color='#10B981', width=3),
-            marker=dict(size=10, color='#10B981')
-        ))
-        
-        # Línea de goles en contra
-        fig.add_trace(go.Scatter(
-            x=dates,
-            y=goals_against,
-            mode='lines+markers',
-            name='Goles en Contra',
-            line=dict(color='#EF4444', width=3),
-            marker=dict(size=10, color='#EF4444')
-        ))
-        
-        fig.update_layout(
-            template='plotly_dark',
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            height=400,
-            xaxis_title="Fecha",
-            yaxis_title="Goles",
-            xaxis=dict(
-                title_font=dict(size=20),
-                tickfont=dict(size=18)
-            ),
-            yaxis=dict(
-                title_font=dict(size=20),
-                tickfont=dict(size=18)
-            ),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                font=dict(size=18)
-            ),
-            hovermode='x unified'
+    
+    if attendance:
+        st.markdown(f"""
+        <div class="timeline-summary-row">
+            <span class="timeline-summary-label">Asistencia:</span>
+            <span>{attendance}</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    if injury_time_info:
+        st.markdown(f"""
+        <div class="timeline-summary-row">
+            <span class="timeline-summary-label">Tiempo Adicional:</span>
+            <span>{', '.join(injury_time_info)}</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Group events by period
+    first_half = [e for e in events if e["period"] == 1]
+    second_half = [e for e in events if e["period"] == 2]
+    
+    if first_half:
+        st.markdown("<h5 style='color:#94A3B8; margin-top:1rem;'>Primer Tiempo</h5>", unsafe_allow_html=True)
+        for event in first_half:
+            # Build event HTML properly
+            if event['type'] == 'goal':
+                # Goals always show score
+                event_html = f"""
+                <div class="timeline-event" style="border-left-color: {event['color']};">
+                    <div class="timeline-time">{event['time_display']}</div>
+                    <div class="timeline-icon">{event['icon']}</div>
+                    <div class="timeline-details">
+                        <div style="font-weight: 600;">{event['details']}</div>
+                        <div style="color: #94A3B8; font-size: 0.9rem; margin-top: 0.25rem;">Marcador: {event['score']}</div>
+                        <div class="timeline-team">{event['team']}</div>
+                    </div>
+                </div>
+                """
+            else:
+                # Other events (cards, subs, VAR)
+                event_html = f"""
+                <div class="timeline-event" style="border-left-color: {event['color']};">
+                    <div class="timeline-time">{event['time_display']}</div>
+                    <div class="timeline-icon">{event['icon']}</div>
+                    <div class="timeline-details">
+                        <div>{event['details']}</div>
+                        <div class="timeline-team">{event['team']}</div>
+                    </div>
+                </div>
+                """
+            
+            st.markdown(event_html, unsafe_allow_html=True)
+    
+    if second_half:
+        st.markdown("<h5 style='color:#94A3B8; margin-top:1rem;'>Segundo Tiempo</h5>", unsafe_allow_html=True)
+        for event in second_half:
+            # Build event HTML properly
+            if event['type'] == 'goal':
+                # Goals always show score
+                event_html = f"""
+                <div class="timeline-event" style="border-left-color: {event['color']};">
+                    <div class="timeline-time">{event['time_display']}</div>
+                    <div class="timeline-icon">{event['icon']}</div>
+                    <div class="timeline-details">
+                        <div style="font-weight: 600;">{event['details']}</div>
+                        <div style="color: #94A3B8; font-size: 0.9rem; margin-top: 0.25rem;">Marcador: {event['score']}</div>
+                        <div class="timeline-team">{event['team']}</div>
+                    </div>
+                </div>
+                """
+            else:
+                # Other events (cards, subs, VAR)
+                event_html = f"""
+                <div class="timeline-event" style="border-left-color: {event['color']};">
+                    <div class="timeline-time">{event['time_display']}</div>
+                    <div class="timeline-icon">{event['icon']}</div>
+                    <div class="timeline-details">
+                        <div>{event['details']}</div>
+                        <div class="timeline-team">{event['team']}</div>
+                    </div>
+                </div>
+                """
+            
+            st.markdown(event_html, unsafe_allow_html=True)
+    
+    # Close timeline container
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Add a close button
+    if st.button("✕ Cerrar Línea de Tiempo", key=f"close_timeline_{match_index}", use_container_width=True):
+        st.session_state.selected_timeline_index = None
+        st.rerun()
+
+
+def display_match_modal(match: Dict, team_name: str):
+    """Muestra métricas detalladas de un partido específico en formato KPI tiles en un modal popup."""
+    match_data = match.get("match_data")
+    if not match_data:
+        st.warning("No se encontraron datos detallados para este partido.")
+        return
+    
+    # Extraer estadísticas del equipo y del oponente
+    team_stats = extract_team_stats_from_match(match_data, team_name)
+    opponent_name = match.get("opponent", "Oponente")
+    opponent_stats = extract_team_stats_from_match(match_data, opponent_name)
+    
+    if not team_stats:
+        st.warning("No se pudieron extraer las estadísticas del equipo para este partido.")
+        return
+    
+    venue = "Casa" if match.get("is_home") else "Fuera"
+    
+    # Create modal popup window with prominent styling
+    st.markdown("""
+    <style>
+    .match-modal-container {
+        background: linear-gradient(135deg, #1E293B 0%, rgba(30, 41, 59, 0.98) 100%);
+        border: 4px solid #FF9900;
+        border-radius: 16px;
+        padding: 2rem;
+        margin: 2rem 0;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+        position: relative;
+    }
+    </style>
+    <div class="match-modal-container">
+    """, unsafe_allow_html=True)
+    
+    # Header with close button
+    col_close, col_title, _ = st.columns([1, 9, 1])
+    with col_close:
+        if st.button("✕", key="close_modal_top", help="Cerrar ventana", use_container_width=True):
+            st.session_state.selected_match_index = None
+            st.rerun()
+    
+    with col_title:
+        st.markdown(f"""
+        <h2 style='color:#FF9900; text-align:center; margin-top:0; margin-bottom:0.5rem;'>
+            {team_name} vs {opponent_name}
+        </h2>
+        <p style='text-align:center; color:#94A3B8; font-size:1rem; margin-bottom:1.5rem;'>
+            {match.get('date', 'N/A')} | {venue} | Resultado: {match.get('score', 'N/A')} {match.get('result_emoji', '')}
+        </p>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Métricas del equipo seleccionado
+    st.markdown(f"""
+    <h3 style='color:#FF9900; text-align:center; margin-top:20px;'>Métricas Clave - {team_name}</h3>
+    """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Fila 1: Ofensivas
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        goals = team_stats.get("goals", 0)
+        opp_goals = opponent_stats.get("goals", 0) if opponent_stats else 0
+        display_metric_card(
+            "Goles",
+            f"{goals:.0f}",
+            "",
+            f"vs {opp_goals:.0f} del oponente",
+            competition_avg=None,
+            cibao_avg=None
         )
-        
-        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        shots = team_stats.get("totalScoringAtt", 0)
+        shots_on_target = team_stats.get("ontargetScoringAtt", 0)
+        shot_accuracy = (shots_on_target / shots * 100) if shots > 0 else 0
+        opp_shots = opponent_stats.get("totalScoringAtt", 0) if opponent_stats else 0
+        display_metric_card(
+            "Disparos",
+            f"{shots:.0f}",
+            "",
+            f"{shot_accuracy:.1f}% precisión | vs {opp_shots:.0f}",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    with col3:
+        shots_on_target = team_stats.get("ontargetScoringAtt", 0)
+        opp_sot = opponent_stats.get("ontargetScoringAtt", 0) if opponent_stats else 0
+        display_metric_card(
+            "Disparos al Arco",
+            f"{shots_on_target:.0f}",
+            "",
+            f"vs {opp_sot:.0f} del oponente",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    with col4:
+        possession = team_stats.get("possessionPercentage", 0)
+        opp_poss = opponent_stats.get("possessionPercentage", 0) if opponent_stats else 0
+        display_metric_card(
+            "Posesión %",
+            f"{possession:.1f}%",
+            "",
+            f"vs {opp_poss:.1f}% del oponente",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Fila 2: Defensivas
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        goals_conceded = team_stats.get("goalsConceded", 0)
+        display_metric_card(
+            "Goles Recibidos",
+            f"{goals_conceded:.0f}",
+            "",
+            "",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    with col2:
+        saves = team_stats.get("saves", 0)
+        opp_saves = opponent_stats.get("saves", 0) if opponent_stats else 0
+        display_metric_card(
+            "Atajadas",
+            f"{saves:.0f}",
+            "",
+            f"vs {opp_saves:.0f} del oponente",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    with col3:
+        clearances = team_stats.get("totalClearance", 0)
+        opp_clear = opponent_stats.get("totalClearance", 0) if opponent_stats else 0
+        display_metric_card(
+            "Despejes",
+            f"{clearances:.0f}",
+            "",
+            f"vs {opp_clear:.0f} del oponente",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    with col4:
+        tackles_won = team_stats.get("wonTackle", 0)
+        total_tackles = team_stats.get("totalTackle", 0)
+        tackle_success = (tackles_won / total_tackles * 100) if total_tackles > 0 else 0
+        opp_tackles = opponent_stats.get("wonTackle", 0) if opponent_stats else 0
+        display_metric_card(
+            "Tackles Exitosos",
+            f"{tackles_won:.0f}",
+            "",
+            f"{tackle_success:.1f}% efectividad | vs {opp_tackles:.0f}",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Fila 3: Set Pieces y Disciplina
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        corners_won = team_stats.get("wonCorners", 0)
+        opp_corners = opponent_stats.get("wonCorners", 0) if opponent_stats else 0
+        display_metric_card(
+            "Corners Ganados",
+            f"{corners_won:.0f}",
+            "",
+            f"vs {opp_corners:.0f} del oponente",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    with col2:
+        total_pass = team_stats.get("totalPass", 0)
+        accurate_pass = team_stats.get("accuratePass", 0)
+        pass_accuracy = (accurate_pass / total_pass * 100) if total_pass > 0 else 0
+        opp_pass_acc = 0
+        if opponent_stats:
+            opp_total = opponent_stats.get("totalPass", 0)
+            opp_accurate = opponent_stats.get("accuratePass", 0)
+            opp_pass_acc = (opp_accurate / opp_total * 100) if opp_total > 0 else 0
+        display_metric_card(
+            "Precisión de Pases",
+            f"{pass_accuracy:.1f}%",
+            "",
+            f"vs {opp_pass_acc:.1f}% del oponente",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    with col3:
+        fouls = team_stats.get("fkFoulLost", 0)
+        opp_fouls = opponent_stats.get("fkFoulLost", 0) if opponent_stats else 0
+        display_metric_card(
+            "Faltas Cometidas",
+            f"{fouls:.0f}",
+            "",
+            f"vs {opp_fouls:.0f} del oponente",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    with col4:
+        yellow_cards = team_stats.get("totalYellowCard", 0)
+        red_cards = team_stats.get("totalRedCard", 0)
+        total_cards = yellow_cards + red_cards
+        opp_yellow = opponent_stats.get("totalYellowCard", 0) if opponent_stats else 0
+        opp_red = opponent_stats.get("totalRedCard", 0) if opponent_stats else 0
+        opp_total = opp_yellow + opp_red
+        display_metric_card(
+            "Tarjetas",
+            f"{total_cards:.0f}",
+            "",
+            f"{yellow_cards:.0f}A, {red_cards:.0f}R | vs {opp_total:.0f}",
+            competition_avg=None,
+            cibao_avg=None
+        )
+    
+    # Close button at bottom (prominent)
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("✕ Cerrar Ventana", key="close_modal_bottom", use_container_width=True, type="primary"):
+            st.session_state.selected_match_index = None
+            st.rerun()
+    
+    # Close modal HTML
+    st.markdown("""
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def calculate_single_match_metrics(stats: Dict, opponent_stats: Dict = None) -> Dict[str, float]:
+    """Calcula métricas derivadas para un partido individual."""
+    metrics = {}
+    
+    # Precisión de pases
+    total_pass = stats.get("totalPass", 0)
+    accurate_pass = stats.get("accuratePass", 0)
+    if total_pass > 0:
+        metrics["passAccuracy"] = (accurate_pass / total_pass) * 100
+    else:
+        metrics["passAccuracy"] = 0
+    
+    # Efectividad de tackles
+    total_tackle = stats.get("totalTackle", 0)
+    won_tackle = stats.get("wonTackle", 0)
+    if total_tackle > 0:
+        metrics["tackleSuccess"] = (won_tackle / total_tackle) * 100
+    else:
+        metrics["tackleSuccess"] = 0
+    
+    # Precisión de disparos
+    total_shots = stats.get("totalScoringAtt", 0)
+    shots_on_target = stats.get("ontargetScoringAtt", 0)
+    if total_shots > 0:
+        metrics["shotAccuracy"] = (shots_on_target / total_shots) * 100
+    else:
+        metrics["shotAccuracy"] = 0
+    
+    return metrics
 
 
 def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[str, float], opponent_name: str, selected_metrics: List[str] = None) -> go.Figure:
@@ -949,24 +1886,33 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
     # Crear gráfico de radar
     fig = go.Figure()
     
-    # Oponente
+    # Oponente - obtener color del CSV
+    opponent_color = TEAM_COLORS.get(opponent_name, '#EF4444')  # Rojo por defecto si no se encuentra
+    opponent_rgb = tuple(int(opponent_color[i:i+2], 16) for i in (1, 3, 5))
+    opponent_fillcolor = f'rgba({opponent_rgb[0]}, {opponent_rgb[1]}, {opponent_rgb[2]}, 0.2)'
+    
     fig.add_trace(go.Scatterpolar(
         r=opponent_values + [opponent_values[0]],  # Cerrar el círculo
         theta=categories + [categories[0]],
         fill='toself',
         name=opponent_name,
-        line=dict(color='#EF4444', width=3),
-        fillcolor='rgba(239, 68, 68, 0.2)'
+        line=dict(color=opponent_color, width=3),
+        fillcolor=opponent_fillcolor
     ))
     
-    # Cibao
+    # Cibao - usar color oficial
+    cibao_color = CIBAO_COLOR
+    # Convertir hex a RGB para el fillcolor
+    cibao_rgb = tuple(int(cibao_color[i:i+2], 16) for i in (1, 3, 5))
+    cibao_fillcolor = f'rgba({cibao_rgb[0]}, {cibao_rgb[1]}, {cibao_rgb[2]}, 0.2)'
+    
     fig.add_trace(go.Scatterpolar(
         r=cibao_values + [cibao_values[0]],  # Cerrar el círculo
         theta=categories + [categories[0]],
         fill='toself',
         name='Cibao',
-        line=dict(color='#FF8C00', width=3),
-        fillcolor='rgba(255, 140, 0, 0.2)'
+        line=dict(color=cibao_color, width=3),
+        fillcolor=cibao_fillcolor
     ))
     
     fig.update_layout(
@@ -1967,7 +2913,7 @@ def display_comparison_charts(opponent_metrics: Dict[str, float], cibao_metrics:
 def main():
     # Título
     st.markdown("""
-    <h1 style='text-align:center; color:#FF8C00; text-shadow: 0 0 15px rgba(255,140,0,0.65); font-weight:900;'>
+    <h1 style='text-align:center; color:#FF9900; text-shadow: 0 0 15px rgba(255,153,0,0.65); font-weight:900;'>
         Análisis del Rival — Copa Concacaf
     </h1>
     <p style='text-align:center; color:#D1D5DB; font-size:17px;'>
@@ -2023,22 +2969,55 @@ def main():
                 opponent_options.append(CIBAO_TEAM_NAME)
                 opponent_map[CIBAO_TEAM_NAME] = CIBAO_TEAM_NAME
             
+            # Find default index for Defence Force (check both display name and mapped name)
+            default_index = 0
+            for i, opt in enumerate(opponent_options):
+                mapped_name = opponent_map.get(opt, opt)
+                if "Defence Force" in opt or mapped_name == "Defence Force":
+                    default_index = i
+                    break
+            
+            # Use session state to maintain selection, but default to Defence Force on first load
+            if "opponent_selector_index" not in st.session_state:
+                st.session_state.opponent_selector_index = default_index
+            
             selected_display = st.selectbox(
                 "Seleccionar Equipo",
                 options=opponent_options,
+                index=st.session_state.opponent_selector_index,
                 key="opponent_selector",
                 help="Selecciona el equipo que deseas analizar"
             )
             
+            # Update session state with current selection
+            current_index = opponent_options.index(selected_display)
+            st.session_state.opponent_selector_index = current_index
+            
             selected_opponent = opponent_map[selected_display]
         else:
             # Si no hay próximos, mostrar todos los equipos
+            # Find default index for Defence Force
+            default_index = 0
+            for i, team in enumerate(all_teams_list):
+                if team == "Defence Force":
+                    default_index = i
+                    break
+            
+            # Use session state to maintain selection, but default to Defence Force on first load
+            if "opponent_selector_index" not in st.session_state:
+                st.session_state.opponent_selector_index = default_index
+            
             selected_opponent = st.selectbox(
                 "Seleccionar Equipo",
                 options=all_teams_list,
+                index=st.session_state.opponent_selector_index,
                 key="opponent_selector",
                 help="Selecciona el equipo que deseas analizar"
             )
+            
+            # Update session state with current selection
+            current_index = all_teams_list.index(selected_opponent)
+            st.session_state.opponent_selector_index = current_index
         
         st.markdown("---")
         
@@ -2112,6 +3091,7 @@ def main():
             team_averages = calculate_average_metrics(team_all_matches)
         
         cibao_averages = get_cibao_average_metrics(all_matches)
+        competition_averages = get_all_teams_average_metrics(all_matches)
     
     # Preparar datos adicionales para análisis táctico
     matches_with_data = []
@@ -2127,58 +3107,89 @@ def main():
                 break
     
     
-    # Crear pestañas para organizar el contenido
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    # Crear pestañas para organizar el contenido (ocultando algunas por ahora)
+    tab1, tab2 = st.tabs([
         "Resumen",
-        "Comparación",
-        "Forma Reciente",
-        "Cara a Cara",
-        "Jugadores Clave",
-        "Análisis Táctico",
-        "Recomendaciones"
+        "Comparación"
     ])
     
     # TAB 1: RESUMEN (Métricas clave + Radar)
     with tab1:
         if team_averages:
-            # Selector de filtro de partidos
-            st.markdown(f"""
-            <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Métricas Clave de {selected_opponent}</h2>
+            # Calcular datos iniciales sin filtro (para Forma Reciente)
+            filtered_matches = team_all_matches
+            filtered_averages = team_averages
+            display_averages = team_averages
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Forma Reciente (movido arriba, antes de las métricas clave)
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Forma Reciente</h2>
             """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Filtro de partidos
-            filter_options = {
-                "Todos los Partidos": "all",
-                "Partidos en Casa": "home",
-                "Partidos Fuera": "away",
-            }
-            if selected_opponent != CIBAO_TEAM_NAME:
-                filter_options["Partidos vs Cibao"] = "vs_cibao"
-            
-            selected_filter = st.radio(
-                "Filtrar por:",
-                options=list(filter_options.keys()),
-                horizontal=True,
-                key="match_filter"
-            )
-            filter_type = filter_options[selected_filter]
-            
-            # Aplicar filtro a los partidos
-            filtered_matches = filter_matches_by_type(team_all_matches, selected_opponent, filter_type, all_matches)
-            
-            # Recalcular métricas con partidos filtrados
-            filtered_averages = calculate_average_metrics(filtered_matches) if filtered_matches else {}
-            
-            # Usar métricas filtradas para mostrar
-            display_averages = filtered_averages if filtered_averages else team_averages
+            if filtered_matches:
+                # Selector de número de partidos a mostrar
+                num_matches_option = st.radio(
+                    "Mostrar:",
+                    options=["Todos los partidos", "Últimos 3 partidos", "Últimos 5 partidos"],
+                    horizontal=True,
+                    key="recent_form_num_matches"
+                )
+                
+                # Determinar número de partidos
+                if num_matches_option == "Todos los partidos":
+                    num_matches = None  # None significa todos
+                elif num_matches_option == "Últimos 3 partidos":
+                    num_matches = 3
+                else:
+                    num_matches = 5
+                
+                # Obtener partidos recientes (de partidos filtrados)
+                recent_form = get_recent_form(filtered_matches, selected_opponent, num_matches=num_matches)
+                
+                if recent_form:
+                    display_recent_form(recent_form, selected_opponent)
+                else:
+                    st.info("No hay suficientes partidos jugados para mostrar el formulario reciente.")
+            else:
+                st.info("No hay partidos disponibles para este equipo.")
             
             st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("---")
             
-            # Mostrar resumen de partidos (usando partidos filtrados)
+            # Mostrar resumen de partidos (movido directamente arriba de Métricas Clave - 12 KPI cards)
             col_info1, col_info2 = st.columns(2)
             with col_info1:
-                played_count = len([m for m in filtered_matches if m.get("status", "").lower() in ["played", "finished", "ft", "jugado", "finalizado"]])
+                # Contar partidos jugados - verificar status o si tiene score data
+                played_count = 0
+                for m in filtered_matches:
+                    status = m.get("status", "")
+                    # Verificar status
+                    if isinstance(status, str) and status.lower() in ["played", "finished", "ft", "jugado", "finalizado"]:
+                        played_count += 1
+                    # Si no tiene status válido, verificar si tiene score (indica que fue jugado)
+                    elif m.get("match_data"):
+                        match_data = m.get("match_data", {})
+                        live_data = match_data.get("liveData", {})
+                        match_details = live_data.get("matchDetails", {})
+                        scores = match_details.get("scores", {})
+                        if scores and (scores.get("ft") or scores.get("total")):
+                            played_count += 1
+                        # También verificar por fecha pasada (si no hay score pero la fecha pasó, probablemente fue jugado)
+                        elif m.get("date"):
+                            from datetime import datetime
+                            match_date = m.get("date")
+                            if isinstance(match_date, str):
+                                try:
+                                    match_date = datetime.strptime(match_date, '%Y-%m-%d')
+                                except:
+                                    pass
+                            if isinstance(match_date, datetime):
+                                today = datetime.now()
+                                if match_date < today:
+                                    played_count += 1
                 st.metric("Partidos Jugados", played_count)
             with col_info2:
                 if selected_opponent != CIBAO_TEAM_NAME:
@@ -2245,45 +3256,197 @@ def main():
             
             st.markdown("<br>", unsafe_allow_html=True)
             
+            # Filtro de partidos (UI movido aquí para estar junto a Métricas Clave)
+            filter_options_ui = {
+                "Todos los Partidos": "all",
+                "Partidos en Casa": "home",
+                "Partidos Fuera": "away",
+            }
+            if selected_opponent != CIBAO_TEAM_NAME:
+                filter_options_ui["Partidos vs Cibao"] = "vs_cibao"
+            
+            # Obtener el índice del filtro actual para mantener la selección
+            current_filter_keys = list(filter_options_ui.keys())
+            try:
+                current_index = current_filter_keys.index(selected_filter)
+            except:
+                current_index = 0
+            
+            selected_filter_ui = st.radio(
+                "Filtrar por:",
+                options=current_filter_keys,
+                horizontal=True,
+                key="match_filter_ui",
+                index=current_index
+            )
+            filter_type_ui = filter_options_ui[selected_filter_ui]
+            
+            # Recalcular con el filtro seleccionado
+            filtered_matches_ui = filter_matches_by_type(team_all_matches, selected_opponent, filter_type_ui, all_matches)
+            filtered_averages_ui = calculate_average_metrics(filtered_matches_ui) if filtered_matches_ui else {}
+            display_averages_ui = filtered_averages_ui if filtered_averages_ui else team_averages
+            
+            # Calcular promedios filtrados de competencia y Cibao
+            filtered_competition_averages = get_all_teams_average_metrics(all_matches, filter_type_ui, selected_opponent)
+            filtered_cibao_averages = get_cibao_average_metrics_filtered(all_matches, filter_type_ui, selected_opponent)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Mostrar resumen de partidos (directamente arriba de Métricas Clave - 12 KPI cards)
+            col_info1, col_info2 = st.columns(2)
+            with col_info1:
+                # Contar partidos jugados - verificar status o si tiene score data
+                played_count = 0
+                for m in filtered_matches_ui:
+                    status = m.get("status", "")
+                    # Verificar status
+                    if isinstance(status, str) and status.lower() in ["played", "finished", "ft", "jugado", "finalizado"]:
+                        played_count += 1
+                    # Si no tiene status válido, verificar si tiene score (indica que fue jugado)
+                    elif m.get("match_data"):
+                        match_data = m.get("match_data", {})
+                        live_data = match_data.get("liveData", {})
+                        match_details = live_data.get("matchDetails", {})
+                        scores = match_details.get("scores", {})
+                        if scores and (scores.get("ft") or scores.get("total")):
+                            played_count += 1
+                        # También verificar por fecha pasada (si no hay score pero la fecha pasó, probablemente fue jugado)
+                        elif m.get("date"):
+                            from datetime import datetime
+                            match_date = m.get("date")
+                            if isinstance(match_date, str):
+                                try:
+                                    match_date = datetime.strptime(match_date, '%Y-%m-%d')
+                                except:
+                                    pass
+                            if isinstance(match_date, datetime):
+                                today = datetime.now()
+                                if match_date < today:
+                                    played_count += 1
+                st.metric("Partidos Jugados", played_count)
+            with col_info2:
+                if selected_opponent != CIBAO_TEAM_NAME:
+                    # Contar partidos donde ambos equipos jugaron (head-to-head) - solo partidos jugados
+                    h2h_count = 0
+                    seen_match_ids = set()  # Para evitar duplicados
+                    cibao_name_lower = CIBAO_TEAM_NAME.lower().strip()
+                    cibao_base = cibao_name_lower.replace(' fc', '').strip()
+                    opponent_name_lower = selected_opponent.lower().strip()
+                    opponent_base = opponent_name_lower.replace(' fc', '').strip()
+                    
+                    for match_data in all_matches:
+                        match_info = extract_match_info(match_data)
+                        if not match_info:
+                            continue
+                        
+                        match_id = match_info.get("match_id", "")
+                        # Evitar duplicados
+                        if match_id in seen_match_ids:
+                            continue
+                        
+                        # Solo contar partidos jugados (no futuros)
+                        status = match_info.get("status", "").lower()
+                        date_str = match_info.get("date", "")
+                        is_played = status in ["played", "finished", "ft", "jugado", "finalizado"]
+                        
+                        # También verificar por fecha si no hay status
+                        if not is_played and date_str:
+                            try:
+                                from datetime import datetime
+                                match_date = datetime.strptime(date_str, '%Y-%m-%d')
+                                today = datetime.now()
+                                if match_date > today:
+                                    continue  # Es un partido futuro
+                            except:
+                                pass
+                        
+                        if not is_played:
+                            continue  # Saltar partidos no jugados
+                        
+                        home = match_info.get("home_team", "").lower().strip() if match_info.get("home_team") else ""
+                        away = match_info.get("away_team", "").lower().strip() if match_info.get("away_team") else ""
+                        
+                        # Verificar si ambos equipos están en el partido
+                        home_match_cibao = (cibao_name_lower in home or home in cibao_name_lower or
+                                           cibao_base in home.replace(' fc', '').strip() or
+                                           home.replace(' fc', '').strip() in cibao_base)
+                        away_match_cibao = (cibao_name_lower in away or away in cibao_name_lower or
+                                           cibao_base in away.replace(' fc', '').strip() or
+                                           away.replace(' fc', '').strip() in cibao_base)
+                        home_match_opponent = (opponent_name_lower in home or home in opponent_name_lower or
+                                              opponent_base in home.replace(' fc', '').strip() or
+                                              home.replace(' fc', '').strip() in opponent_base)
+                        away_match_opponent = (opponent_name_lower in away or away in opponent_name_lower or
+                                              opponent_base in away.replace(' fc', '').strip() or
+                                              away.replace(' fc', '').strip() in opponent_base)
+                        
+                        if (home_match_cibao or away_match_cibao) and (home_match_opponent or away_match_opponent):
+                            h2h_count += 1
+                            seen_match_ids.add(match_id)
+                    
+                    st.metric("Partidos vs Cibao", h2h_count)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Métricas Clave</h2>
+            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
             # Fila 1: Ofensivas
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                goals = display_averages.get("goals", 0)
+                goals = display_averages_ui.get("goals", 0)
+                comp_goals = filtered_competition_averages.get("goals", 0) if filtered_competition_averages else 0
+                cibao_goals = filtered_cibao_averages.get("goals", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Goles por Partido",
                     f"{goals:.2f}",
                     "",
-                    f"Promedio en {len(filtered_matches)} partidos"
+                    f"Promedio en {len(filtered_matches_ui)} partidos",
+                    competition_avg=f"{comp_goals:.2f}",
+                    cibao_avg=f"{cibao_goals:.2f}"
                 )
             
             with col2:
-                shots = display_averages.get("totalScoringAtt", 0)
-                shots_on_target = display_averages.get("ontargetScoringAtt", 0)
+                shots = display_averages_ui.get("totalScoringAtt", 0)
+                shots_on_target = display_averages_ui.get("ontargetScoringAtt", 0)
                 shot_accuracy = (shots_on_target / shots * 100) if shots > 0 else 0
+                comp_shots = filtered_competition_averages.get("totalScoringAtt", 0) if filtered_competition_averages else 0
+                cibao_shots = filtered_cibao_averages.get("totalScoringAtt", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Disparos por Partido",
                     f"{shots:.1f}",
                     "",
-                    f"{shot_accuracy:.1f}% precisión"
+                    f"{shot_accuracy:.1f}% precisión",
+                    competition_avg=f"{comp_shots:.1f}",
+                    cibao_avg=f"{cibao_shots:.1f}"
                 )
             
             with col3:
-                shots_on_target = display_averages.get("ontargetScoringAtt", 0)
+                shots_on_target = display_averages_ui.get("ontargetScoringAtt", 0)
+                comp_sot = filtered_competition_averages.get("ontargetScoringAtt", 0) if filtered_competition_averages else 0
+                cibao_sot = filtered_cibao_averages.get("ontargetScoringAtt", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Disparos al Arco",
                     f"{shots_on_target:.1f}",
                     "",
-                    f"Por partido"
+                    f"Por partido",
+                    competition_avg=f"{comp_sot:.1f}",
+                    cibao_avg=f"{cibao_sot:.1f}"
                 )
             
             with col4:
-                possession = display_averages.get("possessionPercentage", 0)
+                possession = display_averages_ui.get("possessionPercentage", 0)
+                comp_poss = filtered_competition_averages.get("possessionPercentage", 0) if filtered_competition_averages else 0
+                cibao_poss = filtered_cibao_averages.get("possessionPercentage", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Posesión %",
                     f"{possession:.1f}%",
                     "",
-                    f"Promedio"
+                    f"Promedio",
+                    competition_avg=f"{comp_poss:.1f}%",
+                    cibao_avg=f"{cibao_poss:.1f}%"
                 )
             
             st.markdown("<br>", unsafe_allow_html=True)
@@ -2292,40 +3455,57 @@ def main():
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                goals_conceded = display_averages.get("goalsConceded", 0)
+                goals_conceded = display_averages_ui.get("goalsConceded", 0)
+                comp_gc = filtered_competition_averages.get("goalsConceded", 0) if filtered_competition_averages else 0
+                cibao_gc = filtered_cibao_averages.get("goalsConceded", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Goles Recibidos",
                     f"{goals_conceded:.2f}",
                     "",
-                    f"Por partido"
+                    f"Por partido",
+                    competition_avg=f"{comp_gc:.2f}",
+                    cibao_avg=f"{cibao_gc:.2f}",
+                    higher_is_better=False  # Lower is better for goals conceded
                 )
             
             with col2:
-                saves = display_averages.get("saves", 0)
+                saves = display_averages_ui.get("saves", 0)
+                comp_saves = filtered_competition_averages.get("saves", 0) if filtered_competition_averages else 0
+                cibao_saves = filtered_cibao_averages.get("saves", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Atajadas",
                     f"{saves:.1f}",
                     "",
-                    f"Por partido"
+                    f"Por partido",
+                    competition_avg=f"{comp_saves:.1f}",
+                    cibao_avg=f"{cibao_saves:.1f}"
                 )
             
             with col3:
-                clearances = display_averages.get("totalClearance", 0)
+                clearances = display_averages_ui.get("totalClearance", 0)
+                comp_clear = filtered_competition_averages.get("totalClearance", 0) if filtered_competition_averages else 0
+                cibao_clear = filtered_cibao_averages.get("totalClearance", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Despejes",
                     f"{clearances:.1f}",
                     "",
-                    f"Por partido"
+                    f"Por partido",
+                    competition_avg=f"{comp_clear:.1f}",
+                    cibao_avg=f"{cibao_clear:.1f}"
                 )
             
             with col4:
-                tackles_won = display_averages.get("wonTackle", 0)
-                tackle_success = display_averages.get("tackleSuccess", 0)
+                tackles_won = display_averages_ui.get("wonTackle", 0)
+                tackle_success = display_averages_ui.get("tackleSuccess", 0)
+                comp_tackles = filtered_competition_averages.get("wonTackle", 0) if filtered_competition_averages else 0
+                cibao_tackles = filtered_cibao_averages.get("wonTackle", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Tackles Exitosos",
                     f"{tackles_won:.1f}",
                     "",
-                    f"{tackle_success:.1f}% efectividad"
+                    f"{tackle_success:.1f}% efectividad",
+                    competition_avg=f"{comp_tackles:.1f}",
+                    cibao_avg=f"{cibao_tackles:.1f}"
                 )
             
             st.markdown("<br>", unsafe_allow_html=True)
@@ -2334,339 +3514,227 @@ def main():
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                corners_won = display_averages.get("wonCorners", 0)
+                corners_won = display_averages_ui.get("wonCorners", 0)
+                comp_corners = filtered_competition_averages.get("wonCorners", 0) if filtered_competition_averages else 0
+                cibao_corners = filtered_cibao_averages.get("wonCorners", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Corners Ganados",
                     f"{corners_won:.1f}",
                     "",
-                    f"Por partido"
+                    f"Por partido",
+                    competition_avg=f"{comp_corners:.1f}",
+                    cibao_avg=f"{cibao_corners:.1f}"
                 )
             
             with col2:
-                pass_accuracy = display_averages.get("passAccuracy", 0)
+                pass_accuracy = display_averages_ui.get("passAccuracy", 0)
+                comp_pass_acc = filtered_competition_averages.get("passAccuracy", 0) if filtered_competition_averages else 0
+                cibao_pass_acc = filtered_cibao_averages.get("passAccuracy", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Precisión de Pases",
                     f"{pass_accuracy:.1f}%",
                     "",
-                    f"Promedio"
+                    f"Promedio",
+                    competition_avg=f"{comp_pass_acc:.1f}%",
+                    cibao_avg=f"{cibao_pass_acc:.1f}%"
                 )
             
             with col3:
-                fouls = display_averages.get("fkFoulLost", 0)
+                fouls = display_averages_ui.get("fkFoulLost", 0)
+                comp_fouls = filtered_competition_averages.get("fkFoulLost", 0) if filtered_competition_averages else 0
+                cibao_fouls = filtered_cibao_averages.get("fkFoulLost", 0) if filtered_cibao_averages else 0
                 display_metric_card(
                     "Faltas Cometidas",
                     f"{fouls:.1f}",
                     "",
-                    f"Por partido"
+                    f"Por partido",
+                    competition_avg=f"{comp_fouls:.1f}",
+                    cibao_avg=f"{cibao_fouls:.1f}",
+                    higher_is_better=False  # Lower is better for fouls
                 )
             
             with col4:
-                yellow_cards = display_averages.get("totalYellowCard", 0)
-                red_cards = display_averages.get("totalRedCard", 0)
+                yellow_cards = display_averages_ui.get("totalYellowCard", 0)
+                red_cards = display_averages_ui.get("totalRedCard", 0)
                 total_cards = yellow_cards + red_cards
+                comp_yellow = filtered_competition_averages.get("totalYellowCard", 0) if filtered_competition_averages else 0
+                comp_red = filtered_competition_averages.get("totalRedCard", 0) if filtered_competition_averages else 0
+                comp_total = comp_yellow + comp_red
+                cibao_yellow = filtered_cibao_averages.get("totalYellowCard", 0) if filtered_cibao_averages else 0
+                cibao_red = filtered_cibao_averages.get("totalRedCard", 0) if filtered_cibao_averages else 0
+                cibao_total = cibao_yellow + cibao_red
                 display_metric_card(
                     "Tarjetas",
                     f"{total_cards:.1f}",
                     "",
-                    f"{yellow_cards:.1f}A, {red_cards:.1f}R"
+                    f"{yellow_cards:.1f}A, {red_cards:.1f}R",
+                    competition_avg=f"{comp_total:.1f}",
+                    cibao_avg=f"{cibao_total:.1f}",
+                    higher_is_better=False  # Lower is better for cards
                 )
             
             st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("---")
-            
-            # Forma Reciente (movido desde tab3) - usar partidos filtrados
-            st.markdown("""
-            <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Forma Reciente</h2>
-            """, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            if filtered_matches:
-                # Selector de número de partidos a mostrar
-                num_matches_option = st.radio(
-                    "Mostrar:",
-                    options=["Todos los partidos", "Últimos 3 partidos", "Últimos 5 partidos"],
-                    horizontal=True,
-                    key="recent_form_num_matches"
-                )
-                
-                # Determinar número de partidos
-                if num_matches_option == "Todos los partidos":
-                    num_matches = None  # None significa todos
-                elif num_matches_option == "Últimos 3 partidos":
-                    num_matches = 3
-                else:
-                    num_matches = 5
-                
-                # Obtener partidos recientes (de partidos filtrados)
-                recent_form = get_recent_form(filtered_matches, selected_opponent, num_matches=num_matches)
-                
-                if recent_form:
-                    display_recent_form(recent_form, selected_opponent)
-                else:
-                    st.info("No hay suficientes partidos jugados para mostrar el formulario reciente.")
-            else:
-                st.info("No hay partidos disponibles para este equipo.")
-            
-            # Radar Chart: Fortalezas y Debilidades (solo si no es Cibao) - Movido después de Forma Reciente
-            if cibao_averages and selected_opponent != CIBAO_TEAM_NAME:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("---")
-                st.markdown("""
-                <h2 style='color:#ff8c00; text-align:center; margin-top:20px;'>Comparación de Fortalezas y Debilidades</h2>
-                """, unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                # Selector de métricas para el radar chart
-                all_available_metrics = [
-                    "Goles", "Goles Recibidos", "Disparos", "Disparos al Arco",
-                    "Posesión", "Precisión Pases", "Pases Totales", "Pases Precisos",
-                    "Corners", "Tackles Exitosos", "Tackles Totales", "Despejes",
-                    "Intercepciones", "Atajadas", "Faltas", "Tarjetas Amarillas"
-                ]
-                
-                default_metrics = [
-                    "Goles", "Goles Recibidos", "Disparos", "Posesión",
-                    "Precisión Pases", "Corners", "Tackles Exitosos", "Despejes"
-                ]
-                
-                selected_radar_metrics = st.multiselect(
-                    "Seleccionar métricas para comparar:",
-                    options=all_available_metrics,
-                    default=default_metrics,
-                    key="radar_metrics_selector",
-                    help="Selecciona las métricas que deseas comparar en el gráfico de radar"
-                )
-                
-                if selected_radar_metrics:
-                    # Usar métricas filtradas para el radar chart
-                    radar_fig = create_radar_chart(display_averages, cibao_averages, selected_opponent, selected_radar_metrics)
-                    st.plotly_chart(radar_fig, use_container_width=True)
-                else:
-                    st.info("Selecciona al menos una métrica para mostrar el gráfico de radar.")
-            elif selected_opponent == CIBAO_TEAM_NAME:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("---")
-                st.markdown("""
-                <h3 style='color:#ff8c00; margin-top:20px;'>Resumen de Rendimiento</h3>
-                """, unsafe_allow_html=True)
-                st.info("Selecciona otro equipo para ver comparación con Cibao")
         else:
             st.warning("No se pudieron calcular las métricas del equipo.")
     
-    # TAB 2: COMPARACIÓN (Gráficos comparativos)
+    # TAB 2: COMPARACIÓN (Gráficos comparativos + Radar Chart)
     with tab2:
         if team_averages and cibao_averages and selected_opponent != CIBAO_TEAM_NAME:
             st.markdown(f"### Comparación Directa: {selected_opponent} vs Cibao")
             st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Radar Chart: Fortalezas y Debilidades (movido desde Resumen)
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Comparación de Fortalezas y Debilidades</h2>
+            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Selector de métricas para el radar chart
+            all_available_metrics = [
+                "Goles", "Goles Recibidos", "Disparos", "Disparos al Arco",
+                "Posesión", "Precisión Pases", "Pases Totales", "Pases Precisos",
+                "Corners", "Tackles Exitosos", "Tackles Totales", "Despejes",
+                "Intercepciones", "Atajadas", "Faltas", "Tarjetas Amarillas"
+            ]
+            
+            default_metrics = [
+                "Goles", "Goles Recibidos", "Disparos", "Posesión",
+                "Precisión Pases", "Corners", "Tackles Exitosos", "Despejes"
+            ]
+            
+            selected_radar_metrics = st.multiselect(
+                "Seleccionar métricas para comparar:",
+                options=all_available_metrics,
+                default=default_metrics,
+                key="radar_metrics_selector",
+                help="Selecciona las métricas que deseas comparar en el gráfico de radar"
+            )
+            
+            if selected_radar_metrics:
+                # Usar métricas del equipo para el radar chart
+                radar_fig = create_radar_chart(team_averages, cibao_averages, selected_opponent, selected_radar_metrics)
+                st.plotly_chart(radar_fig, use_container_width=True)
+            else:
+                st.info("Selecciona al menos una métrica para mostrar el gráfico de radar.")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Gráfico de tendencia de goles (movido desde Resumen)
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Tendencia de Goles</h2>
+            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Obtener partidos recientes del equipo seleccionado
+            team_recent_matches = get_recent_form(team_all_matches, selected_opponent, num_matches=None)
+            
+            if team_recent_matches and len(team_recent_matches) > 1:
+                dates = [m["date"] for m in reversed(team_recent_matches)]
+                goals_for = [m["team_goals"] for m in reversed(team_recent_matches)]
+                goals_against = [m["opponent_goals"] for m in reversed(team_recent_matches)]
+                
+                fig = go.Figure()
+                
+                # Línea de goles a favor
+                fig.add_trace(go.Scatter(
+                    x=dates,
+                    y=goals_for,
+                    mode='lines+markers',
+                    name=f'Goles a Favor - {selected_opponent}',
+                    line=dict(color='#10B981', width=3),
+                    marker=dict(size=10, color='#10B981')
+                ))
+                
+                # Línea de goles en contra
+                fig.add_trace(go.Scatter(
+                    x=dates,
+                    y=goals_against,
+                    mode='lines+markers',
+                    name=f'Goles en Contra - {selected_opponent}',
+                    line=dict(color='#EF4444', width=3),
+                    marker=dict(size=10, color='#EF4444')
+                ))
+                
+                # Si no es Cibao, agregar líneas de Cibao para comparación
+                if selected_opponent != CIBAO_TEAM_NAME:
+                    # Obtener partidos de Cibao para comparación
+                    cibao_all_matches = get_opponent_matches_data(all_matches, CIBAO_TEAM_NAME)
+                    cibao_recent_matches = get_recent_form(cibao_all_matches, CIBAO_TEAM_NAME, num_matches=None)
+                    if cibao_recent_matches and len(cibao_recent_matches) > 1:
+                        cibao_dates = [m["date"] for m in reversed(cibao_recent_matches)]
+                        cibao_goals_for = [m["team_goals"] for m in reversed(cibao_recent_matches)]
+                        cibao_goals_against = [m["opponent_goals"] for m in reversed(cibao_recent_matches)]
+                        
+                        fig.add_trace(go.Scatter(
+                            x=cibao_dates,
+                            y=cibao_goals_for,
+                            mode='lines+markers',
+                            name='Goles a Favor - Cibao',
+                            line=dict(color='#FF9900', width=3, dash='dash'),
+                            marker=dict(size=10, color='#FF9900')
+                        ))
+                        
+                        fig.add_trace(go.Scatter(
+                            x=cibao_dates,
+                            y=cibao_goals_against,
+                            mode='lines+markers',
+                            name='Goles en Contra - Cibao',
+                            line=dict(color='#F97316', width=3, dash='dash'),
+                            marker=dict(size=10, color='#F97316')
+                        ))
+                
+                fig.update_layout(
+                    template='plotly_dark',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    height=400,
+                    xaxis_title="Fecha",
+                    yaxis_title="Goles",
+                    xaxis=dict(
+                        title_font=dict(size=20),
+                        tickfont=dict(size=18)
+                    ),
+                    yaxis=dict(
+                        title_font=dict(size=20),
+                        tickfont=dict(size=18)
+                    ),
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1,
+                        font=dict(size=18)
+                    ),
+                    hovermode='x unified'
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No hay suficientes partidos para mostrar la tendencia de goles.")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Gráficos comparativos
             display_comparison_charts(team_averages, cibao_averages, selected_opponent)
         elif selected_opponent == CIBAO_TEAM_NAME:
             st.info("Selecciona otro equipo para ver comparación con Cibao")
         else:
             st.warning("⚠No se pudieron calcular las métricas para la comparación.")
     
-    # TAB 3: FORMA RECIENTE (ahora vacío - contenido movido a Resumen)
-    with tab3:
-        st.info("El contenido de Forma Reciente se ha movido a la pestaña 'Resumen' para una mejor organización.")
-    
-    # TAB 4: CARA A CARA (Head-to-Head)
-    with tab4:
-        if selected_opponent == CIBAO_TEAM_NAME:
-            st.markdown("""
-            <h3 style='color:#ff8c00; margin-top:20px;'>Historial de Partidos</h3>
-            """, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.info("Selecciona otro equipo para ver historial cara a cara con Cibao")
-        else:
-            st.markdown("""
-            <h3 style='color:#ff8c00; margin-top:20px;'>Historial contra Cibao</h3>
-            """, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Encontrar partidos contra Cibao
-            opponent_matches = [m for m in cibao_matches if m.get("opponent") == selected_opponent]
-        
-            if opponent_matches:
-                # Filtrar solo partidos jugados
-                played_matches = [m for m in opponent_matches if m.get("status", "").lower() in ["played", "finished", "ft", "jugado", "finalizado"]]
-                
-                if played_matches:
-                    # Calcular estadísticas cara a cara
-                    cibao_wins = 0
-                    opponent_wins = 0
-                    draws = 0
-                    cibao_goals = 0
-                    opponent_goals = 0
-                    
-                    for match in played_matches:
-                        match_data = match.get("match_data")
-                        if not match_data:
-                            continue
-                        
-                        # Extraer resultado
-                        result = extract_match_result(match_data, CIBAO_TEAM_NAME)
-                        if result:
-                            if result["result"] == "W":
-                                cibao_wins += 1
-                            elif result["result"] == "L":
-                                opponent_wins += 1
-                            else:
-                                draws += 1
-                            
-                            cibao_goals += result.get("team_goals", 0)
-                            opponent_goals += result.get("opponent_goals", 0)
-                    
-                    # Mostrar estadísticas
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    with col1:
-                        st.metric("Partidos Jugados", len(played_matches))
-                    
-                    with col2:
-                        st.metric("Victorias Cibao", cibao_wins, delta=f"{cibao_wins}/{len(played_matches)}")
-                    
-                    with col3:
-                        st.metric("Empates", draws, delta=f"{draws}/{len(played_matches)}")
-                    
-                    with col4:
-                        st.metric("Victorias Oponente", opponent_wins, delta=f"{opponent_wins}/{len(played_matches)}")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    
-                    # Goles totales
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric("Goles Cibao", cibao_goals, delta=f"{cibao_goals/len(played_matches):.2f} por partido")
-                    with col2:
-                        st.metric("Goles Oponente", opponent_goals, delta=f"{opponent_goals/len(played_matches):.2f} por partido")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown("---")
-                    
-                    # Tabla de partidos
-                    matches_df = pd.DataFrame([
-                        {
-                            "Fecha": m.get("date_str", "N/D"),
-                            "Local": m.get("home_team", "N/D"),
-                            "Visitante": m.get("away_team", "N/D"),
-                            "Resultado": extract_match_result(m.get("match_data"), CIBAO_TEAM_NAME).get("score", "N/D") if m.get("match_data") else "N/D",
-                            "Lugar": "Casa" if m.get("is_home") else "✈Fuera"
-                        }
-                        for m in played_matches
-                    ])
-                    
-                    st.dataframe(matches_df, use_container_width=True, hide_index=True)
-                else:
-                    st.info("No hay partidos jugados contra este oponente aún.")
-            else:
-                st.info("No hay partidos programados contra este oponente.")
-    
+    # Tabs ocultos por ahora - se trabajarán más adelante
+    # TAB 3: FORMA RECIENTE
+    # TAB 4: CARA A CARA
     # TAB 5: JUGADORES CLAVE
-    with tab5:
-        st.markdown(f"### Jugadores Clave de {selected_opponent}")
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        if matches_with_data:
-            with st.spinner("Analizando jugadores..."):
-                player_stats = extract_player_stats_from_matches(matches_with_data, selected_opponent)
-                display_key_players_analysis(player_stats, selected_opponent)
-        else:
-            st.info("No hay datos de jugadores disponibles.")
-    
     # TAB 6: ANÁLISIS TÁCTICO
-    with tab6:
-        st.markdown("""
-        <h3 style='color:#ff8c00; margin-top:20px;'>Análisis Táctico</h3>
-        """, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        # Análisis de Formaciones
-        if matches_with_data:
-            with st.spinner("Analizando formaciones..."):
-                formation_stats = analyze_formations(matches_with_data, selected_opponent)
-                display_formation_analysis(formation_stats, selected_opponent)
-        else:
-            st.info("No hay partidos disponibles para análisis de formaciones.")
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("---")
-        
-        # Análisis de Set Pieces
-        if team_all_matches:
-            with st.spinner("Analizando set pieces..."):
-                set_pieces_stats = analyze_set_pieces(team_all_matches, selected_opponent)
-                display_set_pieces_analysis(set_pieces_stats, selected_opponent)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("---")
-        
-        # Patrones Temporales
-        if matches_with_data:
-            with st.spinner("Analizando patrones temporales..."):
-                timeline_stats = analyze_timeline_patterns(matches_with_data, selected_opponent)
-                display_timeline_patterns(timeline_stats, selected_opponent)
-    
     # TAB 7: RECOMENDACIONES
-    with tab7:
-        if selected_opponent == CIBAO_TEAM_NAME:
-            st.markdown("""
-            <h3 style='color:#ff8c00; margin-top:20px;'>Análisis de Cibao</h3>
-            """, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.info("Selecciona otro equipo para ver recomendaciones de preparación contra ese oponente")
-        else:
-            st.markdown("""
-            <h3 style='color:#ff8c00; margin-top:20px;'>Recomendaciones de Preparación</h3>
-            """, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            if team_averages and cibao_averages:
-                # Analizar vulnerabilidades
-                vulnerabilities = analyze_vulnerabilities(team_averages, cibao_averages, selected_opponent)
-                
-                # Preparar datos para recomendaciones
-                formation_stats = {}
-                timeline_stats = {"total_goals_for": 0, "goals_for": {}}
-                set_pieces_stats = {"matches": 0}
-                
-                if matches_with_data:
-                    formation_stats = analyze_formations(matches_with_data, selected_opponent)
-                    timeline_stats = analyze_timeline_patterns(matches_with_data, selected_opponent)
-                    set_pieces_stats = analyze_set_pieces(team_all_matches, selected_opponent)
-                
-                # Generar recomendaciones
-                recommendations = generate_match_recommendations(
-                    team_averages,
-                    cibao_averages,
-                    formation_stats,
-                    timeline_stats,
-                    set_pieces_stats,
-                    vulnerabilities,
-                    selected_opponent
-                )
-                
-                # Mostrar vulnerabilidades
-                if vulnerabilities:
-                    st.markdown("""
-                    <h3 style='color:#ff8c00; margin-top:20px;'>Vulnerabilidades Identificadas</h3>
-                    """, unsafe_allow_html=True)
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    for i, vuln in enumerate(vulnerabilities, 1):
-                        st.warning(f"{i}. {vuln}")
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown("---")
-                
-                # Mostrar recomendaciones
-                if recommendations:
-                    st.markdown("""
-                    <h3 style='color:#ff8c00; margin-top:20px;'>Recomendaciones Estratégicas</h3>
-                    """, unsafe_allow_html=True)
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    for i, rec in enumerate(recommendations, 1):
-                        st.success(f"{i}. {rec}")
-                else:
-                    st.info("No se pudieron generar recomendaciones automáticas con los datos disponibles.")
-            else:
-                st.warning("Se necesitan métricas del oponente y Cibao para generar recomendaciones.")
+    
+    # Tabs 3-7 ocultos temporalmente - se trabajarán más adelante
+    # El código de estos tabs está comentado y se restaurará cuando se trabaje en ellos
 
 
 if __name__ == "__main__":
