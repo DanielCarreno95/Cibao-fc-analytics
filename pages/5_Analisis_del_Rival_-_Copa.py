@@ -1092,9 +1092,9 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
         return
     
     # Calcular estadísticas de forma
-    wins = sum(1 for m in recent_matches if m["result"] == "W")
-    draws = sum(1 for m in recent_matches if m["result"] == "D")
-    losses = sum(1 for m in recent_matches if m["result"] == "L")
+    wins = sum(1 for m in recent_matches if m.get("result") == "W")
+    draws = sum(1 for m in recent_matches if m.get("result") == "D")
+    losses = sum(1 for m in recent_matches if m.get("result") == "L")
     
     # Mostrar resumen de forma
     col1, col2, col3, col4 = st.columns(4)
@@ -1114,7 +1114,7 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Mostrar cadena de resultados (W/D/L)
-    form_string = "".join([m["result_emoji"] for m in recent_matches])
+    form_string = "".join([m.get("result_emoji", "?") for m in recent_matches if m.get("result")])
     st.markdown(f"""
     <div style='
         background: rgba(30, 41, 59, 0.6);
@@ -1161,7 +1161,7 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
     
     # Data rows - each row is clickable via a button
     for idx, match in enumerate(recent_matches, 1):
-        venue = "Casa" if match["is_home"] else "Fuera"
+        venue = "Casa" if match.get("is_home", False) else "Fuera"
         
         # Extract shots statistics from match data
         match_data = match.get("match_data")
@@ -2057,8 +2057,8 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
         opp_val = opp_val_from_dict
         cibao_val = cibao_val_from_dict
         
-        # Formatear valores según el tipo (Cibao primero, luego Oponente)
-        if label in ["Posesión", "Precisión Pases", "Precisión Disparos", "Efectividad Tackles"]:
+        # Formatear valores según el tipo
+        if label in ["Posesión", "Precisión Pases", "Precisión Disparos", "Efectividad Tackles", "Shot Accuracy", "Pass Accuracy", "Tackle Success"]:
             # Porcentajes
             hover = f"{label}<br>Cibao: {cibao_val:.1f}%<br>{opponent_name}: {opp_val:.1f}%"
         else:
@@ -2299,6 +2299,15 @@ def extract_player_stats_from_matches(matches: List[Dict], team_name: str) -> Di
                     "shirt_number": player.get("shirtNumber", 0),
                     "goals": 0,
                     "assists": 0,
+                    "total_shots": 0,
+                    "shots_on_target": 0,
+                    "total_passes": 0,
+                    "accurate_passes": 0,
+                    "total_tackles": 0,
+                    "won_tackles": 0,
+                    "clearances": 0,
+                    "interceptions": 0,
+                    "saves": 0,
                     "matches_played": 0,
                     "matches_started": 0,
                     "total_minutes": 0,
@@ -2312,16 +2321,48 @@ def extract_player_stats_from_matches(matches: List[Dict], team_name: str) -> Di
                 value = stat.get("value", "0")
                 
                 try:
+                    # Convert value to int/float
+                    if isinstance(value, str):
+                        # Try int first, then float
+                        try:
+                            num_value = int(value)
+                        except:
+                            try:
+                                num_value = float(value)
+                            except:
+                                num_value = 0
+                    else:
+                        num_value = int(value) if isinstance(value, (int, float)) else 0
+                    
                     if stat_type == "goals":
-                        player_stats[player_id]["goals"] += int(value)
+                        player_stats[player_id]["goals"] += num_value
                     elif stat_type == "goalAssist":
-                        player_stats[player_id]["assists"] += int(value)
+                        player_stats[player_id]["assists"] += num_value
+                    elif stat_type == "totalScoringAtt":
+                        player_stats[player_id]["total_shots"] += num_value
+                    elif stat_type == "ontargetScoringAtt":
+                        player_stats[player_id]["shots_on_target"] += num_value
+                    elif stat_type == "totalPass":
+                        player_stats[player_id]["total_passes"] += num_value
+                    elif stat_type == "accuratePass":
+                        player_stats[player_id]["accurate_passes"] += num_value
+                    elif stat_type == "totalTackle":
+                        player_stats[player_id]["total_tackles"] += num_value
+                    elif stat_type == "wonTackle":
+                        player_stats[player_id]["won_tackles"] += num_value
+                    elif stat_type == "totalClearance":
+                        player_stats[player_id]["clearances"] += num_value
+                    elif stat_type == "interception":
+                        player_stats[player_id]["interceptions"] += num_value
+                    elif stat_type == "saves":
+                        player_stats[player_id]["saves"] += num_value
                     elif stat_type == "minsPlayed":
-                        player_stats[player_id]["total_minutes"] += int(value)
+                        player_stats[player_id]["total_minutes"] += num_value
                     elif stat_type == "gameStarted":
-                        if int(value) == 1:
+                        if num_value == 1:
                             player_stats[player_id]["matches_started"] += 1
-                except:
+                except Exception as e:
+                    # Silently skip invalid stats
                     pass
             
             player_stats[player_id]["matches_played"] += 1
@@ -2782,6 +2823,196 @@ def generate_match_recommendations(
     return recommendations
 
 
+def create_player_radar_chart(players_data: List[Dict], selected_metrics: List[str] = None) -> go.Figure:
+    """Crea un gráfico de radar para comparar múltiples jugadores."""
+    if not players_data or len(players_data) < 2:
+        return None
+    
+    # Métricas disponibles para jugadores
+    available_metrics = {
+        "Goles por 90": ("goals_per_90", False),
+        "Asistencias por 90": ("assists_per_90", False),
+        "Disparos por 90": ("shots_per_90", False),
+        "Disparos al Arco por 90": ("shots_on_target_per_90", False),
+        "Precisión Disparos": ("shot_accuracy", False),
+        "Pases por 90": ("passes_per_90", False),
+        "Pases Precisos por 90": ("accurate_passes_per_90", False),
+        "Precisión Pases": ("pass_accuracy", False),
+        "Tackles por 90": ("tackles_per_90", False),
+        "Tackles Exitosos por 90": ("won_tackles_per_90", False),
+        "Efectividad Tackles": ("tackle_success", False),
+        "Despejes por 90": ("clearances_per_90", False),
+        "Intercepciones por 90": ("interceptions_per_90", False),
+        "Atajadas por 90": ("saves_per_90", False),
+        "Minutos por Partido": ("minutes_per_match", False),
+    }
+    
+    # Si no se especifican métricas, usar todas
+    if not selected_metrics:
+        selected_metrics = list(available_metrics.keys())
+    
+    # Filtrar métricas válidas
+    radar_metrics = {k: v for k, v in available_metrics.items() if k in selected_metrics}
+    
+    if not radar_metrics:
+        return None
+    
+    # Calcular valores para cada jugador
+    player_values = {}
+    metric_ranges = {}
+    
+    for metric_label, (metric_key, invert) in radar_metrics.items():
+        values = []
+        for player in players_data:
+            val = player.get(metric_key, 0)
+            # Only include non-zero values for range calculation if we have at least one non-zero value
+            # Otherwise, if all values are 0, we'll use a small default range
+            values.append(val)
+        
+        if values:
+            # Filter out None values and ensure we have numeric values
+            numeric_values = [v for v in values if v is not None and isinstance(v, (int, float))]
+            if numeric_values:
+                min_val = min(numeric_values)
+                max_val = max(numeric_values)
+                # If all values are 0, set a small default range to avoid division by zero
+                if min_val == 0 and max_val == 0:
+                    min_val = 0
+                    max_val = 1  # Small default range for zero values
+                # Añadir padding del 10% para mejor visualización
+                range_padding = (max_val - min_val) * 0.1 if max_val > min_val else max_val * 0.1
+                metric_ranges[metric_label] = {
+                    "min": max(0, min_val - range_padding),
+                    "max": max_val + range_padding,
+                    "invert": invert
+                }
+            else:
+                # Fallback if no valid values
+                metric_ranges[metric_label] = {
+                    "min": 0,
+                    "max": 1,
+                    "invert": invert
+                }
+    
+    # Normalizar valores para cada jugador
+    normalized_data = {}
+    for player in players_data:
+        player_name = player.get("name", "Unknown")
+        normalized_values = []
+        hover_text = []
+        
+        for metric_label, (metric_key, invert) in radar_metrics.items():
+            val = player.get(metric_key, 0)
+            range_info = metric_ranges[metric_label]
+            min_val = range_info["min"]
+            max_val = range_info["max"]
+            invert = range_info["invert"]
+            
+            # Normalizar a escala 0-100
+            if invert:
+                range_size = max_val - min_val if max_val > min_val else 1
+                normalized = ((max_val - val) / range_size) * 100
+            else:
+                range_size = max_val - min_val if max_val > min_val else 1
+                normalized = ((val - min_val) / range_size) * 100
+            
+            normalized = max(0, min(100, normalized))
+            normalized_values.append(normalized)
+            
+            # Crear hover text con valor real
+            if metric_label in ["Precisión Disparos", "Precisión Pases", "Efectividad Tackles"]:
+                hover = f"{metric_label}<br>{player_name}: {val:.1f}%"
+            else:
+                hover = f"{metric_label}<br>{player_name}: {val:.2f}"
+            hover_text.append(hover)
+        
+        # Cerrar el círculo
+        normalized_values.append(normalized_values[0])
+        hover_text.append(hover_text[0])
+        
+        normalized_data[player_name] = {
+            "values": normalized_values,
+            "hover": hover_text
+        }
+    
+    # Crear gráfico
+    fig = go.Figure()
+    
+    # Colores para jugadores - usar color de Cibao para jugadores de Cibao
+    cibao_color = '#FF8C00'  # Color oficial de Cibao
+    opponent_colors = ['#EF4444', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899']
+    
+    categories = [f"{label} ({metric_ranges[label]['min']:.1f}-{metric_ranges[label]['max']:.1f})" 
+                  for label in radar_metrics.keys()]
+    categories.append(categories[0])  # Cerrar el círculo
+    
+    opponent_idx = 0
+    for idx, player in enumerate(players_data):
+        player_name = player.get("name", "Unknown")
+        team = player.get("team", "Unknown")
+        
+        # Asignar color según el equipo
+        if team == "Cibao":
+            color = cibao_color
+        else:
+            color = opponent_colors[opponent_idx % len(opponent_colors)]
+            opponent_idx += 1
+        
+        rgb = tuple(int(color[i:i+2], 16) for i in (1, 3, 5))
+        fillcolor = f'rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.2)'
+        
+        data = normalized_data[player_name]
+        
+        # Mostrar nombre con equipo en la leyenda
+        display_name = f"{player_name} ({team})"
+        
+        fig.add_trace(go.Scatterpolar(
+            r=data["values"],
+            theta=categories,
+            fill='toself',
+            name=display_name,
+            line=dict(color=color, width=3),
+            fillcolor=fillcolor,
+            hovertemplate='%{text}<extra></extra>',
+            text=data["hover"]
+        ))
+    
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100],
+                tickfont=dict(size=16, color='#94A3B8'),
+                gridcolor='rgba(148, 163, 184, 0.3)',
+                showticklabels=False
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=15, color='#FFFFFF'),
+                linecolor='rgba(148, 163, 184, 0.3)'
+            )
+        ),
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=600,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=18, color='#FFFFFF')
+        ),
+        title=dict(
+            text="Comparación de Jugadores",
+            font=dict(size=24, color='#FFFFFF'),
+            x=0.5
+        )
+    )
+    
+    return fig
+
+
 def generate_comparison_summary(opponent_metrics: Dict, cibao_metrics: Dict, opponent_name: str) -> Dict:
     """Genera un resumen de comparación con ventajas clave."""
     insights = {
@@ -3153,151 +3384,302 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
     # Convertir a lista y ordenar
     players_list = list(player_stats.values())
     
-    # Top Scorers
-    top_scorers = sorted(players_list, key=lambda x: x["goals"], reverse=True)[:10]
-    
-    # Top Assists
-    top_assists = sorted(players_list, key=lambda x: x["assists"], reverse=True)[:10]
-    
-    # Most Regular Starters (by matches started)
-    regular_starters = sorted(players_list, key=lambda x: x["matches_started"], reverse=True)[:11]
-    
+    # Search and filter functionality
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>Top Goleadores</h3>
+    <h3 style='color:#ff8c00; margin-top:20px;'>Buscar y Filtrar</h3>
     """, unsafe_allow_html=True)
+    
+    # Player dropdown
+    player_names = sorted([p["name"] for p in players_list if p.get("name")])
+    selected_player_dropdown = st.selectbox(
+        "Seleccionar jugador:",
+        options=["Todos los jugadores"] + player_names,
+        key="player_dropdown",
+        help="Selecciona un jugador para resaltar sus estadísticas"
+    )
+    
+    # Text search (alternative to dropdown)
+    search_query = st.text_input(
+        "Buscar jugador por nombre:",
+        key="player_search",
+        placeholder="Escribe el nombre del jugador...",
+        help="Busca un jugador para resaltar sus estadísticas en todas las tablas"
+    )
+    
     st.markdown("<br>", unsafe_allow_html=True)
     
-    if top_scorers and any(p["goals"] > 0 for p in top_scorers):
-        scorers_data = []
-        for i, player in enumerate(top_scorers, 1):
-            if player["goals"] > 0:
-                scorers_data.append({
-                    "#": i,
-                    "Jugador": player["name"],
-                    "Posición": player["position"],
-                    "Goles": player["goals"],
-                    "Asistencias": player["assists"],
-                    "Partidos": player["matches_played"],
-                    "Minutos": player["total_minutes"]
-                })
+    # Determine which player to highlight
+    search_query_normalized = ""
+    if selected_player_dropdown and selected_player_dropdown != "Todos los jugadores":
+        search_query_normalized = selected_player_dropdown.lower().strip()
+    elif search_query:
+        search_query_normalized = search_query.strip().lower()
+    
+    # Inject CSS once at the beginning (always, for consistent table styling)
+    st.markdown("""
+    <style>
+    .player-table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: #1e1e1e;
+        color: white;
+        margin: 10px 0;
+    }
+    .player-table th {
+        background-color: #2d2d2d;
+        color: #FF9900;
+        padding: 10px;
+        text-align: left;
+        border: 1px solid #444;
+    }
+    .player-table td {
+        padding: 8px;
+        border: 1px solid #444;
+    }
+    .player-table tr:hover {
+        background-color: #333;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Helper function to highlight rows in DataFrame and return HTML
+    def highlight_player_row(df, search_term):
+        """Highlights rows where the player name matches the search term and returns HTML."""
+        if not search_term or df.empty:
+            return None
         
-        if scorers_data:
-            df_scorers = pd.DataFrame(scorers_data)
-            st.dataframe(df_scorers, use_container_width=True, hide_index=True)
-        else:
-            st.info("No hay goleadores registrados.")
-    else:
-        st.info("No hay goleadores registrados.")
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("---")
-    
-    st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>Top Asistentes</h3>
-    """, unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    if top_assists and any(p["assists"] > 0 for p in top_assists):
-        assists_data = []
-        for i, player in enumerate(top_assists, 1):
-            if player["assists"] > 0:
-                assists_data.append({
-                    "#": i,
-                    "Jugador": player["name"],
-                    "Posición": player["position"],
-                    "Asistencias": player["assists"],
-                    "Goles": player["goals"],
-                    "Partidos": player["matches_played"]
-                })
+        def style_row(row):
+            player_name = str(row.get("Jugador", "")).lower().strip()
+            search_term_lower = search_term.lower().strip()
+            # Try exact match first, then substring match
+            if player_name == search_term_lower:
+                return ['background-color: #FF9900; color: #000000; font-weight: bold;'] * len(row)
+            elif search_term_lower in player_name:
+                return ['background-color: #FF9900; color: #000000; font-weight: bold;'] * len(row)
+            return [''] * len(row)
         
-        if assists_data:
-            df_assists = pd.DataFrame(assists_data)
-            st.dataframe(df_assists, use_container_width=True, hide_index=True)
-        else:
-            st.info("No hay asistencias registradas.")
-    else:
-        st.info("No hay asistencias registradas.")
+        styled_df = df.style.apply(style_row, axis=1)
+        # Convert to HTML and add class for styling
+        html = styled_df.to_html(escape=False, index=False, classes='player-table')
+        return html
     
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("---")
+    # Use all players (no metric filtering)
+    filtered_players = players_list
     
+    # ========== OFFENSIVE METRICS ==========
     st.markdown("""
-    <h3 style='color:#ff8c00; margin-top:20px;'>Jugadores Más Regulares (Alineación Inicial)</h3>
+    <h2 style='color:#ff8c00; margin-top:30px; text-align:center;'>Métricas Ofensivas</h2>
     """, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
-    if regular_starters:
-        starters_data = []
-        for i, player in enumerate(regular_starters, 1):
-            starters_data.append({
-                "#": i,
+    # Table 1: Goals & Shots
+    st.markdown("""
+    <h3 style='color:#ff8c00; margin-top:20px;'>Goles y Disparos</h3>
+    """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Prepare goals and shots data
+    goals_shots_data = []
+    for player in filtered_players:
+        minutes = player.get("total_minutes", 0)
+        if minutes > 0:
+            goals = player.get("goals", 0)
+            goals_per_90 = (goals / minutes * 90) if minutes > 0 else 0
+            total_shots = player.get("total_shots", 0)
+            shots_on_target = player.get("shots_on_target", 0)
+            shots_per_90 = (total_shots / minutes * 90) if minutes > 0 else 0
+            shots_on_target_per_90 = (shots_on_target / minutes * 90) if minutes > 0 else 0
+            shot_accuracy = (shots_on_target / total_shots * 100) if total_shots > 0 else 0
+            
+            goals_shots_data.append({
                 "Jugador": player["name"],
-                "Posición": player["position"],
-                "Partidos Iniciados": player["matches_started"],
-                "Partidos Totales": player["matches_played"],
-                "Minutos Totales": player["total_minutes"],
-                "Goles": player["goals"],
-                "Asistencias": player["assists"]
+                "Equipo": team_name,
+                "Posición": player.get("position", "Unknown"),
+                "Goles": goals,
+                "Goles/90": f"{goals_per_90:.2f}",
+                "Disparos": total_shots,
+                "Disparos/90": f"{shots_per_90:.2f}",
+                "Disparos al Arco": shots_on_target,
+                "Disparos al Arco/90": f"{shots_on_target_per_90:.2f}",
+                "Precisión %": f"{shot_accuracy:.1f}%",
+                "Partidos": player.get("matches_played", 0),
+                "Minutos": minutes
             })
-        
-        df_starters = pd.DataFrame(starters_data)
-        st.dataframe(df_starters, use_container_width=True, hide_index=True)
     
-    # Gráfico de goles y asistencias
-    if top_scorers and (any(p["goals"] > 0 for p in top_scorers) or any(p["assists"] > 0 for p in top_scorers)):
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("""
-        <h3 style='color:#ff8c00; margin-top:20px;'>Goles y Asistencias por Jugador</h3>
-        """, unsafe_allow_html=True)
-        
-        # Preparar datos para el gráfico
-        chart_players = [p for p in players_list if p["goals"] > 0 or p["assists"] > 0]
-        chart_players = sorted(chart_players, key=lambda x: x["goals"] + x["assists"], reverse=True)[:10]
-        
-        if chart_players:
-            player_names = [p["name"] for p in chart_players]
-            goals = [p["goals"] for p in chart_players]
-            assists = [p["assists"] for p in chart_players]
+    # Sort by goals descending
+    goals_shots_data = sorted(goals_shots_data, key=lambda x: x["Goles"], reverse=True)
+    
+    if goals_shots_data:
+        df_goals_shots = pd.DataFrame(goals_shots_data)
+        if search_query_normalized:
+            styled_html = highlight_player_row(df_goals_shots, search_query_normalized)
+            if styled_html:
+                st.markdown(styled_html, unsafe_allow_html=True)
+            else:
+                st.dataframe(df_goals_shots, use_container_width=True, hide_index=True)
+        else:
+            st.dataframe(df_goals_shots, use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay datos de goles y disparos disponibles.")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # Table 2: Assists & Passing
+    st.markdown("""
+    <h3 style='color:#ff8c00; margin-top:20px;'>Asistencias y Pases</h3>
+    """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Prepare assists and passing data
+    assists_passing_data = []
+    for player in filtered_players:
+        minutes = player.get("total_minutes", 0)
+        if minutes > 0:
+            assists = player.get("assists", 0)
+            assists_per_90 = (assists / minutes * 90) if minutes > 0 else 0
+            total_passes = player.get("total_passes", 0)
+            accurate_passes = player.get("accurate_passes", 0)
+            passes_per_90 = (total_passes / minutes * 90) if minutes > 0 else 0
+            accurate_passes_per_90 = (accurate_passes / minutes * 90) if minutes > 0 else 0
+            pass_accuracy = (accurate_passes / total_passes * 100) if total_passes > 0 else 0
             
-            fig = go.Figure()
+            assists_passing_data.append({
+                "Jugador": player["name"],
+                "Equipo": team_name,
+                "Posición": player.get("position", "Unknown"),
+                "Asistencias": assists,
+                "Asistencias/90": f"{assists_per_90:.2f}",
+                "Pases": total_passes,
+                "Pases/90": f"{passes_per_90:.2f}",
+                "Pases Precisos": accurate_passes,
+                "Pases Precisos/90": f"{accurate_passes_per_90:.2f}",
+                "Precisión %": f"{pass_accuracy:.1f}%",
+                "Partidos": player.get("matches_played", 0),
+                "Minutos": minutes
+            })
+    
+    # Sort by assists descending
+    assists_passing_data = sorted(assists_passing_data, key=lambda x: x["Asistencias"], reverse=True)
+    
+    if assists_passing_data:
+        df_assists_passing = pd.DataFrame(assists_passing_data)
+        if search_query_normalized:
+            styled_html = highlight_player_row(df_assists_passing, search_query_normalized)
+            if styled_html:
+                st.markdown(styled_html, unsafe_allow_html=True)
+            else:
+                st.dataframe(df_assists_passing, use_container_width=True, hide_index=True)
+        else:
+            st.dataframe(df_assists_passing, use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay datos de asistencias y pases disponibles.")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # ========== DEFENSIVE METRICS ==========
+    st.markdown("""
+    <h2 style='color:#ff8c00; margin-top:30px; text-align:center;'>Métricas Defensivas</h2>
+    """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Table 3: Tackles & Interceptions
+    st.markdown("""
+    <h3 style='color:#ff8c00; margin-top:20px;'>Tackles e Intercepciones</h3>
+    """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Prepare tackles and interceptions data
+    tackles_interceptions_data = []
+    for player in filtered_players:
+        minutes = player.get("total_minutes", 0)
+        if minutes > 0:
+            total_tackles = player.get("total_tackles", 0)
+            won_tackles = player.get("won_tackles", 0)
+            tackles_per_90 = (total_tackles / minutes * 90) if minutes > 0 else 0
+            won_tackles_per_90 = (won_tackles / minutes * 90) if minutes > 0 else 0
+            tackle_success = (won_tackles / total_tackles * 100) if total_tackles > 0 else 0
+            interceptions = player.get("interceptions", 0)
+            interceptions_per_90 = (interceptions / minutes * 90) if minutes > 0 else 0
             
-            fig.add_trace(go.Bar(
-                name="Goles",
-                x=player_names,
-                y=goals,
-                marker_color='#EF4444',
-                text=goals,
-                textposition='outside'
-            ))
+            tackles_interceptions_data.append({
+                "Jugador": player["name"],
+                "Equipo": team_name,
+                "Posición": player.get("position", "Unknown"),
+                "Tackles": total_tackles,
+                "Tackles/90": f"{tackles_per_90:.2f}",
+                "Tackles Exitosos": won_tackles,
+                "Tackles Exitosos/90": f"{won_tackles_per_90:.2f}",
+                "Efectividad %": f"{tackle_success:.1f}%",
+                "Intercepciones": interceptions,
+                "Intercepciones/90": f"{interceptions_per_90:.2f}",
+                "Partidos": player.get("matches_played", 0),
+                "Minutos": minutes
+            })
+    
+    # Sort by total tackles descending
+    tackles_interceptions_data = sorted(tackles_interceptions_data, key=lambda x: x["Tackles"], reverse=True)
+    
+    if tackles_interceptions_data:
+        df_tackles_interceptions = pd.DataFrame(tackles_interceptions_data)
+        if search_query_normalized:
+            styled_html = highlight_player_row(df_tackles_interceptions, search_query_normalized)
+            if styled_html:
+                st.markdown(styled_html, unsafe_allow_html=True)
+            else:
+                st.dataframe(df_tackles_interceptions, use_container_width=True, hide_index=True)
+        else:
+            st.dataframe(df_tackles_interceptions, use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay datos de tackles e intercepciones disponibles.")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # Table 4: Clearances & Saves
+    st.markdown("""
+    <h3 style='color:#ff8c00; margin-top:20px;'>Despejes y Atajadas</h3>
+    """, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Prepare clearances and saves data
+    clearances_saves_data = []
+    for player in filtered_players:
+        minutes = player.get("total_minutes", 0)
+        if minutes > 0:
+            clearances = player.get("clearances", 0)
+            clearances_per_90 = (clearances / minutes * 90) if minutes > 0 else 0
+            saves = player.get("saves", 0)
+            saves_per_90 = (saves / minutes * 90) if minutes > 0 else 0
             
-            fig.add_trace(go.Bar(
-                name="Asistencias",
-                x=player_names,
-                y=assists,
-                marker_color='#10B981',
-                text=assists,
-                textposition='outside'
-            ))
-            
-            fig.update_layout(
-                template='plotly_dark',
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                height=500,
-                xaxis_title="Jugador",
-                yaxis_title="Cantidad",
-                legend=dict(
-                    orientation="h",
-                    yanchor="bottom",
-                    y=1.02,
-                    xanchor="center",
-                    x=0.5
-                ),
-                barmode='group',
-                xaxis=dict(tickangle=-45)
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+            clearances_saves_data.append({
+                "Jugador": player["name"],
+                "Equipo": team_name,
+                "Posición": player.get("position", "Unknown"),
+                "Despejes": clearances,
+                "Despejes/90": f"{clearances_per_90:.2f}",
+                "Atajadas": saves,
+                "Atajadas/90": f"{saves_per_90:.2f}",
+                "Partidos": player.get("matches_played", 0),
+                "Minutos": minutes
+            })
+    
+    # Sort by clearances descending
+    clearances_saves_data = sorted(clearances_saves_data, key=lambda x: x["Despejes"], reverse=True)
+    
+    if clearances_saves_data:
+        df_clearances_saves = pd.DataFrame(clearances_saves_data)
+        if search_query_normalized:
+            styled_html = highlight_player_row(df_clearances_saves, search_query_normalized)
+            if styled_html:
+                st.markdown(styled_html, unsafe_allow_html=True)
+            else:
+                st.dataframe(df_clearances_saves, use_container_width=True, hide_index=True)
+        else:
+            st.dataframe(df_clearances_saves, use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay datos de despejes y atajadas disponibles.")
 
 
 def display_formation_analysis(formation_stats: Dict, team_name: str):
@@ -3670,9 +4052,10 @@ def main():
     
     
     # Crear pestañas para organizar el contenido (ocultando algunas por ahora)
-    tab1, tab2 = st.tabs([
+    tab1, tab2, tab3 = st.tabs([
         "Resumen",
-        "Comparación"
+        "Comparación",
+        "Jugadores Clave"
     ])
     
     # TAB 1: RESUMEN (Métricas clave + Radar)
@@ -3692,24 +4075,36 @@ def main():
             st.markdown("<br>", unsafe_allow_html=True)
             
             if filtered_matches:
-                # Selector de número de partidos a mostrar
-                num_matches_option = st.radio(
+                # Selector de filtro de partidos
+                recent_form_filter = st.radio(
                     "Mostrar:",
-                    options=["Todos los partidos", "Últimos 3 partidos", "Últimos 5 partidos"],
+                    options=["Todos los partidos", "Últimos 3 partidos", "Últimos 5 partidos", "En Casa", "Fuera"],
                     horizontal=True,
-                    key="recent_form_num_matches"
+                    key="recent_form_filter"
                 )
                 
-                # Determinar número de partidos
-                if num_matches_option == "Todos los partidos":
-                    num_matches = None  # None significa todos
-                elif num_matches_option == "Últimos 3 partidos":
+                # Aplicar filtro según la selección
+                if recent_form_filter == "Todos los partidos":
+                    filtered_matches_for_form = filtered_matches
+                    num_matches = None
+                elif recent_form_filter == "Últimos 3 partidos":
+                    filtered_matches_for_form = filtered_matches
                     num_matches = 3
-                else:
+                elif recent_form_filter == "Últimos 5 partidos":
+                    filtered_matches_for_form = filtered_matches
                     num_matches = 5
+                elif recent_form_filter == "En Casa":
+                    filtered_matches_for_form = filter_matches_by_type(filtered_matches, selected_opponent, "home", all_matches)
+                    num_matches = None
+                elif recent_form_filter == "Fuera":
+                    filtered_matches_for_form = filter_matches_by_type(filtered_matches, selected_opponent, "away", all_matches)
+                    num_matches = None
+                else:
+                    filtered_matches_for_form = filtered_matches
+                    num_matches = None
                 
-                # Obtener partidos recientes (de partidos filtrados)
-                recent_form = get_recent_form(filtered_matches, selected_opponent, num_matches=num_matches)
+                # Obtener partidos recientes (siempre procesar a través de get_recent_form para obtener resultados)
+                recent_form = get_recent_form(filtered_matches_for_form, selected_opponent, num_matches=num_matches)
                 
                 if recent_form:
                     display_recent_form(recent_form, selected_opponent)
@@ -3820,9 +4215,11 @@ def main():
             
             # Filtro de partidos (UI movido aquí para estar junto a Métricas Clave)
             filter_options_ui = {
-                "Todos los Partidos": "all",
-                "Partidos en Casa": "home",
-                "Partidos Fuera": "away",
+                "Todos los partidos": "all",
+                "Últimos 3 partidos": "last_3",
+                "Últimos 5 partidos": "last_5",
+                "En Casa": "home",
+                "Fuera": "away",
             }
             if selected_opponent != CIBAO_TEAM_NAME:
                 filter_options_ui["Partidos vs Cibao"] = "vs_cibao"
@@ -3830,7 +4227,7 @@ def main():
             # Obtener el índice del filtro actual para mantener la selección
             current_filter_keys = list(filter_options_ui.keys())
             try:
-                current_index = current_filter_keys.index(selected_filter)
+                current_index = current_filter_keys.index(selected_filter) if selected_filter in current_filter_keys else 0
             except:
                 current_index = 0
             
@@ -3844,7 +4241,28 @@ def main():
             filter_type_ui = filter_options_ui[selected_filter_ui]
             
             # Recalcular con el filtro seleccionado
-            filtered_matches_ui = filter_matches_by_type(team_all_matches, selected_opponent, filter_type_ui, all_matches)
+            if filter_type_ui == "last_3":
+                recent_matches = get_recent_form(team_all_matches, selected_opponent, num_matches=3)
+                filtered_matches_ui = []
+                for match in recent_matches:
+                    match_data = match.get("match_data")
+                    if match_data:
+                        opponent_stats = extract_team_stats_from_match(match_data, selected_opponent)
+                        if opponent_stats:
+                            match["opponent_stats"] = opponent_stats
+                            filtered_matches_ui.append(match)
+            elif filter_type_ui == "last_5":
+                recent_matches = get_recent_form(team_all_matches, selected_opponent, num_matches=5)
+                filtered_matches_ui = []
+                for match in recent_matches:
+                    match_data = match.get("match_data")
+                    if match_data:
+                        opponent_stats = extract_team_stats_from_match(match_data, selected_opponent)
+                        if opponent_stats:
+                            match["opponent_stats"] = opponent_stats
+                            filtered_matches_ui.append(match)
+            else:
+                filtered_matches_ui = filter_matches_by_type(team_all_matches, selected_opponent, filter_type_ui, all_matches)
             filtered_averages_ui = calculate_average_metrics(filtered_matches_ui) if filtered_matches_ui else {}
             display_averages_ui = filtered_averages_ui if filtered_averages_ui else team_averages
             
@@ -4595,15 +5013,32 @@ def main():
         else:
             st.warning("⚠No se pudieron calcular las métricas para la comparación.")
     
-    # Tabs ocultos por ahora - se trabajarán más adelante
-    # TAB 3: FORMA RECIENTE
-    # TAB 4: CARA A CARA
-    # TAB 5: JUGADORES CLAVE
-    # TAB 6: ANÁLISIS TÁCTICO
-    # TAB 7: RECOMENDACIONES
-    
-    # Tabs 3-7 ocultos temporalmente - se trabajarán más adelante
-    # El código de estos tabs está comentado y se restaurará cuando se trabaje en ellos
+    # TAB 3: KEY PLAYERS (Jugadores Clave)
+    with tab3:
+        if selected_opponent and selected_opponent != CIBAO_TEAM_NAME:
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Jugadores Clave de {opponent}</h2>
+            """.format(opponent=selected_opponent), unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Get all matches for the opponent
+            opponent_matches = get_opponent_matches_data(all_matches, selected_opponent)
+            
+            if opponent_matches:
+                # Extract player stats from all opponent matches
+                player_stats = extract_player_stats_from_matches(opponent_matches, selected_opponent)
+                
+                if player_stats:
+                    # Display key players analysis
+                    display_key_players_analysis(player_stats, selected_opponent)
+                else:
+                    st.info("No se pudieron extraer estadísticas de jugadores para este equipo.")
+            else:
+                st.info("No hay partidos disponibles para este equipo.")
+        elif selected_opponent == CIBAO_TEAM_NAME:
+            st.info("Selecciona otro equipo para ver sus jugadores clave.")
+        else:
+            st.warning("Selecciona un equipo para ver sus jugadores clave.")
 
 
 if __name__ == "__main__":
