@@ -45,6 +45,62 @@ TEAM_COLORS = load_team_colors()
 CIBAO_COLOR = TEAM_COLORS.get('Cibao', '#FF9900')  # Color oficial de Cibao
 
 # ===========================================
+# FUNCIONES DE TRADUCCIÓN
+# ===========================================
+def translate_position(position: str) -> str:
+    """Traduce la posición del jugador al español."""
+    if not position or position == "Unknown":
+        return "Desconocido"
+    
+    position_lower = position.lower().strip()
+    
+    # Mapeo de posiciones comunes
+    position_map = {
+        "goalkeeper": "Portero",
+        "gk": "Portero",
+        "defender": "Defensor",
+        "def": "Defensor",
+        "defensive midfielder": "Mediocampista Defensivo",
+        "defensive mid": "Mediocampista Defensivo",
+        "cdm": "Mediocampista Defensivo",
+        "midfielder": "Mediocampista",
+        "mid": "Mediocampista",
+        "cm": "Mediocampista",
+        "attacking midfielder": "Mediocampista Ofensivo",
+        "attacking mid": "Mediocampista Ofensivo",
+        "cam": "Mediocampista Ofensivo",
+        "winger": "Extremo",
+        "wing": "Extremo",
+        "left winger": "Extremo Izquierdo",
+        "right winger": "Extremo Derecho",
+        "striker": "Delantero",
+        "forward": "Delantero",
+        "fwd": "Delantero",
+        "cf": "Delantero Centro",
+        "center forward": "Delantero Centro",
+        "left back": "Lateral Izquierdo",
+        "right back": "Lateral Derecho",
+        "lb": "Lateral Izquierdo",
+        "rb": "Lateral Derecho",
+        "center back": "Defensor Central",
+        "cb": "Defensor Central",
+        "central defender": "Defensor Central",
+        "unknown": "Desconocido"
+    }
+    
+    # Buscar coincidencia exacta primero
+    if position_lower in position_map:
+        return position_map[position_lower]
+    
+    # Buscar coincidencia parcial
+    for key, translation in position_map.items():
+        if key in position_lower or position_lower in key:
+            return translation
+    
+    # Si no hay coincidencia, devolver la posición original con primera letra mayúscula
+    return position.capitalize() if position else "Desconocido"
+
+# ===========================================
 # CONFIGURACIÓN
 # ===========================================
 st.set_page_config(
@@ -2128,23 +2184,11 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
             font=dict(size=18, color='#FFFFFF')
         ),
         title=dict(
-            text="Comparación de Fortalezas y Debilidades<br><sub style='font-size:14px; color:#94A3B8;'>Cada métrica tiene su propia escala. Pasa el cursor sobre los puntos para ver valores reales y rangos.</sub>",
+            text="Comparación de Fortalezas y Debilidades",
             font=dict(size=24, color='#FFFFFF'),
             x=0.5
         ),
-        annotations=scale_annotations + [
-            dict(
-                text="<b>Nota:</b> Cada métrica tiene su propia escala mostrada cerca de cada eje. Los valores están normalizados para comparación visual.",
-                showarrow=False,
-                xref="paper",
-                yref="paper",
-                x=0.5,
-                y=-0.15,
-                xanchor="center",
-                yanchor="top",
-                font=dict(size=12, color='#94A3B8')
-            )
-        ]
+        annotations=scale_annotations
     )
     
     return fig
@@ -2295,7 +2339,7 @@ def extract_player_stats_from_matches(matches: List[Dict], team_name: str) -> Di
             if player_id not in player_stats:
                 player_stats[player_id] = {
                     "name": player_name,
-                    "position": player.get("position", "Unknown"),
+                    "position": translate_position(player.get("position", "Unknown")),
                     "shirt_number": player.get("shirtNumber", 0),
                     "goals": 0,
                     "assists": 0,
@@ -3494,7 +3538,7 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
             goals_shots_data.append({
                 "Jugador": player["name"],
                 "Equipo": team_name,
-                "Posición": player.get("position", "Unknown"),
+                "Posición": translate_position(player.get("position", "Unknown")),
                 "Goles": goals,
                 "Goles/90": f"{goals_per_90:.2f}",
                 "Disparos": total_shots,
@@ -3547,7 +3591,7 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
             assists_passing_data.append({
                 "Jugador": player["name"],
                 "Equipo": team_name,
-                "Posición": player.get("position", "Unknown"),
+                "Posición": translate_position(player.get("position", "Unknown")),
                 "Asistencias": assists,
                 "Asistencias/90": f"{assists_per_90:.2f}",
                 "Pases": total_passes,
@@ -3606,7 +3650,7 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
             tackles_interceptions_data.append({
                 "Jugador": player["name"],
                 "Equipo": team_name,
-                "Posición": player.get("position", "Unknown"),
+                "Posición": translate_position(player.get("position", "Unknown")),
                 "Tackles": total_tackles,
                 "Tackles/90": f"{tackles_per_90:.2f}",
                 "Tackles Exitosos": won_tackles,
@@ -3656,7 +3700,7 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
             clearances_saves_data.append({
                 "Jugador": player["name"],
                 "Equipo": team_name,
-                "Posición": player.get("position", "Unknown"),
+                "Posición": translate_position(player.get("position", "Unknown")),
                 "Despejes": clearances,
                 "Despejes/90": f"{clearances_per_90:.2f}",
                 "Atajadas": saves,
