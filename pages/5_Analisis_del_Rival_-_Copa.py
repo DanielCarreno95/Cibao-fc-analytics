@@ -3107,10 +3107,11 @@ def main():
                 break
     
     
-    # Crear pestañas para organizar el contenido (ocultando algunas por ahora)
-    tab1, tab2 = st.tabs([
+    # Crear pestañas principales (agrega Jugadores Clave aquí)
+    tab_resumen, tab_comparacion, tab_jugadores = st.tabs([
         "Resumen",
-        "Comparación"
+        "Comparación",
+        "Jugadores Clave"
     ])
     
     # TAB 1: RESUMEN (Métricas clave + Radar)
