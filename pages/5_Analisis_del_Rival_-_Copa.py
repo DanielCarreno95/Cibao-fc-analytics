@@ -6,6 +6,7 @@ import json
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
+import numpy as np
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
@@ -715,13 +716,49 @@ def get_cibao_average_metrics_filtered(all_matches: List[Dict], filter_type: str
     return calculate_average_metrics_from_matches(cibao_matches, "cibao_stats")
 
 
+def get_match_duration_minutes(match: Dict) -> float:
+    """Extrae la duración del partido en minutos desde los datos del partido."""
+    try:
+        match_data = match.get("match_data")
+        if not match_data:
+            return 90.0  # Default a 90 minutos si no hay datos
+        
+        live_data = match_data.get("liveData", {})
+        match_details = live_data.get("matchDetails", {})
+        
+        # Intentar obtener duración del partido
+        match_length_min = match_details.get("matchLengthMin")
+        match_length_sec = match_details.get("matchLengthSec", 0)
+        
+        if match_length_min is not None:
+            # Convertir segundos a minutos fraccionarios
+            total_minutes = float(match_length_min) + (float(match_length_sec) / 60.0)
+            return max(90.0, total_minutes)  # Mínimo 90 minutos
+        
+        # Si no hay matchLengthMin, intentar calcular desde periodos
+        periods = match_details.get("period", [])
+        if periods:
+            total_minutes = 0
+            for period in periods if isinstance(periods, list) else [periods]:
+                period_min = period.get("lengthMin", 45)
+                period_sec = period.get("lengthSec", 0)
+                total_minutes += float(period_min) + (float(period_sec) / 60.0)
+            if total_minutes > 0:
+                return max(90.0, total_minutes)
+        
+        # Default a 90 minutos
+        return 90.0
+    except Exception:
+        return 90.0  # Default a 90 minutos en caso de error
+
+
 def calculate_average_metrics_from_matches(matches: List[Dict], stats_key: str) -> Dict[str, float]:
-    """Calcula promedios de métricas clave desde una lista de partidos."""
+    """Calcula promedios de métricas clave desde una lista de partidos, normalizando a per 90 minutos cuando corresponde."""
     if not matches:
         return {}
     
-    # Métricas a calcular
-    metrics_to_sum = {
+    # Métricas que deben normalizarse a per 90 (count-based)
+    count_metrics = {
         "goals": 0,
         "goalsConceded": 0,
         "totalScoringAtt": 0,  # Disparos totales
@@ -733,15 +770,21 @@ def calculate_average_metrics_from_matches(matches: List[Dict], stats_key: str) 
         "totalYellowCard": 0,
         "totalRedCard": 0,
         "saves": 0,
-        "possessionPercentage": 0,
         "totalPass": 0,
         "accuratePass": 0,
         "totalTackle": 0,
         "wonTackle": 0,
         "totalClearance": 0,
+        "interception": 0,
+    }
+    
+    # Métricas que ya están estandarizadas (porcentajes)
+    percentage_metrics = {
+        "possessionPercentage": 0,
     }
     
     match_count = 0
+    total_minutes = 0.0
     
     for match in matches:
         stats = match.get(stats_key, {})
@@ -749,10 +792,24 @@ def calculate_average_metrics_from_matches(matches: List[Dict], stats_key: str) 
             continue
         
         match_count += 1
-        for metric in metrics_to_sum:
+        
+        # Obtener duración del partido
+        match_minutes = get_match_duration_minutes(match)
+        total_minutes += match_minutes
+        
+        # Sumar métricas count-based
+        for metric in count_metrics:
             value = stats.get(metric, 0)
             try:
-                metrics_to_sum[metric] += float(value)
+                count_metrics[metric] += float(value)
+            except:
+                pass
+        
+        # Sumar métricas de porcentaje (promedio simple)
+        for metric in percentage_metrics:
+            value = stats.get(metric, 0)
+            try:
+                percentage_metrics[metric] += float(value)
             except:
                 pass
     
@@ -761,10 +818,22 @@ def calculate_average_metrics_from_matches(matches: List[Dict], stats_key: str) 
     
     # Calcular promedios
     averages = {}
-    for metric, total in metrics_to_sum.items():
+    
+    # Normalizar métricas count-based a per 90 minutos
+    if total_minutes > 0:
+        for metric, total in count_metrics.items():
+            # Normalizar: (total / total_minutes) * 90
+            averages[metric] = (total / total_minutes) * 90.0
+    else:
+        # Fallback: promedio simple por partido (asumiendo 90 min por partido)
+        for metric, total in count_metrics.items():
+            averages[metric] = total / match_count
+    
+    # Calcular promedios de porcentajes (ya están estandarizados)
+    for metric, total in percentage_metrics.items():
         averages[metric] = total / match_count
     
-    # Calcular métricas derivadas
+    # Calcular métricas derivadas (ya normalizadas)
     if averages.get("totalPass", 0) > 0:
         pass_accuracy = (averages.get("accuratePass", 0) / averages["totalPass"]) * 100
         averages["passAccuracy"] = round(pass_accuracy, 1)
@@ -1851,36 +1920,105 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
     radar_metrics = {k: v for k, v in all_radar_metrics.items() if k in selected_metrics}
     
     categories = []
+    categories_with_scale = []  # Categorías con escala incluida
     opponent_values = []
     cibao_values = []
+    metric_ranges = []  # Para almacenar el rango de cada métrica
+    metric_actual_values = []  # Para almacenar valores reales para hover
+    label_to_range_map = {}  # Mapeo explícito de label a rango para asegurar consistencia
     
+    # Primera pasada: calcular el rango dinámico para cada métrica
     for label, metric_info in radar_metrics.items():
         if isinstance(metric_info, tuple):
             if len(metric_info) == 3:
-                metric_key, max_val, invert = metric_info
+                metric_key, default_max, invert = metric_info
             else:
-                metric_key, max_val = metric_info
+                metric_key, default_max = metric_info
                 invert = False
         else:
             metric_key = metric_info
-            max_val = 100.0
+            default_max = 100.0
+            invert = False
+        
+        # Obtener valores reales
+        opp_val = opponent_metrics.get(metric_key, 0)
+        cibao_val = cibao_metrics.get(metric_key, 0)
+        
+        # Para métricas invertidas, usar el valor original para calcular el rango
+        if invert:
+            # Para métricas invertidas, el rango va de 0 a max_val
+            # pero mostramos valores más bajos como mejores
+            actual_opp = opp_val
+            actual_cibao = cibao_val
+            max_val = max(default_max, actual_opp * 1.2, actual_cibao * 1.2, 1.0)
+            min_val = 0
+        else:
+            # Para métricas normales, encontrar el máximo entre ambos valores
+            actual_opp = opp_val
+            actual_cibao = cibao_val
+            max_val = max(default_max, actual_opp * 1.2, actual_cibao * 1.2, 1.0)
+            min_val = 0
+        
+        metric_ranges.append((min_val, max_val))
+        label_to_range_map[label] = (min_val, max_val)  # Guardar en el mapeo también
+        metric_actual_values.append({
+            'opponent': actual_opp,
+            'cibao': actual_cibao,
+            'invert': invert
+        })
+    
+    # Segunda pasada: normalizar cada métrica a su propia escala (0-100)
+    for idx, (label, metric_info) in enumerate(radar_metrics.items()):
+        if isinstance(metric_info, tuple):
+            if len(metric_info) == 3:
+                metric_key, _, invert = metric_info
+            else:
+                metric_key, _ = metric_info
+                invert = False
+        else:
+            metric_key = metric_info
             invert = False
         
         categories.append(label)
         
-        # Obtener valor del oponente
-        opp_val = opponent_metrics.get(metric_key, 0)
-        if invert:
-            # Invertir: menos es mejor (goles recibidos)
-            opp_val = max(0, max_val - opp_val)
-        opp_normalized = min(100, (opp_val / max_val) * 100) if max_val > 0 else 0
-        opponent_values.append(opp_normalized)
+        min_val, max_val = metric_ranges[idx]
+        actual_vals = metric_actual_values[idx]
         
-        # Obtener valor de Cibao
-        cibao_val = cibao_metrics.get(metric_key, 0)
+        # Crear etiqueta con escala específica para cada métrica
+        if label in ["Posesión", "Precisión Pases", "Precisión Disparos", "Efectividad Tackles"]:
+            # Porcentajes
+            scale_label = f"{label}<br><span style='font-size:0.75em; color:#94A3B8;'>(0-{max_val:.0f}%)</span>"
+        else:
+            # Valores numéricos
+            if min_val == 0:
+                scale_label = f"{label}<br><span style='font-size:0.75em; color:#94A3B8;'>(0-{max_val:.1f})</span>"
+            else:
+                scale_label = f"{label}<br><span style='font-size:0.75em; color:#94A3B8;'>({min_val:.1f}-{max_val:.1f})</span>"
+        
+        categories_with_scale.append(scale_label)
+        
+        # Obtener valores reales
+        opp_val = actual_vals['opponent']
+        cibao_val = actual_vals['cibao']
+        
+        # Normalizar a escala 0-100 basada en el rango de esta métrica específica
         if invert:
-            cibao_val = max(0, max_val - cibao_val)
-        cibao_normalized = min(100, (cibao_val / max_val) * 100) if max_val > 0 else 0
+            # Para métricas invertidas: valor más bajo = mejor = más alto en el gráfico
+            # Normalizar: (max_val - val) / (max_val - min_val) * 100
+            range_size = max_val - min_val if max_val > min_val else 1
+            opp_normalized = ((max_val - opp_val) / range_size) * 100
+            cibao_normalized = ((max_val - cibao_val) / range_size) * 100
+        else:
+            # Para métricas normales: valor más alto = mejor = más alto en el gráfico
+            range_size = max_val - min_val if max_val > min_val else 1
+            opp_normalized = ((opp_val - min_val) / range_size) * 100
+            cibao_normalized = ((cibao_val - min_val) / range_size) * 100
+        
+        # Asegurar que estén en el rango 0-100
+        opp_normalized = max(0, min(100, opp_normalized))
+        cibao_normalized = max(0, min(100, cibao_normalized))
+        
+        opponent_values.append(opp_normalized)
         cibao_values.append(cibao_normalized)
     
     # Crear gráfico de radar
@@ -1891,13 +2029,56 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
     opponent_rgb = tuple(int(opponent_color[i:i+2], 16) for i in (1, 3, 5))
     opponent_fillcolor = f'rgba({opponent_rgb[0]}, {opponent_rgb[1]}, {opponent_rgb[2]}, 0.2)'
     
+    # Crear hover text con valores reales para ambos equipos
+    # IMPORTANTE: Iterar en el mismo orden que cuando construimos metric_actual_values
+    hover_text = []
+    
+    # Usar el mismo orden que radar_metrics.items() para garantizar consistencia
+    for idx, (label, metric_info) in enumerate(radar_metrics.items()):
+        # Extraer metric_key para verificar valores directamente desde los diccionarios originales
+        if isinstance(metric_info, tuple):
+            if len(metric_info) == 3:
+                metric_key, _, _ = metric_info
+            else:
+                metric_key, _ = metric_info
+        else:
+            metric_key = metric_info
+        
+        # Obtener valores directamente de los diccionarios originales para garantizar corrección
+        opp_val_from_dict = opponent_metrics.get(metric_key, 0)
+        cibao_val_from_dict = cibao_metrics.get(metric_key, 0)
+        
+        # También obtener de metric_actual_values para verificar
+        actual_vals = metric_actual_values[idx]
+        opp_val_stored = actual_vals['opponent']
+        cibao_val_stored = actual_vals['cibao']
+        
+        # Usar los valores del diccionario original (más confiable)
+        opp_val = opp_val_from_dict
+        cibao_val = cibao_val_from_dict
+        
+        # Formatear valores según el tipo (Cibao primero, luego Oponente)
+        if label in ["Posesión", "Precisión Pases", "Precisión Disparos", "Efectividad Tackles"]:
+            # Porcentajes
+            hover = f"{label}<br>Cibao: {cibao_val:.1f}%<br>{opponent_name}: {opp_val:.1f}%"
+        else:
+            # Valores numéricos
+            hover = f"{label}<br>Cibao: {cibao_val:.2f}<br>{opponent_name}: {opp_val:.2f}"
+        
+        hover_text.append(hover)
+    
+    # Cerrar el círculo para hover también
+    hover_text.append(hover_text[0])
+    
     fig.add_trace(go.Scatterpolar(
         r=opponent_values + [opponent_values[0]],  # Cerrar el círculo
-        theta=categories + [categories[0]],
+        theta=categories_with_scale + [categories_with_scale[0]],  # Usar categorías con escala
         fill='toself',
         name=opponent_name,
         line=dict(color=opponent_color, width=3),
-        fillcolor=opponent_fillcolor
+        fillcolor=opponent_fillcolor,
+        hovertemplate='%{text}<extra></extra>',
+        text=hover_text
     ))
     
     # Cibao - usar color oficial
@@ -1908,12 +2089,17 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
     
     fig.add_trace(go.Scatterpolar(
         r=cibao_values + [cibao_values[0]],  # Cerrar el círculo
-        theta=categories + [categories[0]],
+        theta=categories_with_scale + [categories_with_scale[0]],  # Usar categorías con escala
         fill='toself',
         name='Cibao',
         line=dict(color=cibao_color, width=3),
-        fillcolor=cibao_fillcolor
+        fillcolor=cibao_fillcolor,
+        hovertemplate='%{text}<extra></extra>',
+        text=hover_text
     ))
+    
+    # No agregar anotaciones de escala (tick marks)
+    scale_annotations = []
     
     fig.update_layout(
         polar=dict(
@@ -1921,10 +2107,11 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
                 visible=True,
                 range=[0, 100],
                 tickfont=dict(size=16, color='#94A3B8'),
-                gridcolor='rgba(148, 163, 184, 0.3)'
+                gridcolor='rgba(148, 163, 184, 0.3)',
+                showticklabels=False  # Ocultar las etiquetas 0, 20, 40, 60, 80, 100
             ),
             angularaxis=dict(
-                tickfont=dict(size=17, color='#FFFFFF'),
+                tickfont=dict(size=15, color='#FFFFFF'),
                 linecolor='rgba(148, 163, 184, 0.3)'
             )
         ),
@@ -1941,10 +2128,23 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
             font=dict(size=18, color='#FFFFFF')
         ),
         title=dict(
-            text="Comparación de Fortalezas y Debilidades",
+            text="Comparación de Fortalezas y Debilidades<br><sub style='font-size:14px; color:#94A3B8;'>Cada métrica tiene su propia escala. Pasa el cursor sobre los puntos para ver valores reales y rangos.</sub>",
             font=dict(size=24, color='#FFFFFF'),
             x=0.5
-        )
+        ),
+        annotations=scale_annotations + [
+            dict(
+                text="<b>Nota:</b> Cada métrica tiene su propia escala mostrada cerca de cada eje. Los valores están normalizados para comparación visual.",
+                showarrow=False,
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=-0.15,
+                xanchor="center",
+                yanchor="top",
+                font=dict(size=12, color='#94A3B8')
+            )
+        ]
     )
     
     return fig
@@ -2580,6 +2780,368 @@ def generate_match_recommendations(
         recommendations.append(f"**Control del juego:** Cibao tiene ventaja en posesión ({cibao_possession:.1f}% vs {opp_possession:.1f}%). Dominar el ritmo del partido.")
     
     return recommendations
+
+
+def generate_comparison_summary(opponent_metrics: Dict, cibao_metrics: Dict, opponent_name: str) -> Dict:
+    """Genera un resumen de comparación con ventajas clave."""
+    insights = {
+        "cibao_advantages": [],
+        "opponent_advantages": []
+    }
+    
+    # Comparar métricas clave
+    metrics_to_compare = [
+        ("goals", "Goles", "marca más goles", "marca menos goles", False),
+        ("goalsConceded", "Goles Recibidos", "recibe menos goles", "recibe más goles", True),
+        ("possessionPercentage", "Posesión", "tiene más posesión", "tiene menos posesión", False),
+        ("passAccuracy", "Precisión de Pases", "tiene mejor precisión de pases", "tiene peor precisión de pases", False),
+        ("totalScoringAtt", "Disparos", "dispara más", "dispara menos", False),
+        ("wonCorners", "Corners", "obtiene más corners", "obtiene menos corners", False),
+        ("wonTackle", "Tackles Exitosos", "tiene más tackles exitosos", "tiene menos tackles exitosos", False),
+    ]
+    
+    for metric_tuple in metrics_to_compare:
+        if len(metric_tuple) == 5:
+            metric_key, metric_name, cibao_better, opp_better, invert = metric_tuple
+        else:
+            metric_key, metric_name, cibao_better, opp_better = metric_tuple
+            invert = False
+        opp_val = opponent_metrics.get(metric_key, 0)
+        cibao_val = cibao_metrics.get(metric_key, 0)
+        
+        if invert:
+            # Para métricas donde menos es mejor (como goles recibidos)
+            if cibao_val < opp_val * 0.9:  # Cibao es al menos 10% mejor
+                diff_pct = ((opp_val - cibao_val) / opp_val * 100) if opp_val > 0 else 0
+                insights["cibao_advantages"].append(
+                    f"Cibao {cibao_better} ({cibao_val:.2f} vs {opp_val:.2f} de {opponent_name}, {diff_pct:.0f}% mejor)"
+                )
+            elif opp_val < cibao_val * 0.9:  # Oponente es al menos 10% mejor
+                diff_pct = ((cibao_val - opp_val) / cibao_val * 100) if cibao_val > 0 else 0
+                insights["opponent_advantages"].append(
+                    f"{opponent_name} {opp_better} ({opp_val:.2f} vs {cibao_val:.2f} de Cibao, {diff_pct:.0f}% mejor)"
+                )
+        else:
+            # Para métricas donde más es mejor
+            if cibao_val > opp_val * 1.05:  # Cibao es al menos 5% mejor (umbral más bajo)
+                diff_pct = ((cibao_val - opp_val) / opp_val * 100) if opp_val > 0 else 0
+                if metric_key == "possessionPercentage" or metric_key == "passAccuracy":
+                    insights["cibao_advantages"].append(
+                        f"Cibao {cibao_better} ({cibao_val:.1f}% vs {opp_val:.1f}% de {opponent_name}, {diff_pct:.0f}% mejor)"
+                    )
+                else:
+                    insights["cibao_advantages"].append(
+                        f"Cibao {cibao_better} ({cibao_val:.2f} vs {opp_val:.2f} de {opponent_name}, {diff_pct:.0f}% mejor)"
+                    )
+            elif opp_val > cibao_val * 1.05:  # Oponente es al menos 5% mejor (umbral más bajo)
+                diff_pct = ((opp_val - cibao_val) / cibao_val * 100) if cibao_val > 0 else 0
+                if metric_key == "possessionPercentage" or metric_key == "passAccuracy":
+                    insights["opponent_advantages"].append(
+                        f"{opponent_name} {opp_better} ({opp_val:.1f}% vs {cibao_val:.1f}% de Cibao, {diff_pct:.0f}% mejor)"
+                    )
+                else:
+                    insights["opponent_advantages"].append(
+                        f"{opponent_name} {opp_better} ({opp_val:.2f} vs {cibao_val:.2f} de Cibao, {diff_pct:.0f}% mejor)"
+                    )
+    
+    # Limitar a top 5 para cada categoría
+    insights["cibao_advantages"] = insights["cibao_advantages"][:5]
+    insights["opponent_advantages"] = insights["opponent_advantages"][:5]
+    
+    return insights
+
+
+def get_performance_by_phase(matches: List[Dict], team_name: str) -> Dict:
+    """Extrae estadísticas de primera y segunda parte para un equipo usando eventos de goles."""
+    phase_stats = {
+        "first_half": {"goals": 0, "goals_conceded": 0, "matches": set()},
+        "second_half": {"goals": 0, "goals_conceded": 0, "matches": set()}
+    }
+    
+    for match in matches:
+        match_data = match.get("match_data")
+        if not match_data:
+            continue
+        
+        try:
+            live_data = match_data.get("liveData", {})
+            match_info = match_data.get("matchInfo", {})
+            
+            # Identificar qué equipo es el nuestro
+            contestants = match_info.get("contestant", [])
+            team_contestant_id = None
+            opponent_contestant_id = None
+            
+            for contestant in contestants:
+                name = contestant.get("name") or contestant.get("shortName", "")
+                contestant_id = contestant.get("id")
+                if team_name.lower() in name.lower() or name.lower() in team_name.lower():
+                    team_contestant_id = contestant_id
+                else:
+                    opponent_contestant_id = contestant_id
+            
+            if not team_contestant_id:
+                continue
+            
+            # Obtener eventos de goles
+            events = live_data.get("event", [])
+            match_id = match_info.get("id", "")
+            
+            for event in events:
+                event_type = event.get("typeId", "")
+                # Tipo 16 = Goal
+                if event_type == "16" or event_type == 16:
+                    period_id = event.get("periodId", "")
+                    contestant_id = event.get("contestantId", "")
+                    
+                    # Convertir periodId a string si es número
+                    if isinstance(period_id, int):
+                        period_id = str(period_id)
+                    
+                    # Primera parte (periodId = "1" o 1)
+                    if period_id == "1" or period_id == 1:
+                        if contestant_id == team_contestant_id:
+                            phase_stats["first_half"]["goals"] += 1
+                        else:
+                            phase_stats["first_half"]["goals_conceded"] += 1
+                        phase_stats["first_half"]["matches"].add(match_id)
+                    # Segunda parte (periodId = "2" o 2)
+                    elif period_id == "2" or period_id == 2:
+                        if contestant_id == team_contestant_id:
+                            phase_stats["second_half"]["goals"] += 1
+                        else:
+                            phase_stats["second_half"]["goals_conceded"] += 1
+                        phase_stats["second_half"]["matches"].add(match_id)
+        
+        except Exception as e:
+            continue
+    
+    # Convertir sets a counts y calcular promedios
+    first_half_match_count = len(phase_stats["first_half"]["matches"])
+    second_half_match_count = len(phase_stats["second_half"]["matches"])
+    
+    if first_half_match_count > 0:
+        phase_stats["first_half"]["avg_goals"] = phase_stats["first_half"]["goals"] / first_half_match_count
+        phase_stats["first_half"]["avg_goals_conceded"] = phase_stats["first_half"]["goals_conceded"] / first_half_match_count
+        phase_stats["first_half"]["matches"] = first_half_match_count
+    else:
+        phase_stats["first_half"]["avg_goals"] = 0
+        phase_stats["first_half"]["avg_goals_conceded"] = 0
+        phase_stats["first_half"]["matches"] = 0
+    
+    if second_half_match_count > 0:
+        phase_stats["second_half"]["avg_goals"] = phase_stats["second_half"]["goals"] / second_half_match_count
+        phase_stats["second_half"]["avg_goals_conceded"] = phase_stats["second_half"]["goals_conceded"] / second_half_match_count
+        phase_stats["second_half"]["matches"] = second_half_match_count
+    else:
+        phase_stats["second_half"]["avg_goals"] = 0
+        phase_stats["second_half"]["avg_goals_conceded"] = 0
+        phase_stats["second_half"]["matches"] = 0
+    
+    return phase_stats
+
+
+def create_phase_comparison_chart(opponent_phase_stats: Dict, cibao_phase_stats: Dict, opponent_name: str) -> go.Figure:
+    """Crea un gráfico comparando rendimiento por fase del partido."""
+    fig = go.Figure()
+    
+    phases = ["Primera Parte", "Segunda Parte"]
+    
+    # Goles a favor
+    opponent_goals_for = [
+        opponent_phase_stats["first_half"]["avg_goals"],
+        opponent_phase_stats["second_half"]["avg_goals"]
+    ]
+    cibao_goals_for = [
+        cibao_phase_stats["first_half"]["avg_goals"],
+        cibao_phase_stats["second_half"]["avg_goals"]
+    ]
+    
+    # Goles en contra
+    opponent_goals_against = [
+        opponent_phase_stats["first_half"]["avg_goals_conceded"],
+        opponent_phase_stats["second_half"]["avg_goals_conceded"]
+    ]
+    cibao_goals_against = [
+        cibao_phase_stats["first_half"]["avg_goals_conceded"],
+        cibao_phase_stats["second_half"]["avg_goals_conceded"]
+    ]
+    
+    # Agregar barras para goles a favor
+    fig.add_trace(go.Bar(
+        name=f'{opponent_name} - Goles a Favor',
+        x=phases,
+        y=opponent_goals_for,
+        marker_color='#EF4444',
+        text=[f"{v:.2f}" for v in opponent_goals_for],
+        textposition='inside',
+        textfont=dict(size=12, color='white', family='Arial Black')
+    ))
+    
+    fig.add_trace(go.Bar(
+        name='Cibao - Goles a Favor',
+        x=phases,
+        y=cibao_goals_for,
+        marker_color='#FF8C00',
+        text=[f"{v:.2f}" for v in cibao_goals_for],
+        textposition='inside',
+        textfont=dict(size=12, color='white', family='Arial Black')
+    ))
+    
+    # Agregar barras para goles en contra (con patrón diferente)
+    fig.add_trace(go.Bar(
+        name=f'{opponent_name} - Goles en Contra',
+        x=phases,
+        y=[-v for v in opponent_goals_against],  # Negativo para mostrar abajo
+        marker_color='#DC2626',
+        text=[f"{v:.2f}" for v in opponent_goals_against],
+        textposition='inside',
+        textfont=dict(size=12, color='white', family='Arial Black')
+    ))
+    
+    fig.add_trace(go.Bar(
+        name='Cibao - Goles en Contra',
+        x=phases,
+        y=[-v for v in cibao_goals_against],  # Negativo para mostrar abajo
+        marker_color='#F97316',
+        text=[f"{v:.2f}" for v in cibao_goals_against],
+        textposition='inside',
+        textfont=dict(size=12, color='white', family='Arial Black')
+    ))
+    
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=400,
+        title="Goles por Fase del Partido",
+        xaxis_title="Fase",
+        yaxis_title="Goles Promedio",
+        barmode='group',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=12)
+        ),
+        font=dict(size=12, color='white')
+    )
+    
+    return fig
+
+
+def generate_strengths_weaknesses(opponent_metrics: Dict, cibao_metrics: Dict, opponent_name: str) -> Dict:
+    """Genera análisis de fortalezas y debilidades clave."""
+    result = {
+        "cibao_strengths": [],
+        "cibao_weaknesses": [],
+        "opponent_strengths": [],
+        "opponent_weaknesses": []
+    }
+    
+    # Definir métricas y umbrales
+    metrics_config = [
+        ("goals", "Goles", 0.2, "superioridad ofensiva significativa", False),
+        ("goalsConceded", "Goles Recibidos", 0.2, "defensa más sólida", True),
+        ("possessionPercentage", "Posesión", 10, "mayor control del juego", False),
+        ("passAccuracy", "Precisión de Pases", 5, "mejor calidad de pases", False),
+        ("totalScoringAtt", "Disparos", 2, "mayor creación de oportunidades", False),
+        ("wonCorners", "Corners", 1, "mejor en jugadas a balón parado", False),
+        ("wonTackle", "Tackles Exitosos", 1, "mejor recuperación de balón", False),
+        ("totalClearance", "Despejes", 2, "mejor defensa aérea", False),
+    ]
+    
+    for metric_tuple in metrics_config:
+        metric_key, metric_name, threshold, description, invert = metric_tuple
+        opp_val = opponent_metrics.get(metric_key, 0)
+        cibao_val = cibao_metrics.get(metric_key, 0)
+        
+        if invert:
+            # Para métricas donde menos es mejor
+            if cibao_val < opp_val * (1 - threshold):
+                diff = opp_val - cibao_val
+                result["cibao_strengths"].append({
+                    "metric": metric_name,
+                    "description": f"{description}. Cibao: {cibao_val:.2f}, {opponent_name}: {opp_val:.2f} (diferencia: {diff:.2f})"
+                })
+            elif opp_val < cibao_val * (1 - threshold):
+                diff = cibao_val - opp_val
+                result["opponent_strengths"].append({
+                    "metric": metric_name,
+                    "description": f"{description}. {opponent_name}: {opp_val:.2f}, Cibao: {cibao_val:.2f} (diferencia: {diff:.2f})"
+                })
+            elif cibao_val > opp_val * (1 + threshold):
+                diff = cibao_val - opp_val
+                result["cibao_weaknesses"].append({
+                    "metric": metric_name,
+                    "description": f"Área de mejora. Cibao: {cibao_val:.2f}, {opponent_name}: {opp_val:.2f} (diferencia: {diff:.2f})"
+                })
+            elif opp_val > cibao_val * (1 + threshold):
+                diff = opp_val - cibao_val
+                result["opponent_weaknesses"].append({
+                    "metric": metric_name,
+                    "description": f"Debilidad explotable. {opponent_name}: {opp_val:.2f}, Cibao: {cibao_val:.2f} (diferencia: {diff:.2f})"
+                })
+        else:
+            # Para métricas donde más es mejor
+            if cibao_val > opp_val * (1 + threshold):
+                diff = cibao_val - opp_val
+                if metric_key in ["possessionPercentage", "passAccuracy"]:
+                    result["cibao_strengths"].append({
+                        "metric": metric_name,
+                        "description": f"{description}. Cibao: {cibao_val:.1f}%, {opponent_name}: {opp_val:.1f}% (diferencia: {diff:.1f}%)"
+                    })
+                else:
+                    result["cibao_strengths"].append({
+                        "metric": metric_name,
+                        "description": f"{description}. Cibao: {cibao_val:.2f}, {opponent_name}: {opp_val:.2f} (diferencia: {diff:.2f})"
+                    })
+            elif opp_val > cibao_val * (1 + threshold):
+                diff = opp_val - cibao_val
+                if metric_key in ["possessionPercentage", "passAccuracy"]:
+                    result["opponent_strengths"].append({
+                        "metric": metric_name,
+                        "description": f"{description}. {opponent_name}: {opp_val:.1f}%, Cibao: {cibao_val:.1f}% (diferencia: {diff:.1f}%)"
+                    })
+                else:
+                    result["opponent_strengths"].append({
+                        "metric": metric_name,
+                        "description": f"{description}. {opponent_name}: {opp_val:.2f}, Cibao: {cibao_val:.2f} (diferencia: {diff:.2f})"
+                    })
+            elif cibao_val < opp_val * (1 - threshold):
+                diff = opp_val - cibao_val
+                if metric_key in ["possessionPercentage", "passAccuracy"]:
+                    result["cibao_weaknesses"].append({
+                        "metric": metric_name,
+                        "description": f"Área de mejora. Cibao: {cibao_val:.1f}%, {opponent_name}: {opp_val:.1f}% (diferencia: {diff:.1f}%)"
+                    })
+                else:
+                    result["cibao_weaknesses"].append({
+                        "metric": metric_name,
+                        "description": f"Área de mejora. Cibao: {cibao_val:.2f}, {opponent_name}: {opp_val:.2f} (diferencia: {diff:.2f})"
+                    })
+            elif opp_val < cibao_val * (1 - threshold):
+                diff = cibao_val - opp_val
+                if metric_key in ["possessionPercentage", "passAccuracy"]:
+                    result["opponent_weaknesses"].append({
+                        "metric": metric_name,
+                        "description": f"Debilidad explotable. {opponent_name}: {opp_val:.1f}%, Cibao: {cibao_val:.1f}% (diferencia: {diff:.1f}%)"
+                    })
+                else:
+                    result["opponent_weaknesses"].append({
+                        "metric": metric_name,
+                        "description": f"Debilidad explotable. {opponent_name}: {opp_val:.2f}, Cibao: {cibao_val:.2f} (diferencia: {diff:.2f})"
+                    })
+    
+    # Limitar a top 4 para cada categoría
+    result["cibao_strengths"] = result["cibao_strengths"][:4]
+    result["cibao_weaknesses"] = result["cibao_weaknesses"][:4]
+    result["opponent_strengths"] = result["opponent_strengths"][:4]
+    result["opponent_weaknesses"] = result["opponent_weaknesses"][:4]
+    
+    return result
 
 
 def display_key_players_analysis(player_stats: Dict, team_name: str):
@@ -3400,7 +3962,7 @@ def main():
                 comp_goals = filtered_competition_averages.get("goals", 0) if filtered_competition_averages else 0
                 cibao_goals = filtered_cibao_averages.get("goals", 0) if filtered_cibao_averages else 0
                 display_metric_card(
-                    "Goles por Partido",
+                    "Goles por 90 min",
                     f"{goals:.2f}",
                     "",
                     f"Promedio en {len(filtered_matches_ui)} partidos",
@@ -3415,7 +3977,7 @@ def main():
                 comp_shots = filtered_competition_averages.get("totalScoringAtt", 0) if filtered_competition_averages else 0
                 cibao_shots = filtered_cibao_averages.get("totalScoringAtt", 0) if filtered_cibao_averages else 0
                 display_metric_card(
-                    "Disparos por Partido",
+                    "Disparos por 90 min",
                     f"{shots:.1f}",
                     "",
                     f"{shot_accuracy:.1f}% precisión",
@@ -3428,10 +3990,10 @@ def main():
                 comp_sot = filtered_competition_averages.get("ontargetScoringAtt", 0) if filtered_competition_averages else 0
                 cibao_sot = filtered_cibao_averages.get("ontargetScoringAtt", 0) if filtered_cibao_averages else 0
                 display_metric_card(
-                    "Disparos al Arco",
+                    "Disparos al Arco por 90 min",
                     f"{shots_on_target:.1f}",
                     "",
-                    f"Por partido",
+                    f"Por 90 minutos",
                     competition_avg=f"{comp_sot:.1f}",
                     cibao_avg=f"{cibao_sot:.1f}"
                 )
@@ -3459,10 +4021,10 @@ def main():
                 comp_gc = filtered_competition_averages.get("goalsConceded", 0) if filtered_competition_averages else 0
                 cibao_gc = filtered_cibao_averages.get("goalsConceded", 0) if filtered_cibao_averages else 0
                 display_metric_card(
-                    "Goles Recibidos",
+                    "Goles Recibidos por 90 min",
                     f"{goals_conceded:.2f}",
                     "",
-                    f"Por partido",
+                    f"Por 90 minutos",
                     competition_avg=f"{comp_gc:.2f}",
                     cibao_avg=f"{cibao_gc:.2f}",
                     higher_is_better=False  # Lower is better for goals conceded
@@ -3473,10 +4035,10 @@ def main():
                 comp_saves = filtered_competition_averages.get("saves", 0) if filtered_competition_averages else 0
                 cibao_saves = filtered_cibao_averages.get("saves", 0) if filtered_cibao_averages else 0
                 display_metric_card(
-                    "Atajadas",
+                    "Atajadas por 90 min",
                     f"{saves:.1f}",
                     "",
-                    f"Por partido",
+                    f"Por 90 minutos",
                     competition_avg=f"{comp_saves:.1f}",
                     cibao_avg=f"{cibao_saves:.1f}"
                 )
@@ -3486,10 +4048,10 @@ def main():
                 comp_clear = filtered_competition_averages.get("totalClearance", 0) if filtered_competition_averages else 0
                 cibao_clear = filtered_cibao_averages.get("totalClearance", 0) if filtered_cibao_averages else 0
                 display_metric_card(
-                    "Despejes",
+                    "Despejes por 90 min",
                     f"{clearances:.1f}",
                     "",
-                    f"Por partido",
+                    f"Por 90 minutos",
                     competition_avg=f"{comp_clear:.1f}",
                     cibao_avg=f"{cibao_clear:.1f}"
                 )
@@ -3500,7 +4062,7 @@ def main():
                 comp_tackles = filtered_competition_averages.get("wonTackle", 0) if filtered_competition_averages else 0
                 cibao_tackles = filtered_cibao_averages.get("wonTackle", 0) if filtered_cibao_averages else 0
                 display_metric_card(
-                    "Tackles Exitosos",
+                    "Tackles Exitosos por 90 min",
                     f"{tackles_won:.1f}",
                     "",
                     f"{tackle_success:.1f}% efectividad",
@@ -3518,10 +4080,10 @@ def main():
                 comp_corners = filtered_competition_averages.get("wonCorners", 0) if filtered_competition_averages else 0
                 cibao_corners = filtered_cibao_averages.get("wonCorners", 0) if filtered_cibao_averages else 0
                 display_metric_card(
-                    "Corners Ganados",
+                    "Corners Ganados por 90 min",
                     f"{corners_won:.1f}",
                     "",
-                    f"Por partido",
+                    f"Por 90 minutos",
                     competition_avg=f"{comp_corners:.1f}",
                     cibao_avg=f"{cibao_corners:.1f}"
                 )
@@ -3583,6 +4145,117 @@ def main():
             st.markdown(f"### Comparación Directa: {selected_opponent} vs Cibao")
             st.markdown("<br>", unsafe_allow_html=True)
             
+            # Filter selector for comparison tab
+            comparison_filter = st.radio(
+                "Filtrar partidos:",
+                options=["Todos los partidos", "Últimos 3 partidos", "Últimos 5 partidos", "En Casa", "Fuera"],
+                horizontal=True,
+                key="comparison_filter",
+                help="Selecciona qué partidos incluir en la comparación"
+            )
+            
+            # Apply filter to matches and calculate averages
+            if comparison_filter == "Todos los partidos":
+                filtered_team_matches = team_all_matches
+                filter_type = "all"
+            elif comparison_filter == "Últimos 3 partidos":
+                # Get recent form - this returns matches with match_data
+                recent_opponent = get_recent_form(team_all_matches, selected_opponent, num_matches=3)
+                # Re-extract stats for the filtered matches to ensure they're available
+                filtered_team_matches = []
+                for match in recent_opponent:
+                    match_data = match.get("match_data")
+                    if match_data:
+                        opponent_stats = extract_team_stats_from_match(match_data, selected_opponent)
+                        if opponent_stats:
+                            match["opponent_stats"] = opponent_stats
+                            filtered_team_matches.append(match)
+                filter_type = "all"
+            elif comparison_filter == "Últimos 5 partidos":
+                # Get recent form - this returns matches with match_data
+                recent_opponent = get_recent_form(team_all_matches, selected_opponent, num_matches=5)
+                # Re-extract stats for the filtered matches to ensure they're available
+                filtered_team_matches = []
+                for match in recent_opponent:
+                    match_data = match.get("match_data")
+                    if match_data:
+                        opponent_stats = extract_team_stats_from_match(match_data, selected_opponent)
+                        if opponent_stats:
+                            match["opponent_stats"] = opponent_stats
+                            filtered_team_matches.append(match)
+                filter_type = "all"
+            elif comparison_filter == "En Casa":
+                filtered_team_matches = filter_matches_by_type(team_all_matches, selected_opponent, "home", all_matches)
+                filter_type = "home"
+            elif comparison_filter == "Fuera":
+                filtered_team_matches = filter_matches_by_type(team_all_matches, selected_opponent, "away", all_matches)
+                filter_type = "away"
+            
+            # Recalculate opponent averages with filtered matches
+            filtered_team_averages = calculate_average_metrics(filtered_team_matches) if filtered_team_matches else team_averages
+            
+            # For Cibao, build matches with stats properly extracted
+            cibao_matches_with_stats = []
+            for match_data in all_matches:
+                match_info = extract_match_info(match_data)
+                if not match_info:
+                    continue
+                
+                home = match_info.get("home_team", "")
+                away = match_info.get("away_team", "")
+                
+                # Check if Cibao plays in this match
+                if CIBAO_TEAM_NAME.lower() in home.lower() or CIBAO_TEAM_NAME.lower() in away.lower():
+                    cibao_stats = extract_team_stats_from_match(match_data, CIBAO_TEAM_NAME)
+                    if cibao_stats:
+                        match_info["cibao_stats"] = cibao_stats
+                        match_info["match_data"] = match_data  # Ensure match_data is available
+                        cibao_matches_with_stats.append(match_info)
+            
+            # Apply filters to Cibao matches
+            if comparison_filter == "Últimos 3 partidos":
+                # Get recent form - this returns matches with match_data
+                recent_cibao = get_recent_form(cibao_matches_with_stats, CIBAO_TEAM_NAME, num_matches=3)
+                # Re-extract stats for the filtered matches to ensure they're available
+                filtered_cibao_matches = []
+                for match in recent_cibao:
+                    match_data = match.get("match_data")
+                    if match_data:
+                        cibao_stats = extract_team_stats_from_match(match_data, CIBAO_TEAM_NAME)
+                        if cibao_stats:
+                            match["cibao_stats"] = cibao_stats
+                            filtered_cibao_matches.append(match)
+            elif comparison_filter == "Últimos 5 partidos":
+                # Get recent form - this returns matches with match_data
+                recent_cibao = get_recent_form(cibao_matches_with_stats, CIBAO_TEAM_NAME, num_matches=5)
+                # Re-extract stats for the filtered matches to ensure they're available
+                filtered_cibao_matches = []
+                for match in recent_cibao:
+                    match_data = match.get("match_data")
+                    if match_data:
+                        cibao_stats = extract_team_stats_from_match(match_data, CIBAO_TEAM_NAME)
+                        if cibao_stats:
+                            match["cibao_stats"] = cibao_stats
+                            filtered_cibao_matches.append(match)
+            elif comparison_filter == "En Casa":
+                filtered_cibao_matches = filter_matches_by_type(cibao_matches_with_stats, CIBAO_TEAM_NAME, "home", all_matches)
+            elif comparison_filter == "Fuera":
+                filtered_cibao_matches = filter_matches_by_type(cibao_matches_with_stats, CIBAO_TEAM_NAME, "away", all_matches)
+            else:  # Todos los partidos
+                filtered_cibao_matches = cibao_matches_with_stats
+            
+            # Calculate Cibao averages from filtered matches
+            if filtered_cibao_matches:
+                filtered_cibao_averages = calculate_average_metrics_from_matches(filtered_cibao_matches, "cibao_stats")
+            else:
+                filtered_cibao_averages = cibao_averages
+            
+            # Use filtered averages for all charts
+            comparison_team_averages = filtered_team_averages
+            comparison_cibao_averages = filtered_cibao_averages
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
             # Radar Chart: Fortalezas y Debilidades (movido desde Resumen)
             st.markdown("""
             <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Comparación de Fortalezas y Debilidades</h2>
@@ -3611,8 +4284,8 @@ def main():
             )
             
             if selected_radar_metrics:
-                # Usar métricas del equipo para el radar chart
-                radar_fig = create_radar_chart(team_averages, cibao_averages, selected_opponent, selected_radar_metrics)
+                # Usar métricas filtradas del equipo para el radar chart
+                radar_fig = create_radar_chart(comparison_team_averages, comparison_cibao_averages, selected_opponent, selected_radar_metrics)
                 st.plotly_chart(radar_fig, use_container_width=True)
             else:
                 st.info("Selecciona al menos una métrica para mostrar el gráfico de radar.")
@@ -3621,106 +4294,302 @@ def main():
             st.markdown("---")
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Gráfico de tendencia de goles (movido desde Resumen)
+            # Gráficos comparativos dinámicos con selector de métricas
             st.markdown("""
-            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Tendencia de Goles</h2>
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Comparación de Métricas: {opponent} vs Cibao</h2>
+            """.format(opponent=selected_opponent), unsafe_allow_html=True)
+            st.markdown(f"""
+            <p style='text-align:center; color:#D1D5DB; font-size:16px; margin-bottom:20px;'>
+                Compara métricas clave entre <strong>{selected_opponent}</strong> y <strong>Cibao</strong>
+            </p>
             """, unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
             
-            # Obtener partidos recientes del equipo seleccionado
-            team_recent_matches = get_recent_form(team_all_matches, selected_opponent, num_matches=None)
+            # Definir métricas disponibles con sus configuraciones
+            available_comparison_metrics = {
+                "Goles por 90 min": {
+                    "key": "goals",
+                    "chart_type": "bar",
+                    "unit": "goles",
+                    "category": "Ofensiva"
+                },
+                "Goles Recibidos por 90 min": {
+                    "key": "goalsConceded",
+                    "chart_type": "bar",
+                    "unit": "goles",
+                    "category": "Defensiva",
+                    "invert": True
+                },
+                "Disparos por 90 min": {
+                    "key": "totalScoringAtt",
+                    "chart_type": "bar",
+                    "unit": "disparos",
+                    "category": "Ofensiva"
+                },
+                "Disparos al Arco por 90 min": {
+                    "key": "ontargetScoringAtt",
+                    "chart_type": "bar",
+                    "unit": "disparos",
+                    "category": "Ofensiva"
+                },
+                "Precisión de Disparos": {
+                    "key": "shotAccuracy",
+                    "chart_type": "bar",
+                    "unit": "%",
+                    "category": "Ofensiva"
+                },
+                "Posesión": {
+                    "key": "possessionPercentage",
+                    "chart_type": "bar",
+                    "unit": "%",
+                    "category": "Control"
+                },
+                "Pases Totales por 90 min": {
+                    "key": "totalPass",
+                    "chart_type": "bar",
+                    "unit": "pases",
+                    "category": "Control"
+                },
+                "Pases Precisos por 90 min": {
+                    "key": "accuratePass",
+                    "chart_type": "bar",
+                    "unit": "pases",
+                    "category": "Control"
+                },
+                "Precisión de Pases": {
+                    "key": "passAccuracy",
+                    "chart_type": "bar",
+                    "unit": "%",
+                    "category": "Control"
+                },
+                "Corners Ganados por 90 min": {
+                    "key": "wonCorners",
+                    "chart_type": "bar",
+                    "unit": "corners",
+                    "category": "Set Pieces"
+                },
+                "Corners Recibidos por 90 min": {
+                    "key": "lostCorners",
+                    "chart_type": "bar",
+                    "unit": "corners",
+                    "category": "Set Pieces",
+                    "invert": True
+                },
+                "Tackles Totales por 90 min": {
+                    "key": "totalTackle",
+                    "chart_type": "bar",
+                    "unit": "tackles",
+                    "category": "Defensiva"
+                },
+                "Tackles Exitosos por 90 min": {
+                    "key": "wonTackle",
+                    "chart_type": "bar",
+                    "unit": "tackles",
+                    "category": "Defensiva"
+                },
+                "Efectividad de Tackles": {
+                    "key": "tackleSuccess",
+                    "chart_type": "bar",
+                    "unit": "%",
+                    "category": "Defensiva"
+                },
+                "Despejes por 90 min": {
+                    "key": "totalClearance",
+                    "chart_type": "bar",
+                    "unit": "despejes",
+                    "category": "Defensiva"
+                },
+                "Intercepciones por 90 min": {
+                    "key": "interception",
+                    "chart_type": "bar",
+                    "unit": "intercepciones",
+                    "category": "Defensiva"
+                },
+                "Atajadas por 90 min": {
+                    "key": "saves",
+                    "chart_type": "bar",
+                    "unit": "atajadas",
+                    "category": "Defensiva"
+                },
+                "Faltas Cometidas por 90 min": {
+                    "key": "fkFoulLost",
+                    "chart_type": "bar",
+                    "unit": "faltas",
+                    "category": "Disciplina",
+                    "invert": True
+                },
+                "Faltas Recibidas por 90 min": {
+                    "key": "fkFoulWon",
+                    "chart_type": "bar",
+                    "unit": "faltas",
+                    "category": "Disciplina"
+                },
+                "Tarjetas Amarillas por 90 min": {
+                    "key": "totalYellowCard",
+                    "chart_type": "bar",
+                    "unit": "tarjetas",
+                    "category": "Disciplina",
+                    "invert": True
+                },
+                "Tarjetas Rojas por 90 min": {
+                    "key": "totalRedCard",
+                    "chart_type": "bar",
+                    "unit": "tarjetas",
+                    "category": "Disciplina",
+                    "invert": True
+                },
+            }
             
-            if team_recent_matches and len(team_recent_matches) > 1:
-                dates = [m["date"] for m in reversed(team_recent_matches)]
-                goals_for = [m["team_goals"] for m in reversed(team_recent_matches)]
-                goals_against = [m["opponent_goals"] for m in reversed(team_recent_matches)]
-                
-                fig = go.Figure()
-                
-                # Línea de goles a favor
-                fig.add_trace(go.Scatter(
-                    x=dates,
-                    y=goals_for,
-                    mode='lines+markers',
-                    name=f'Goles a Favor - {selected_opponent}',
-                    line=dict(color='#10B981', width=3),
-                    marker=dict(size=10, color='#10B981')
-                ))
-                
-                # Línea de goles en contra
-                fig.add_trace(go.Scatter(
-                    x=dates,
-                    y=goals_against,
-                    mode='lines+markers',
-                    name=f'Goles en Contra - {selected_opponent}',
-                    line=dict(color='#EF4444', width=3),
-                    marker=dict(size=10, color='#EF4444')
-                ))
-                
-                # Si no es Cibao, agregar líneas de Cibao para comparación
-                if selected_opponent != CIBAO_TEAM_NAME:
-                    # Obtener partidos de Cibao para comparación
-                    cibao_all_matches = get_opponent_matches_data(all_matches, CIBAO_TEAM_NAME)
-                    cibao_recent_matches = get_recent_form(cibao_all_matches, CIBAO_TEAM_NAME, num_matches=None)
-                    if cibao_recent_matches and len(cibao_recent_matches) > 1:
-                        cibao_dates = [m["date"] for m in reversed(cibao_recent_matches)]
-                        cibao_goals_for = [m["team_goals"] for m in reversed(cibao_recent_matches)]
-                        cibao_goals_against = [m["opponent_goals"] for m in reversed(cibao_recent_matches)]
-                        
-                        fig.add_trace(go.Scatter(
-                            x=cibao_dates,
-                            y=cibao_goals_for,
-                            mode='lines+markers',
-                            name='Goles a Favor - Cibao',
-                            line=dict(color='#FF9900', width=3, dash='dash'),
-                            marker=dict(size=10, color='#FF9900')
-                        ))
-                        
-                        fig.add_trace(go.Scatter(
-                            x=cibao_dates,
-                            y=cibao_goals_against,
-                            mode='lines+markers',
-                            name='Goles en Contra - Cibao',
-                            line=dict(color='#F97316', width=3, dash='dash'),
-                            marker=dict(size=10, color='#F97316')
-                        ))
-                
-                fig.update_layout(
-                    template='plotly_dark',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    height=400,
-                    xaxis_title="Fecha",
-                    yaxis_title="Goles",
-                    xaxis=dict(
-                        title_font=dict(size=20),
-                        tickfont=dict(size=18)
-                    ),
-                    yaxis=dict(
-                        title_font=dict(size=20),
-                        tickfont=dict(size=18)
-                    ),
-                    legend=dict(
-                        orientation="h",
-                        yanchor="bottom",
-                        y=1.02,
-                        xanchor="right",
-                        x=1,
-                        font=dict(size=18)
-                    ),
-                    hovermode='x unified'
+            # Agrupar métricas por categoría para mejor organización
+            metrics_by_category = {}
+            for metric_name, metric_def in available_comparison_metrics.items():
+                category = metric_def.get("category", "Otros")
+                if category not in metrics_by_category:
+                    metrics_by_category[category] = []
+                metrics_by_category[category].append(metric_name)
+            
+            # Crear opciones ordenadas por categoría
+            metric_options = []
+            for category in sorted(metrics_by_category.keys()):
+                metric_options.extend(sorted(metrics_by_category[category]))
+            
+            # Selector de métricas
+            col_selector1, col_selector2 = st.columns([2, 1])
+            with col_selector1:
+                selected_comparison_metrics = st.multiselect(
+                    "Seleccionar métricas para comparar:",
+                    options=metric_options,
+                    default=["Goles por 90 min", "Posesión", "Precisión de Pases", "Disparos por 90 min"],
+                    key="comparison_metrics_selector",
+                    help="Selecciona las métricas que deseas comparar entre el oponente y Cibao"
                 )
-                
-                st.plotly_chart(fig, use_container_width=True)
+            
+            with col_selector2:
+                display_mode = st.radio(
+                    "Modo de visualización:",
+                    ["Individual", "Combinado"],
+                    key="comparison_display_mode",
+                    help="Individual: un gráfico por métrica | Combinado: todas las métricas en un gráfico"
+                )
+            
+            if selected_comparison_metrics:
+                if display_mode == "Individual":
+                    # Mostrar un gráfico por cada métrica seleccionada
+                    for metric_name in selected_comparison_metrics:
+                        if metric_name in available_comparison_metrics:
+                            metric_def = available_comparison_metrics[metric_name]
+                            metric_key = metric_def["key"]
+                            unit = metric_def.get("unit", "")
+                            
+                            # Obtener valores de las métricas filtradas
+                            opponent_val = comparison_team_averages.get(metric_key, 0)
+                            cibao_val = comparison_cibao_averages.get(metric_key, 0)
+                            
+                            # Crear gráfico de barras
+                            fig = go.Figure()
+                            
+                            fig.add_trace(go.Bar(
+                                name=selected_opponent,
+                                x=[metric_name],
+                                y=[opponent_val],
+                                marker_color='#EF4444',
+                                text=[f"{opponent_val:.2f}"],
+                                textposition='inside',
+                                textfont=dict(size=14, color='black', family='Arial Black')
+                            ))
+                            
+                            fig.add_trace(go.Bar(
+                                name='Cibao',
+                                x=[metric_name],
+                                y=[cibao_val],
+                                marker_color='#FF8C00',
+                                text=[f"{cibao_val:.2f}"],
+                                textposition='inside',
+                                textfont=dict(size=14, color='black', family='Arial Black')
+                            ))
+                            
+                            fig.update_layout(
+                                template='plotly_dark',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                height=300,
+                                title=f"{metric_name}",
+                                xaxis_title="",
+                                yaxis_title=f"Valor ({unit})" if unit else "Valor",
+                                showlegend=True,
+                                legend=dict(
+                                    orientation="h",
+                                    yanchor="bottom",
+                                    y=1.02,
+                                    xanchor="center",
+                                    x=0.5,
+                                    font=dict(size=14)
+                                ),
+                                barmode='group',
+                                font=dict(size=12, color='white')
+                            )
+                            
+                            st.plotly_chart(fig, use_container_width=True)
+                            st.markdown("<br>", unsafe_allow_html=True)
+                else:
+                    # Modo combinado: todas las métricas en un gráfico
+                    categories = []
+                    opponent_vals = []
+                    cibao_vals = []
+                    
+                    for metric_name in selected_comparison_metrics:
+                        if metric_name in available_comparison_metrics:
+                            metric_key = available_comparison_metrics[metric_name]["key"]
+                            categories.append(metric_name)
+                            opponent_vals.append(comparison_team_averages.get(metric_key, 0))
+                            cibao_vals.append(comparison_cibao_averages.get(metric_key, 0))
+                    
+                    if categories:
+                        fig = go.Figure()
+                        
+                        fig.add_trace(go.Bar(
+                            name=selected_opponent,
+                            x=categories,
+                            y=opponent_vals,
+                            marker_color='#EF4444',
+                            text=[f"{v:.2f}" for v in opponent_vals],
+                            textposition='inside',
+                            textfont=dict(size=11, color='black', family='Arial Black')
+                        ))
+                        
+                        fig.add_trace(go.Bar(
+                            name='Cibao',
+                            x=categories,
+                            y=cibao_vals,
+                            marker_color='#FF8C00',
+                            text=[f"{v:.2f}" for v in cibao_vals],
+                            textposition='inside',
+                            textfont=dict(size=11, color='black', family='Arial Black')
+                        ))
+                        
+                        fig.update_layout(
+                            template='plotly_dark',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            height=400,
+                            title="Comparación de Múltiples Métricas",
+                            xaxis_title="Métricas",
+                            yaxis_title="Valor",
+                            barmode='group',
+                            legend=dict(
+                                orientation="h",
+                                yanchor="bottom",
+                                y=1.02,
+                                xanchor="center",
+                                x=0.5,
+                                font=dict(size=14)
+                            ),
+                            xaxis=dict(tickangle=-45),
+                            font=dict(size=12, color='white')
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("No hay suficientes partidos para mostrar la tendencia de goles.")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("---")
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Gráficos comparativos
-            display_comparison_charts(team_averages, cibao_averages, selected_opponent)
+                st.info("Selecciona al menos una métrica para mostrar la comparación.")
         elif selected_opponent == CIBAO_TEAM_NAME:
             st.info("Selecciona otro equipo para ver comparación con Cibao")
         else:
