@@ -2080,8 +2080,11 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
     # Crear gráfico de radar
     fig = go.Figure()
     
-    # Oponente - obtener color del CSV
-    opponent_color = TEAM_COLORS.get(opponent_name, '#EF4444')  # Rojo por defecto si no se encuentra
+    # Oponente - usar blanco para todos los equipos excepto Cibao (que usa naranja)
+    if opponent_name == "Cibao" or "Cibao" in opponent_name:
+        opponent_color = CIBAO_COLOR
+    else:
+        opponent_color = '#FFFFFF'  # Blanco para mejor visibilidad en fondo negro
     opponent_rgb = tuple(int(opponent_color[i:i+2], 16) for i in (1, 3, 5))
     opponent_fillcolor = f'rgba({opponent_rgb[0]}, {opponent_rgb[1]}, {opponent_rgb[2]}, 0.2)'
     
@@ -2982,15 +2985,14 @@ def create_player_radar_chart(players_data: List[Dict], selected_metrics: List[s
     # Crear gráfico
     fig = go.Figure()
     
-    # Colores para jugadores - usar color de Cibao para jugadores de Cibao
+    # Colores para jugadores - usar color de Cibao para jugadores de Cibao, blanco para otros
     cibao_color = '#FF8C00'  # Color oficial de Cibao
-    opponent_colors = ['#EF4444', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899']
+    opponent_color = '#FFFFFF'  # Blanco para mejor visibilidad en fondo negro
     
     categories = [f"{label} ({metric_ranges[label]['min']:.1f}-{metric_ranges[label]['max']:.1f})" 
                   for label in radar_metrics.keys()]
     categories.append(categories[0])  # Cerrar el círculo
     
-    opponent_idx = 0
     for idx, player in enumerate(players_data):
         player_name = player.get("name", "Unknown")
         team = player.get("team", "Unknown")
@@ -2999,8 +3001,7 @@ def create_player_radar_chart(players_data: List[Dict], selected_metrics: List[s
         if team == "Cibao":
             color = cibao_color
         else:
-            color = opponent_colors[opponent_idx % len(opponent_colors)]
-            opponent_idx += 1
+            color = opponent_color
         
         rgb = tuple(int(color[i:i+2], 16) for i in (1, 3, 5))
         fillcolor = f'rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.2)'
@@ -3247,10 +3248,10 @@ def create_phase_comparison_chart(opponent_phase_stats: Dict, cibao_phase_stats:
         name=f'{opponent_name} - Goles a Favor',
         x=phases,
         y=opponent_goals_for,
-        marker_color='#EF4444',
+        marker_color='#FFFFFF',
         text=[f"{v:.2f}" for v in opponent_goals_for],
         textposition='inside',
-        textfont=dict(size=12, color='white', family='Arial Black')
+        textfont=dict(size=12, color='black', family='Arial Black')
     ))
     
     fig.add_trace(go.Bar(
@@ -3268,10 +3269,10 @@ def create_phase_comparison_chart(opponent_phase_stats: Dict, cibao_phase_stats:
         name=f'{opponent_name} - Goles en Contra',
         x=phases,
         y=[-v for v in opponent_goals_against],  # Negativo para mostrar abajo
-        marker_color='#DC2626',
+        marker_color='#FFFFFF',
         text=[f"{v:.2f}" for v in opponent_goals_against],
         textposition='inside',
-        textfont=dict(size=12, color='white', family='Arial Black')
+        textfont=dict(size=12, color='black', family='Arial Black')
     ))
     
     fig.add_trace(go.Bar(
@@ -3859,9 +3860,10 @@ def display_comparison_charts(opponent_metrics: Dict[str, float], cibao_metrics:
         name=opponent_name,
         x=categories,
         y=opponent_vals,
-        marker_color='#EF4444',
+        marker_color='#FFFFFF',
         text=[f"{v:.2f}" for v in opponent_vals],
-        textposition='outside'
+        textposition='outside',
+        textfont=dict(size=12, color='black', family='Arial Black')
     ))
     
     fig.add_trace(go.Bar(
@@ -4953,7 +4955,7 @@ def main():
                                 name=selected_opponent,
                                 x=[metric_name],
                                 y=[opponent_val],
-                                marker_color='#EF4444',
+                                marker_color='#FFFFFF',
                                 text=[f"{opponent_val:.2f}"],
                                 textposition='inside',
                                 textfont=dict(size=14, color='black', family='Arial Black')
@@ -5012,7 +5014,7 @@ def main():
                             name=selected_opponent,
                             x=categories,
                             y=opponent_vals,
-                            marker_color='#EF4444',
+                            marker_color='#FFFFFF',
                             text=[f"{v:.2f}" for v in opponent_vals],
                             textposition='inside',
                             textfont=dict(size=11, color='black', family='Arial Black')
