@@ -3669,11 +3669,10 @@ def main():
                 break
     
     
-    # Crear pestañas principales (agrega Jugadores Clave aquí)
-    tab_resumen, tab_comparacion, tab_jugadores = st.tabs([
+    # Crear pestañas para organizar el contenido (ocultando algunas por ahora)
+    tab1, tab2 = st.tabs([
         "Resumen",
-        "Comparación",
-        "Jugadores Clave"
+        "Comparación"
     ])
     
     # TAB 1: RESUMEN (Métricas clave + Radar)
@@ -4599,23 +4598,7 @@ def main():
     # Tabs ocultos por ahora - se trabajarán más adelante
     # TAB 3: FORMA RECIENTE
     # TAB 4: CARA A CARA
-    
-    # TAB 5: Jugadores Clave y Comparativa
-    tab_jugadores = st.tabs(["Jugadores Clave"])[0]
-
-    with tab_jugadores:
-        st.markdown(f"### Jugadores Clave de {selected_opponent}")
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        if matches_with_data:
-            with st.spinner("Analizando jugadores..."):
-                player_stats = extract_player_stats_from_matches(
-                    matches_with_data,
-                    selected_opponent
-                )
-                display_key_players_analysis(player_stats, selected_opponent)
-        else:
-            st.info("No hay datos de jugadores disponibles.")
+    # TAB 5: JUGADORES CLAVE
     # TAB 6: ANÁLISIS TÁCTICO
     # TAB 7: RECOMENDACIONES
     
