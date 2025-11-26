@@ -11,6 +11,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 import csv
+import requests
+from bs4 import BeautifulSoup
+import re
 
 # Tema Plotly oscuro
 pio.templates.default = "plotly_dark"
@@ -35,14 +38,69 @@ def load_team_colors():
                 if not hex_color.startswith('#'):
                     hex_color = '#' + hex_color
                 colors[team_name] = hex_color
+                # También agregar variaciones comunes del nombre
+                colors[team_name.lower()] = hex_color
+                # Agregar sin acentos y espacios
+                colors[team_name.replace(' ', '').lower()] = hex_color
     except Exception as e:
         st.warning(f"No se pudo cargar el archivo de colores: {e}")
         # Color por defecto para Cibao
         colors['Cibao'] = '#FF9900'
+        colors['cibao'] = '#FF9900'
     return colors
 
+def get_team_color(team_name: str) -> str:
+    """Obtiene el color de un equipo con búsqueda flexible."""
+    if not team_name:
+        return "#CCCCCC"
+    
+    # Normalizar el nombre del equipo (quitar espacios extra, normalizar)
+    normalized_name = team_name.strip()
+    
+    # Primero intentar coincidencia exacta
+    if normalized_name in TEAM_COLORS:
+        return TEAM_COLORS[normalized_name]
+    
+    # Intentar coincidencia case-insensitive
+    team_lower = normalized_name.lower()
+    if team_lower in TEAM_COLORS:
+        return TEAM_COLORS[team_lower]
+    
+    # Intentar coincidencia parcial (buscar si el nombre del equipo contiene alguna clave)
+    # Primero buscar coincidencias más largas (más específicas)
+    # IMPORTANT: Avoid matching "Cibao" when looking for other teams
+    best_match = None
+    best_match_len = 0
+    for csv_team, color in TEAM_COLORS.items():
+        csv_team_lower = csv_team.lower()
+        # Si el nombre del CSV está contenido en el nombre del equipo o viceversa
+        # BUT: Don't match if it's a very short substring (to avoid false matches)
+        if (csv_team_lower in team_lower or team_lower in csv_team_lower) and len(csv_team) >= 3:
+            # Preferir coincidencias más largas y más específicas
+            match_score = len(csv_team)
+            # Bonus for exact substring match
+            if csv_team_lower == team_lower[:len(csv_team_lower)] or team_lower == csv_team_lower[:len(team_lower)]:
+                match_score += 100
+            if match_score > best_match_len:
+                best_match = color
+                best_match_len = match_score
+    
+    if best_match:
+        return best_match
+    
+    # Si no se encuentra, usar gris claro (NO usar el color de Cibao como fallback)
+    return "#CCCCCC"
+
 TEAM_COLORS = load_team_colors()
-CIBAO_COLOR = TEAM_COLORS.get('Cibao', '#FF9900')  # Color oficial de Cibao
+CIBAO_COLOR = get_team_color('Cibao')  # Color oficial de Cibao
+
+# Debug: verificar que los colores se cargaron correctamente
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "--debug-colors":
+        print("Colores cargados:")
+        for team, color in TEAM_COLORS.items():
+            print(f"  {team}: {color}")
 
 # ===========================================
 # FUNCIONES DE TRADUCCIÓN
@@ -225,6 +283,104 @@ MATCHES_DIR = REPO_ROOT / "data" / "raw" / "concacaf" / "matches"
 CIBAO_TEAM_NAME = "Cibao"
 
 # ===========================================
+# FUNCIONES DE OBTENCIÓN DE PRÓXIMOS PARTIDOS
+# ===========================================
+def fetch_next_fixture_from_scoresway(url: str) -> Optional[Dict]:
+    """Obtiene el próximo partido desde una página de Scoresway."""
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Buscar la tabla de fixtures (Scoresway usa tablas para mostrar partidos)
+        # Buscar tablas que contengan información de partidos
+        tables = soup.find_all('table')
+        
+        for table in tables:
+            # Buscar filas que contengan información de partidos
+            rows = table.find_all('tr')
+            
+            for row in rows:
+                cells = row.find_all(['td', 'th'])
+                row_text = row.get_text()
+                
+                # Buscar filas que contengan información de fecha y equipos
+                # Formato típico: "25/11/2025" o "22:00 Team A v Team B"
+                if re.search(r'\d{2}/\d{2}/\d{4}', row_text) or re.search(r'\d{2}:\d{2}', row_text):
+                    # Esta es una fila de partido
+                    # Extraer fecha
+                    date_match = re.search(r'(\d{2}/\d{2}/\d{4})', row_text)
+                    date_str = date_match.group(1) if date_match else None
+                    
+                    # Extraer hora
+                    time_match = re.search(r'(\d{2}:\d{2})', row_text)
+                    time_str = time_match.group(1) if time_match else None
+                    
+                    # Extraer equipos (buscar texto entre "v" o "vs")
+                    teams_match = re.search(r'([A-Za-z\s]+?)\s+v\s+([A-Za-z\s]+?)(?:\s|$)', row_text, re.IGNORECASE)
+                    if teams_match:
+                        team1 = teams_match.group(1).strip()
+                        team2 = teams_match.group(2).strip()
+                        
+                        # Determinar el oponente (excluir "Cibao FC" o "Cibao")
+                        opponent = team2 if "Cibao" not in team2 else team1
+                        
+                        # Buscar enlace al partido
+                        match_link = row.find('a', href=re.compile(r'/match/view/'))
+                        match_url = None
+                        if match_link:
+                            match_url = match_link.get('href', '')
+                            if not match_url.startswith('http'):
+                                match_url = f"https://www.scoresway.com{match_url}"
+                        
+                        # Construir fecha completa
+                        full_date = f"{date_str} {time_str}" if date_str and time_str else (date_str or time_str or "Por definir")
+                        
+                        return {
+                            "url": match_url,
+                            "date": full_date,
+                            "opponent": opponent,
+                            "venue": "Por definir"
+                        }
+        
+        return None
+    except Exception as e:
+        return None
+
+
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def get_next_fixtures() -> Dict[str, Optional[Dict]]:
+    """Obtiene los próximos partidos de Concacaf Cup y Liga Mayor."""
+    concacaf_url = "https://www.scoresway.com/en_GB/soccer/concacaf-caribbean-cup-2025/bygi47fmsxgbzysjdf9u481lg/teams/view/6lrtx6i2hsf52v8fh1j43f6cp"
+    liga_mayor_url = "https://www.scoresway.com/en_GB/soccer/liga-mayor-2025-2026/6tlslyufw6rjrjgemsur1xo9g/teams/view/6lrtx6i2hsf52v8fh1j43f6cp"
+    
+    fixtures = {
+        "concacaf": None,
+        "liga_mayor": None
+    }
+    
+    # Intentar obtener fixture de Concacaf
+    try:
+        fixtures["concacaf"] = fetch_next_fixture_from_scoresway(concacaf_url)
+    except Exception as e:
+        pass
+    
+    # Intentar obtener fixture de Liga Mayor
+    try:
+        fixtures["liga_mayor"] = fetch_next_fixture_from_scoresway(liga_mayor_url)
+    except Exception as e:
+        pass
+    
+    return fixtures
+
+# ===========================================
 # FUNCIONES DE CARGA DE DATOS
 # ===========================================
 
@@ -345,8 +501,24 @@ def get_cibao_matches(matches: List[Dict]) -> List[Dict]:
     return cibao_matches
 
 
+def format_formation(formation: str) -> str:
+    """Formatea una formación agregando guiones entre números (ej: 4231 -> 4-2-3-1)."""
+    if not formation:
+        return formation
+    
+    # Si ya tiene guiones, devolver tal cual
+    if '-' in formation:
+        return formation
+    
+    # Si es solo números, agregar guiones
+    if formation.isdigit():
+        return '-'.join(formation)
+    
+    return formation
+
+
 def get_upcoming_opponents(cibao_matches: List[Dict]) -> List[Tuple[str, Dict]]:
-    """Identifica próximos oponentes basado en partidos no jugados o próximos."""
+    """Identifica el próximo oponente basado en el primer partido no jugado."""
     today = datetime.now()
     
     # Separar partidos jugados y no jugados
@@ -369,29 +541,18 @@ def get_upcoming_opponents(cibao_matches: List[Dict]) -> List[Tuple[str, Dict]]:
         else:
             played_matches.append(match)
     
-    # Ordenar partidos futuros por fecha
+    # Ordenar partidos futuros por fecha (el más próximo primero)
     upcoming_matches.sort(key=lambda x: x.get("date") or datetime.max)
     
-    # Crear lista de oponentes únicos (próximos)
-    opponents_dict = {}
-    for match in upcoming_matches:
-        opponent = match.get("opponent", "Desconocido")
-        if opponent not in opponents_dict:
-            opponents_dict[opponent] = match
+    # Solo tomar el PRIMER partido próximo (el más cercano)
+    if upcoming_matches:
+        next_match = upcoming_matches[0]
+        opponent = next_match.get("opponent", "Desconocido")
+        if opponent:
+            return [(opponent, next_match)]
     
-    # Si no hay partidos futuros, usar el último oponente o todos los oponentes únicos
-    if not opponents_dict:
-        # Usar todos los oponentes únicos de partidos jugados
-        for match in played_matches:
-            opponent = match.get("opponent", "Desconocido")
-            if opponent and opponent not in opponents_dict:
-                opponents_dict[opponent] = match
-    
-    # Convertir a lista de tuplas (nombre, match_info)
-    opponents_list = [(name, info) for name, info in opponents_dict.items()]
-    opponents_list.sort(key=lambda x: x[1].get("date") or datetime.min, reverse=True)
-    
-    return opponents_list
+    # Si no hay partidos futuros, retornar lista vacía
+    return []
 
 
 def get_all_opponents(cibao_matches: List[Dict]) -> List[str]:
@@ -2227,12 +2388,13 @@ def extract_formation_from_match(match_data: Dict, team_name: str) -> Optional[s
         stats_list = team_lineup.get("stat", [])
         for stat in stats_list:
             if stat.get("type") == "formationUsed":
-                return stat.get("value", "")
+                formation = stat.get("value", "")
+                return format_formation(formation) if formation else None
         
         # Alternativa: buscar en formationUsed directamente en el lineup
         formation = team_lineup.get("formationUsed", "")
         if formation:
-            return formation
+            return format_formation(formation)
         
         return None
     except Exception as e:
@@ -2600,6 +2762,484 @@ def display_set_pieces_analysis(set_pieces_stats: Dict, team_name: str):
     )
     
     st.plotly_chart(fig, use_container_width=True)
+
+
+def analyze_match_phases(matches: List[Dict], team_name: str) -> Dict:
+    """Analiza el rendimiento por fases del partido."""
+    phase_stats = {
+        "first_15": {"goals_for": 0, "goals_against": 0, "matches": 0},
+        "16_30": {"goals_for": 0, "goals_against": 0, "matches": 0},
+        "31_45": {"goals_for": 0, "goals_against": 0, "matches": 0},
+        "46_60": {"goals_for": 0, "goals_against": 0, "matches": 0},
+        "61_75": {"goals_for": 0, "goals_against": 0, "matches": 0},
+        "76_90": {"goals_for": 0, "goals_against": 0, "matches": 0},
+        "90_plus": {"goals_for": 0, "goals_against": 0, "matches": 0}
+    }
+    
+    for match in matches:
+        match_data = match.get("match_data")
+        if not match_data:
+            continue
+        
+        match_info_data = match_data.get("matchInfo", {})
+        if not match_info_data:
+            continue
+        
+        # Get team IDs and names from matchInfo
+        contestants = match_info_data.get("contestant", [])
+        if len(contestants) < 2:
+            continue
+        
+        # Find which contestant is the team we're analyzing
+        team_contestant_id = None
+        team_name_lower = team_name.lower().strip()
+        team_base = team_name_lower.replace(' fc', '').strip()
+        
+        for contestant in contestants:
+            name = contestant.get("name") or contestant.get("shortName") or contestant.get("officialName", "")
+            name_lower = name.lower().strip() if name else ""
+            name_base = name_lower.replace(' fc', '').strip()
+            
+            if (team_name_lower in name_lower or 
+                name_lower in team_name_lower or
+                team_base in name_base or
+                name_base in team_base):
+                team_contestant_id = contestant.get("id", "")
+                break
+        
+        if not team_contestant_id:
+            continue
+        
+        # Get goals from liveData
+        live_data = match_data.get("liveData", {})
+        goals = live_data.get("goal", [])
+        
+        phase_stats["first_15"]["matches"] += 1
+        phase_stats["16_30"]["matches"] += 1
+        phase_stats["31_45"]["matches"] += 1
+        phase_stats["46_60"]["matches"] += 1
+        phase_stats["61_75"]["matches"] += 1
+        phase_stats["76_90"]["matches"] += 1
+        phase_stats["90_plus"]["matches"] += 1
+        
+        for goal in goals:
+            goal_contestant_id = goal.get("contestantId", "")
+            time = goal.get("timeMin", 0)
+            
+            # Determine if this goal is for the team we're analyzing
+            is_team_goal = (goal_contestant_id == team_contestant_id)
+            
+            if time <= 15:
+                if is_team_goal:
+                    phase_stats["first_15"]["goals_for"] += 1
+                else:
+                    phase_stats["first_15"]["goals_against"] += 1
+            elif time <= 30:
+                if is_team_goal:
+                    phase_stats["16_30"]["goals_for"] += 1
+                else:
+                    phase_stats["16_30"]["goals_against"] += 1
+            elif time <= 45:
+                if is_team_goal:
+                    phase_stats["31_45"]["goals_for"] += 1
+                else:
+                    phase_stats["31_45"]["goals_against"] += 1
+            elif time <= 60:
+                if is_team_goal:
+                    phase_stats["46_60"]["goals_for"] += 1
+                else:
+                    phase_stats["46_60"]["goals_against"] += 1
+            elif time <= 75:
+                if is_team_goal:
+                    phase_stats["61_75"]["goals_for"] += 1
+                else:
+                    phase_stats["61_75"]["goals_against"] += 1
+            elif time <= 90:
+                if is_team_goal:
+                    phase_stats["76_90"]["goals_for"] += 1
+                else:
+                    phase_stats["76_90"]["goals_against"] += 1
+            else:
+                if is_team_goal:
+                    phase_stats["90_plus"]["goals_for"] += 1
+                else:
+                    phase_stats["90_plus"]["goals_against"] += 1
+    
+    # Calcular promedios
+    for phase in phase_stats.values():
+        if phase["matches"] > 0:
+            phase["avg_goals_for"] = phase["goals_for"] / phase["matches"]
+            phase["avg_goals_against"] = phase["goals_against"] / phase["matches"]
+    
+    return phase_stats
+
+
+def analyze_event_patterns(matches: List[Dict], team_name: str) -> Dict:
+    """Analiza patrones de eventos (cuándo ocurren goles, tarjetas, sustituciones)."""
+    patterns = {
+        "goal_times": [],
+        "card_times": [],
+        "substitution_times": [],
+        "goals_after_scoring": {"for": 0, "against": 0},
+        "goals_after_conceding": {"for": 0, "against": 0}
+    }
+    
+    for match in matches:
+        match_data = match.get("match_data")
+        if not match_data:
+            continue
+        
+        match_info_data = match_data.get("matchInfo", {})
+        if not match_info_data:
+            continue
+        
+        # Get team IDs
+        contestants = match_info_data.get("contestant", [])
+        if len(contestants) < 2:
+            continue
+        
+        team_contestant_id = None
+        opponent_contestant_id = None
+        team_name_lower = team_name.lower().strip()
+        team_base = team_name_lower.replace(' fc', '').strip()
+        
+        for contestant in contestants:
+            name = contestant.get("name") or contestant.get("shortName") or contestant.get("officialName", "")
+            name_lower = name.lower().strip() if name else ""
+            name_base = name_lower.replace(' fc', '').strip()
+            
+            if (team_name_lower in name_lower or 
+                name_lower in team_name_lower or
+                team_base in name_base or
+                name_base in team_base):
+                team_contestant_id = contestant.get("id", "")
+            else:
+                opponent_contestant_id = contestant.get("id", "")
+        
+        if not team_contestant_id:
+            continue
+        
+        # Get opponent name for events
+        opponent_name = ""
+        for contestant in contestants:
+            if contestant.get("id") == opponent_contestant_id:
+                opponent_name = contestant.get("name") or contestant.get("shortName", "")
+                break
+        
+        events = extract_match_events(match_data, team_name, opponent_name)
+        
+        last_goal_time = None
+        last_goal_team = None
+        
+        for event in events:
+            if event["type"] == "goal":
+                time = event.get("time", 0)
+                is_team = event.get("is_team", False)
+                patterns["goal_times"].append({"time": time, "is_team": is_team})
+                
+                if last_goal_time is not None:
+                    time_diff = time - last_goal_time
+                    if time_diff <= 10:  # Gol dentro de 10 minutos
+                        if last_goal_team == team_name and is_team:
+                            patterns["goals_after_scoring"]["for"] += 1
+                        elif last_goal_team == team_name and not is_team:
+                            patterns["goals_after_scoring"]["against"] += 1
+                        elif last_goal_team != team_name and is_team:
+                            patterns["goals_after_conceding"]["for"] += 1
+                        elif last_goal_team != team_name and not is_team:
+                            patterns["goals_after_conceding"]["against"] += 1
+                
+                last_goal_time = time
+                last_goal_team = team_name if is_team else opponent_name
+            
+            elif event["type"] == "card":
+                patterns["card_times"].append(event.get("time", 0))
+            
+            elif event["type"] == "substitution":
+                patterns["substitution_times"].append(event.get("time", 0))
+    
+    return patterns
+
+
+def analyze_momentum(matches: List[Dict], team_name: str) -> Dict:
+    """Analiza cambios de momentum durante los partidos."""
+    momentum_data = {
+        "comebacks": 0,
+        "blown_leads": 0,
+        "comeback_wins": 0,
+        "comeback_draws": 0,
+        "comeback_losses": 0
+    }
+    
+    for match in matches:
+        match_data = match.get("match_data")
+        if not match_data:
+            continue
+        
+        match_info_data = match_data.get("matchInfo", {})
+        if not match_info_data:
+            continue
+        
+        # Get team IDs
+        contestants = match_info_data.get("contestant", [])
+        if len(contestants) < 2:
+            continue
+        
+        team_contestant_id = None
+        team_name_lower = team_name.lower().strip()
+        team_base = team_name_lower.replace(' fc', '').strip()
+        
+        for contestant in contestants:
+            name = contestant.get("name") or contestant.get("shortName") or contestant.get("officialName", "")
+            name_lower = name.lower().strip() if name else ""
+            name_base = name_lower.replace(' fc', '').strip()
+            
+            if (team_name_lower in name_lower or 
+                name_lower in team_name_lower or
+                team_base in name_base or
+                name_base in team_base):
+                team_contestant_id = contestant.get("id", "")
+                break
+        
+        if not team_contestant_id:
+            continue
+        
+        # Get opponent name
+        opponent_name = ""
+        for contestant in contestants:
+            if contestant.get("id") != team_contestant_id:
+                opponent_name = contestant.get("name") or contestant.get("shortName", "")
+                break
+        
+        events = extract_match_events(match_data, team_name, opponent_name)
+        goals = [e for e in events if e["type"] == "goal"]
+        
+        if len(goals) < 2:
+            continue
+        
+        # Calcular score en cada momento
+        team_score = 0
+        opp_score = 0
+        was_leading = False
+        was_trailing = False
+        came_back = False
+        blew_lead = False
+        
+        for goal in goals:
+            if goal.get("is_team", False):
+                team_score += 1
+            else:
+                opp_score += 1
+            
+            if team_score > opp_score:
+                if was_trailing:
+                    came_back = True
+                was_leading = True
+                was_trailing = False
+            elif team_score < opp_score:
+                if was_leading:
+                    blew_lead = True
+                was_trailing = True
+                was_leading = False
+            else:
+                was_leading = False
+                was_trailing = False
+        
+        if came_back:
+            momentum_data["comebacks"] += 1
+            result = extract_match_result(match_data, team_name)
+            if result:
+                if result["result"] == "W":
+                    momentum_data["comeback_wins"] += 1
+                elif result["result"] == "D":
+                    momentum_data["comeback_draws"] += 1
+                else:
+                    momentum_data["comeback_losses"] += 1
+        
+        if blew_lead:
+            momentum_data["blown_leads"] += 1
+    
+    return momentum_data
+
+
+def create_formation_chart(formation_stats: Dict, team_color: str):
+    """Crea gráfico de formaciones."""
+    if not formation_stats:
+        return None
+    
+    formations = list(formation_stats.keys())
+    win_rates = [formation_stats[f].get("win_rate", 0) for f in formations]
+    counts = [formation_stats[f].get("count", 0) for f in formations]
+    
+    # Asegurar que el color tenga el formato correcto
+    if not team_color.startswith('#'):
+        team_color = '#' + team_color
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=formations,
+        y=win_rates,
+        marker=dict(color=team_color),  # Usar marker dict para asegurar que el color se aplique
+        text=[f"{wr:.1f}%" for wr in win_rates],
+        textposition='outside',
+        name="Tasa de Victoria",
+        hovertemplate="<b>%{x}</b><br>Tasa de Victoria: %{y:.1f}%<br>Partidos: %{customdata}<extra></extra>",
+        customdata=counts
+    ))
+    
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=400,
+        xaxis_title="Formación",
+        yaxis_title="Tasa de Victoria (%)",
+        showlegend=False,
+        font=dict(color='white')
+    )
+    
+    return fig
+
+
+def lighten_color(hex_color: str, factor: float = 0.5) -> str:
+    """Lighten a hex color by a factor (0-1). Factor of 0.5 makes it 50% lighter."""
+    # Remove # if present
+    hex_color = hex_color.lstrip('#')
+    
+    # Convert to RGB
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    
+    # Lighten by moving towards white (255, 255, 255)
+    r = int(r + (255 - r) * factor)
+    g = int(g + (255 - g) * factor)
+    b = int(b + (255 - b) * factor)
+    
+    # Ensure values are within 0-255
+    r = min(255, max(0, r))
+    g = min(255, max(0, g))
+    b = min(255, max(0, b))
+    
+    # Convert back to hex
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def create_phase_chart(phase_stats: Dict, team_color: str):
+    """Crea gráfico de fases del partido."""
+    phases = ["0-15'", "16-30'", "31-45'", "46-60'", "61-75'", "76-90'", "90+'"]
+    phase_keys = ["first_15", "16_30", "31_45", "46_60", "61_75", "76_90", "90_plus"]
+    
+    goals_for = [phase_stats[key].get("avg_goals_for", 0) for key in phase_keys]
+    goals_against = [phase_stats[key].get("avg_goals_against", 0) for key in phase_keys]
+    
+    # Asegurar que el color tenga el formato correcto
+    if not team_color.startswith('#'):
+        team_color = '#' + team_color
+    
+    # For tactical analysis tab: use opponent's color for goals scored, lighter shade for goals conceded
+    goals_for_color = team_color
+    goals_against_color = lighten_color(team_color, factor=0.6)  # 60% lighter
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=phases,
+        y=goals_for,
+        name="Goles a Favor",
+        marker=dict(color=goals_for_color),  # Usar marker dict para asegurar que el color se aplique
+        text=[f"{g:.2f}" for g in goals_for],
+        textposition='outside',
+        textfont=dict(color='white')
+    ))
+    
+    fig.add_trace(go.Bar(
+        x=phases,
+        y=goals_against,
+        name="Goles en Contra",
+        marker=dict(color=goals_against_color),  # Usar marker dict para asegurar que el color se aplique
+        text=[f"{g:.2f}" for g in goals_against],
+        textposition='outside',
+        textfont=dict(color='black')
+    ))
+    
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=400,
+        xaxis_title="Fase del Partido",
+        yaxis_title="Promedio de Goles",
+        barmode='group',
+        font=dict(color='white'),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    return fig
+
+
+def create_goal_timing_chart(patterns: Dict, team_color: str):
+    """Crea gráfico de distribución temporal de goles."""
+    goal_times = patterns.get("goal_times", [])
+    if not goal_times:
+        return None
+    
+    team_goals = [g["time"] for g in goal_times if g.get("is_team", False)]
+    opp_goals = [g["time"] for g in goal_times if not g.get("is_team", False)]
+    
+    # Asegurar que el color tenga el formato correcto
+    if not team_color.startswith('#'):
+        team_color = '#' + team_color
+    
+    # Use a light gray color for opponent goals instead of white
+    opponent_color = lighten_color(team_color, factor=0.7)  # Usar versión más clara del color del equipo
+    
+    fig = go.Figure()
+    
+    if team_goals:
+        fig.add_trace(go.Histogram(
+            x=team_goals,
+            name="Goles a Favor",
+            marker=dict(color=team_color),  # Usar marker dict para asegurar que el color se aplique
+            nbinsx=18,
+            opacity=0.7
+        ))
+    
+    if opp_goals:
+        fig.add_trace(go.Histogram(
+            x=opp_goals,
+            name="Goles en Contra",
+            marker=dict(color=opponent_color),  # Usar marker dict para asegurar que el color se aplique
+            nbinsx=18,
+            opacity=0.7
+        ))
+    
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=400,
+        xaxis_title="Minuto del Partido",
+        yaxis_title="Cantidad de Goles",
+        barmode='overlay',
+        font=dict(color='white'),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    return fig
 
 
 def analyze_timeline_patterns(matches: List[Dict], team_name: str) -> Dict:
@@ -3922,92 +4562,120 @@ def main():
         st.error("No se encontraron partidos de Cibao. Verifique que los archivos JSON estén en la carpeta correcta.")
         return
     
-    # Sidebar: Selector de equipo
+    # Obtener todos los equipos de todos los partidos
+    all_teams_list = get_all_teams_from_matches(all_matches)
+    
+    # Obtener oponentes de Cibao para marcar próximos
+    upcoming_opponents = get_upcoming_opponents(cibao_matches)
+    upcoming_opponent_names = {name for name, _ in upcoming_opponents}
+    
+    # Selector de equipo en la parte superior (visible)
+    st.markdown("### 🔍 Seleccionar Equipo para Analizar")
+    
+    # Preparar opciones
+    if upcoming_opponents:
+        opponent_options = []
+        opponent_map = {}
+        
+        for name, match_info in upcoming_opponents:
+            display_name = f"{name} (Próximo)"
+            opponent_options.append(display_name)
+            opponent_map[display_name] = name
+        
+        for name in all_teams_list:
+            if name not in upcoming_opponent_names and name != CIBAO_TEAM_NAME:
+                opponent_options.append(name)
+                opponent_map[name] = name
+        
+        if CIBAO_TEAM_NAME not in [opponent_map.get(opt, opt) for opt in opponent_options]:
+            opponent_options.append(CIBAO_TEAM_NAME)
+            opponent_map[CIBAO_TEAM_NAME] = CIBAO_TEAM_NAME
+        
+        default_index = 0
+        for i, opt in enumerate(opponent_options):
+            mapped_name = opponent_map.get(opt, opt)
+            if "Defence Force" in opt or mapped_name == "Defence Force":
+                default_index = i
+                break
+        
+        if "opponent_selector_index" not in st.session_state:
+            st.session_state.opponent_selector_index = default_index
+        
+        selected_display = st.selectbox(
+            "Seleccionar Equipo",
+            options=opponent_options,
+            index=st.session_state.opponent_selector_index,
+            key="opponent_selector_main",
+            help="Selecciona el equipo que deseas analizar",
+            label_visibility="visible"
+        )
+        
+        current_index = opponent_options.index(selected_display)
+        st.session_state.opponent_selector_index = current_index
+        selected_opponent = opponent_map[selected_display]
+    else:
+        default_index = 0
+        for i, team in enumerate(all_teams_list):
+            if team == "Defence Force":
+                default_index = i
+                break
+        
+        if "opponent_selector_index" not in st.session_state:
+            st.session_state.opponent_selector_index = default_index
+        
+        selected_opponent = st.selectbox(
+            "Seleccionar Equipo",
+            options=all_teams_list,
+            index=st.session_state.opponent_selector_index,
+            key="opponent_selector_main",
+            help="Selecciona el equipo que deseas analizar",
+            label_visibility="visible"
+        )
+        
+        current_index = all_teams_list.index(selected_opponent)
+        st.session_state.opponent_selector_index = current_index
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Sidebar: Información adicional
     with st.sidebar:
         st.markdown("""
         <h3 style='margin-top:0; color:#ff7b00;'>Análisis Copa</h3>
         <hr style='margin-top:6px; margin-bottom:20px; opacity:0.3;'>
         """, unsafe_allow_html=True)
         
-        # Obtener todos los equipos de todos los partidos
-        all_teams_list = get_all_teams_from_matches(all_matches)
+        st.info(f"**Equipo seleccionado:**\n\n**{selected_opponent}**")
         
-        # Obtener oponentes de Cibao para marcar próximos
-        upcoming_opponents = get_upcoming_opponents(cibao_matches)
-        upcoming_opponent_names = {name for name, _ in upcoming_opponents}
+        st.markdown("---")
         
-        # Selector de equipo
-        if upcoming_opponents:
-            # Crear opciones con próximos oponentes marcados
-            opponent_options = []
-            opponent_map = {}
-            
-            # Agregar próximos oponentes primero
-            for name, match_info in upcoming_opponents:
-                display_name = f"{name} (Próximo)"
-                opponent_options.append(display_name)
-                opponent_map[display_name] = name
-            
-            # Agregar otros equipos
-            for name in all_teams_list:
-                if name not in upcoming_opponent_names and name != CIBAO_TEAM_NAME:
-                    opponent_options.append(name)
-                    opponent_map[name] = name
-            
-            # Agregar Cibao al final si no está en la lista
-            if CIBAO_TEAM_NAME not in [opponent_map.get(opt, opt) for opt in opponent_options]:
-                opponent_options.append(CIBAO_TEAM_NAME)
-                opponent_map[CIBAO_TEAM_NAME] = CIBAO_TEAM_NAME
-            
-            # Find default index for Defence Force (check both display name and mapped name)
-            default_index = 0
-            for i, opt in enumerate(opponent_options):
-                mapped_name = opponent_map.get(opt, opt)
-                if "Defence Force" in opt or mapped_name == "Defence Force":
-                    default_index = i
-                    break
-            
-            # Use session state to maintain selection, but default to Defence Force on first load
-            if "opponent_selector_index" not in st.session_state:
-                st.session_state.opponent_selector_index = default_index
-            
-            selected_display = st.selectbox(
-                "Seleccionar Equipo",
-                options=opponent_options,
-                index=st.session_state.opponent_selector_index,
-                key="opponent_selector",
-                help="Selecciona el equipo que deseas analizar"
-            )
-            
-            # Update session state with current selection
-            current_index = opponent_options.index(selected_display)
-            st.session_state.opponent_selector_index = current_index
-            
-            selected_opponent = opponent_map[selected_display]
+        # Próximos partidos
+        st.subheader("📅 Próximos Partidos")
+        
+        # Obtener próximos partidos desde Scoresway
+        with st.spinner("Obteniendo próximos partidos..."):
+            next_fixtures = get_next_fixtures()
+        
+        if next_fixtures.get("concacaf"):
+            concacaf_fixture = next_fixtures["concacaf"]
+            st.markdown("**Copa Concacaf:**")
+            if concacaf_fixture.get("date"):
+                st.info(f"📅 {concacaf_fixture.get('date', 'Por definir')}")
+            if concacaf_fixture.get("opponent") and concacaf_fixture["opponent"] != "Por definir":
+                st.info(f"⚽ vs {concacaf_fixture.get('opponent', 'Por definir')}")
         else:
-            # Si no hay próximos, mostrar todos los equipos
-            # Find default index for Defence Force
-            default_index = 0
-            for i, team in enumerate(all_teams_list):
-                if team == "Defence Force":
-                    default_index = i
-                    break
-            
-            # Use session state to maintain selection, but default to Defence Force on first load
-            if "opponent_selector_index" not in st.session_state:
-                st.session_state.opponent_selector_index = default_index
-            
-            selected_opponent = st.selectbox(
-                "Seleccionar Equipo",
-                options=all_teams_list,
-                index=st.session_state.opponent_selector_index,
-                key="opponent_selector",
-                help="Selecciona el equipo que deseas analizar"
-            )
-            
-            # Update session state with current selection
-            current_index = all_teams_list.index(selected_opponent)
-            st.session_state.opponent_selector_index = current_index
+            st.info("**Copa Concacaf:**\n\nSin próximos partidos disponibles")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        if next_fixtures.get("liga_mayor"):
+            liga_fixture = next_fixtures["liga_mayor"]
+            st.markdown("**Liga Mayor:**")
+            if liga_fixture.get("date"):
+                st.info(f"📅 {liga_fixture.get('date', 'Por definir')}")
+            if liga_fixture.get("opponent") and liga_fixture["opponent"] != "Por definir":
+                st.info(f"⚽ vs {liga_fixture.get('opponent', 'Por definir')}")
+        else:
+            st.info("**Liga Mayor:**\n\nSin próximos partidos disponibles")
         
         st.markdown("---")
         
@@ -4098,10 +4766,11 @@ def main():
     
     
     # Crear pestañas para organizar el contenido (ocultando algunas por ahora)
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "Resumen",
         "Comparación",
-        "Jugadores Clave"
+        "Jugadores Clave",
+        "Análisis Táctico y Fases"
     ])
     
     # TAB 1: RESUMEN (Métricas clave + Radar)
@@ -5085,6 +5754,389 @@ def main():
             st.info("Selecciona otro equipo para ver sus jugadores clave.")
         else:
             st.warning("Selecciona un equipo para ver sus jugadores clave.")
+    
+    # TAB 4: ANÁLISIS TÁCTICO Y FASES (Consolidado)
+    with tab4:
+        if not selected_opponent:
+            st.info("👈 **Selecciona un equipo desde el selector en la barra lateral** para ver su análisis táctico y fases del partido.")
+        elif selected_opponent:
+            # Get team color from CSV with flexible matching
+            # IMPORTANT: On tactical analysis tab, we're analyzing the OPPONENT, so use opponent's color
+            if selected_opponent == CIBAO_TEAM_NAME:
+                team_color = CIBAO_COLOR
+            else:
+                # Reload colors to ensure we have the latest from CSV (in case it was updated)
+                current_colors = load_team_colors()
+                team_color = get_team_color(selected_opponent)
+                
+                # Double-check: if we got Cibao's color for a non-Cibao team, something is wrong
+                if team_color == CIBAO_COLOR and selected_opponent != CIBAO_TEAM_NAME:
+                    # Try direct lookup in current_colors
+                    if selected_opponent in current_colors:
+                        team_color = current_colors[selected_opponent]
+                    elif selected_opponent.lower() in current_colors:
+                        team_color = current_colors[selected_opponent.lower()]
+                    else:
+                        # Fallback: use a default color that's not Cibao's
+                        team_color = "#CCCCCC"
+                
+                # Debug: mostrar el color obtenido
+                with st.expander("🔍 Debug: Color del Equipo", expanded=False):
+                    st.write(f"**Equipo seleccionado:** {selected_opponent}")
+                    st.write(f"**Color obtenido:** {team_color}")
+                    st.write(f"**Es Cibao?:** {selected_opponent == CIBAO_TEAM_NAME}")
+                    st.write(f"**Color de Cibao:** {CIBAO_COLOR}")
+                    st.write(f"**Colores disponibles en CSV:** {sorted(list(current_colors.keys()))}")
+                    if selected_opponent in current_colors:
+                        st.write(f"✅ Encontrado en CSV como: '{selected_opponent}'")
+                    elif selected_opponent.lower() in current_colors:
+                        st.write(f"✅ Encontrado en CSV como: '{selected_opponent.lower()}'")
+                    else:
+                        st.write(f"⚠️ No encontrado exactamente en CSV")
+                    st.color_picker("Color Visualizado", value=team_color, key="debug_color_picker", disabled=True)
+            
+            # Get matches for the selected team
+            if selected_opponent == CIBAO_TEAM_NAME:
+                team_matches = get_opponent_matches_data(all_matches, CIBAO_TEAM_NAME)
+            else:
+                team_matches = get_opponent_matches_data(all_matches, selected_opponent)
+            
+            # Prepare matches with data
+            matches_with_data = []
+            for match_info in team_matches:
+                match_id = match_info.get("match_id", "")
+                for match_data in all_matches:
+                    match_info_check = extract_match_info(match_data)
+                    if match_info_check and match_info_check.get("match_id") == match_id:
+                        matches_with_data.append({
+                            **match_info,
+                            "match_data": match_data
+                        })
+                        break
+            
+            # Only played matches
+            played_matches = [m for m in matches_with_data if m.get("status", "").lower() in ["played", "finished", "ft", "jugado", "finalizado"]]
+            
+            if not played_matches:
+                st.info("No hay partidos jugados disponibles para este equipo.")
+            else:
+                st.markdown(f"### ⚽ Análisis Táctico y Fases del Partido — {selected_opponent}")
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Obtener formaciones disponibles para el filtro
+                formation_stats = analyze_formations(played_matches, selected_opponent)
+                available_formations = list(formation_stats.keys())
+                
+                # Filtro de formación
+                if available_formations:
+                    selected_formation = st.selectbox(
+                        "🔍 Filtrar por Formación",
+                        options=["Todas las Formaciones"] + available_formations,
+                        index=0,
+                        key="formation_filter_tactical"
+                    )
+                    
+                    # Filtrar partidos por formación si se selecciona una
+                    if selected_formation != "Todas las Formaciones":
+                        filtered_matches = []
+                        for match in played_matches:
+                            match_data = match.get("match_data")
+                            if match_data:
+                                formation = extract_formation_from_match(match_data, selected_opponent)
+                                if formation == selected_formation:
+                                    filtered_matches.append(match)
+                        played_matches = filtered_matches
+                        
+                        # Recalcular estadísticas con partidos filtrados
+                        formation_stats = analyze_formations(played_matches, selected_opponent)
+                else:
+                    selected_formation = "Todas las Formaciones"
+                
+                # ========== SECCIÓN 1: FORMACIONES ==========
+                st.markdown("---")
+                st.markdown("### 📐 Formaciones")
+                
+                if not formation_stats:
+                    st.info("No hay datos de formaciones disponibles.")
+                else:
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    total_matches = sum([s["count"] for s in formation_stats.values()])
+                    most_used = max(formation_stats.items(), key=lambda x: x[1]["count"])
+                    best_formation = max([(f, s) for f, s in formation_stats.items() if s["count"] >= 2], 
+                                       key=lambda x: x[1].get("win_rate", 0), default=(None, None))
+                    
+                    with col1:
+                        st.metric("Total de Formaciones", len(formation_stats))
+                    with col2:
+                        st.metric("Partidos Analizados", total_matches)
+                    with col3:
+                        st.metric("Formación Más Usada", format_formation(most_used[0]) if most_used else "N/A")
+                    with col4:
+                        if best_formation[0]:
+                            st.metric("Mejor Formación", f"{format_formation(best_formation[0])} ({best_formation[1].get('win_rate', 0):.1f}%)")
+                        else:
+                            st.metric("Mejor Formación", "N/A")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    fig = create_formation_chart(formation_stats, team_color)
+                    if fig:
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Tabla detallada
+                    formation_data = []
+                    for formation, stats in sorted(formation_stats.items(), key=lambda x: x[1]["count"], reverse=True):
+                        formation_data.append({
+                            "Formación": format_formation(formation),
+                            "Partidos": stats["count"],
+                            "Victorias": stats["wins"],
+                            "Empates": stats["draws"],
+                            "Derrotas": stats["losses"],
+                            "Tasa Victoria": f"{stats.get('win_rate', 0):.1f}%",
+                            "Goles a Favor": f"{stats.get('avg_goals_for', 0):.2f}",
+                            "Goles en Contra": f"{stats.get('avg_goals_against', 0):.2f}",
+                            "Diferencia": f"{stats.get('avg_goal_difference', 0):.2f}"
+                        })
+                    
+                    df = pd.DataFrame(formation_data)
+                    st.dataframe(df, use_container_width=True, hide_index=True)
+                
+                # ========== SECCIÓN 2: FASES DEL PARTIDO ==========
+                st.markdown("---")
+                st.markdown("### ⏱️ Fases del Partido")
+                
+                # Recalcular con partidos filtrados (si hay filtro de formación)
+                phase_stats = analyze_match_phases(played_matches, selected_opponent)
+                
+                col1, col2, col3 = st.columns(3)
+                
+                total_goals_for = sum([p["goals_for"] for p in phase_stats.values()])
+                total_goals_against = sum([p["goals_against"] for p in phase_stats.values()])
+                best_phase = max(phase_stats.items(), key=lambda x: x[1]["goals_for"] - x[1]["goals_against"])
+                
+                with col1:
+                    st.metric("Goles a Favor (Total)", total_goals_for)
+                with col2:
+                    st.metric("Goles en Contra (Total)", total_goals_against)
+                with col3:
+                    phase_names = {"first_15": "0-15'", "16_30": "16-30'", "31_45": "31-45'", 
+                                  "46_60": "46-60'", "61_75": "61-75'", "76_90": "76-90'", "90_plus": "90+'"}
+                    st.metric("Mejor Fase", phase_names.get(best_phase[0], "N/A"))
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                fig = create_phase_chart(phase_stats, team_color)
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # Tabla detallada
+                phase_data = []
+                phase_names = {"first_15": "0-15'", "16_30": "16-30'", "31_45": "31-45'", 
+                              "46_60": "46-60'", "61_75": "61-75'", "76_90": "76-90'", "90_plus": "90+'"}
+                
+                for key, name in phase_names.items():
+                    stats = phase_stats[key]
+                    phase_data.append({
+                        "Fase": name,
+                        "Goles a Favor": stats["goals_for"],
+                        "Goles en Contra": stats["goals_against"],
+                        "Diferencia": stats["goals_for"] - stats["goals_against"],
+                        "Promedio GF": f"{stats.get('avg_goals_for', 0):.2f}",
+                        "Promedio GC": f"{stats.get('avg_goals_against', 0):.2f}"
+                    })
+                
+                df = pd.DataFrame(phase_data)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+                
+                # ========== SECCIÓN 3: PATRONES DE EVENTOS ==========
+                st.markdown("---")
+                st.markdown("### 📊 Patrones de Eventos")
+                
+                # Recalcular con partidos filtrados (si hay filtro de formación)
+                patterns = analyze_event_patterns(played_matches, selected_opponent)
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Total Goles", len(patterns.get("goal_times", [])))
+                with col2:
+                    st.metric("Total Tarjetas", len(patterns.get("card_times", [])))
+                with col3:
+                    st.metric("Total Sustituciones", len(patterns.get("substitution_times", [])))
+                with col4:
+                    goals_after = patterns.get("goals_after_scoring", {})
+                    st.metric("Goles Tras Marcar", goals_after.get("for", 0))
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                fig = create_goal_timing_chart(patterns, team_color)
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                st.markdown("### 🎯 Goles Tras Eventos Clave")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**Tras Marcar:**")
+                    after_scoring = patterns.get("goals_after_scoring", {})
+                    st.metric("Goles a Favor", after_scoring.get("for", 0))
+                    st.metric("Goles en Contra", after_scoring.get("against", 0))
+                
+                with col2:
+                    st.markdown("**Tras Recibir Gol:**")
+                    after_conceding = patterns.get("goals_after_conceding", {})
+                    st.metric("Goles a Favor", after_conceding.get("for", 0))
+                    st.metric("Goles en Contra", after_conceding.get("against", 0))
+                
+                # ========== SECCIÓN 4: MOMENTUM ==========
+                st.markdown("---")
+                st.markdown("### ⚡ Momentum")
+                
+                # Recalcular con partidos filtrados (si hay filtro de formación)
+                momentum_data = analyze_momentum(played_matches, selected_opponent)
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Remontadas", momentum_data.get("comebacks", 0))
+                with col2:
+                    st.metric("Ventajas Perdidas", momentum_data.get("blown_leads", 0))
+                with col3:
+                    st.metric("Remontadas Ganadas", momentum_data.get("comeback_wins", 0))
+                with col4:
+                    st.metric("Remontadas Empatadas", momentum_data.get("comeback_draws", 0))
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                categories = ["Remontadas", "Ventajas Perdidas", "Remontadas Ganadas", "Remontadas Empatadas"]
+                values = [
+                    momentum_data.get("comebacks", 0),
+                    momentum_data.get("blown_leads", 0),
+                    momentum_data.get("comeback_wins", 0),
+                    momentum_data.get("comeback_draws", 0)
+                ]
+                
+                # Asegurar que el color tenga el formato correcto
+                if not team_color.startswith('#'):
+                    team_color = '#' + team_color
+                
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=categories,
+                    y=values,
+                    marker=dict(color=[team_color, "#EF4444", "#10B981", "#F59E0B"]),  # Usar marker dict
+                    text=values,
+                    textposition='outside'
+                ))
+                
+                fig.update_layout(
+                    template='plotly_dark',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    height=400,
+                    xaxis_title="Tipo de Evento",
+                    yaxis_title="Cantidad",
+                    showlegend=False,
+                    font=dict(color='white')
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # ========== SECCIÓN 5: SET PIECES ==========
+                st.markdown("---")
+                st.markdown("### 🎯 Set Pieces")
+                
+                # Recalcular con partidos filtrados (si hay filtro de formación)
+                set_pieces_stats = analyze_set_pieces(played_matches, selected_opponent)
+                
+                if set_pieces_stats["matches"] == 0:
+                    st.info("No hay datos de set pieces disponibles.")
+                else:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.markdown("#### ⚽ Corners")
+                        corners_won = set_pieces_stats["corners"]["won"]
+                        corners_lost = set_pieces_stats["corners"]["lost"]
+                        avg_won = set_pieces_stats["corners"].get("avg_won", 0)
+                        avg_lost = set_pieces_stats["corners"].get("avg_lost", 0)
+                        
+                        st.metric("Corners Ganados", f"{corners_won}", delta=f"{avg_won:.2f} por partido")
+                        st.metric("Corners Recibidos", f"{corners_lost}", delta=f"{avg_lost:.2f} por partido")
+                        
+                        if corners_won + corners_lost > 0:
+                            win_rate = (corners_won / (corners_won + corners_lost)) * 100
+                            st.metric("Tasa de Ganancia", f"{win_rate:.1f}%")
+                    
+                    with col2:
+                        st.markdown("#### 🦵 Tiros Libres")
+                        fk_won = set_pieces_stats["free_kicks"]["won"]
+                        fk_lost = set_pieces_stats["free_kicks"]["lost"]
+                        avg_won = set_pieces_stats["free_kicks"].get("avg_won", 0)
+                        avg_lost = set_pieces_stats["free_kicks"].get("avg_lost", 0)
+                        
+                        st.metric("Faltas a Favor", f"{fk_won}", delta=f"{avg_won:.2f} por partido")
+                        st.metric("Faltas en Contra", f"{fk_lost}", delta=f"{avg_lost:.2f} por partido")
+                        
+                        if fk_won + fk_lost > 0:
+                            win_rate = (fk_won / (fk_won + fk_lost)) * 100
+                            st.metric("Tasa de Ganancia", f"{win_rate:.1f}%")
+                    
+                    with col3:
+                        st.markdown("#### ⚖️ Penales")
+                        penalties_taken = set_pieces_stats["penalties"]["taken"]
+                        penalties_scored = set_pieces_stats["penalties"]["scored"]
+                        penalties_missed = set_pieces_stats["penalties"]["missed"]
+                        
+                        st.metric("Penales Ejecutados", f"{penalties_taken}", delta="Total")
+                        if penalties_taken > 0:
+                            conversion_rate = (penalties_scored / penalties_taken) * 100
+                            st.metric("Conversión", f"{conversion_rate:.1f}%", delta=f"{penalties_scored}/{penalties_taken}")
+                        else:
+                            st.info("Sin datos de penales")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    categories = ["Corners\nGanados", "Corners\nRecibidos", "Faltas a\nFavor", "Faltas en\nContra"]
+                    values = [
+                        set_pieces_stats["corners"].get("avg_won", 0),
+                        set_pieces_stats["corners"].get("avg_lost", 0),
+                        set_pieces_stats["free_kicks"].get("avg_won", 0),
+                        set_pieces_stats["free_kicks"].get("avg_lost", 0)
+                    ]
+                    
+                    # Asegurar que el color tenga el formato correcto
+                    if not team_color.startswith('#'):
+                        team_color = '#' + team_color
+                    
+                    # Use lighter version of team color for opponent stats
+                    opponent_color = lighten_color(team_color, factor=0.7)
+                    
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(
+                        x=categories,
+                        y=values,
+                        marker=dict(color=[team_color, opponent_color, team_color, opponent_color]),  # Usar marker dict
+                        text=[f"{v:.2f}" for v in values],
+                        textposition='outside',
+                        textfont=dict(color=['white', 'black', 'white', 'black'])
+                    ))
+                    
+                    fig.update_layout(
+                        template='plotly_dark',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        height=400,
+                        xaxis_title="Tipo de Set Piece",
+                        yaxis_title="Promedio por Partido",
+                        showlegend=False,
+                        font=dict(color='white')
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Selecciona un equipo para ver su análisis táctico.")
 
 
 if __name__ == "__main__":
