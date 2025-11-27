@@ -1,39 +1,46 @@
 #!/usr/bin/env python3
 """
-Automated Concacaf Caribbean Cup Match Scraper
-===============================================
+Automated Match Scraper (TEST VERSION)
+=======================================
 
-This script automatically discovers and scrapes all matches from the Concacaf Caribbean Cup.
-It:
-1. Fetches the list of all matches from PerformFeeds API
-2. Compares with already scraped matches
-3. Scrapes only new matches
-4. Can be run on a schedule (cron/launchd) for full automation
+This is a test version that saves outputs to the Automation Testing folder
+instead of the production data directory. Use this to test without interfering
+with existing data.
 
 Usage:
-    python3 scrape_all_concacaf_matches.py [--force] [--dry-run]
+    python3 scrape_all_concacaf_matches_test.py [--force] [--dry-run] [--competition "Competition Name"]
 """
 
 import asyncio
 import json
-import os
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from datetime import datetime
 from typing import List, Dict, Set, Optional
 import argparse
 
-# Add parent directory to path to import scrape_scoresway_match
-sys.path.insert(0, str(Path(__file__).parent))
+# Add parent directories to path
+TEST_DIR = Path(__file__).parent.parent
+REPO_ROOT = TEST_DIR.parent
+sys.path.insert(0, str(REPO_ROOT / 'src' / 'data_processing'))
+
+# Import from production scripts
 from scrape_scoresway_match import scrape_match
 
-# Configuration
+# Configuration - TEST VERSION
 SDAPI_OUTLET_KEY = 'ft1tiv1inq7v1sk3y9tv12yh5'
-# Tournament Calendar ID for Concacaf Caribbean Cup
-# You can find this by running: python3 get_tournament_id.py "Concacaf Caribbean Cup"
 TOURNAMENT_CALENDAR_ID = 'bygi47fmsxgbzysjdf9u481lg'
-DATA_DIR = Path(__file__).parent.parent.parent / 'data' / 'raw' / 'concacaf' / 'matchstats'
+
+# TEST: Use test output directory instead of production
+DATA_DIR = TEST_DIR / 'output' / 'matchstats'
+MATCHES_DIR = TEST_DIR / 'output' / 'matches'
+LOGS_DIR = TEST_DIR / 'logs'
+
+# Ensure test directories exist
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+MATCHES_DIR.mkdir(parents=True, exist_ok=True)
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
 # Note: _pgSz=400 is the page size parameter (discovered from Scoresway website)
 # Without it, API returns only 20 matches. With it, returns all matches including August!
 MATCHES_LIST_URL = f"https://api.performfeeds.com/soccerdata/match/{SDAPI_OUTLET_KEY}/?_rt=c&tmcl={TOURNAMENT_CALENDAR_ID}&_pgSz=400"
@@ -100,27 +107,17 @@ def get_tournament_id_for_competition(competition_name: str = "Concacaf Caribbea
 
 
 def get_scraped_match_ids() -> Set[str]:
-    """Get set of already scraped match IDs from existing JSON files."""
+    """Get set of already scraped match IDs from existing JSON files in TEST directory."""
     scraped_ids = set()
     if DATA_DIR.exists():
         for json_file in DATA_DIR.glob('*.json'):
-            # Extract match ID from filename (format: YYYYMMDD_Team1_vs_Team2.json)
-            # Or try to read the JSON and get matchInfo.id
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     if 'matchInfo' in data and 'id' in data['matchInfo']:
                         scraped_ids.add(data['matchInfo']['id'])
             except:
-                # If we can't read it, try to extract from filename
-                # Some files have match ID in filename: {match_id}_date_team_team.json
-                filename = json_file.stem
-                # Try to extract match ID if it's at the start of filename
-                parts = filename.split('_')
-                if len(parts) > 0 and len(parts[0]) > 10:  # Match IDs are usually long alphanumeric strings
-                    potential_id = parts[0]
-                    if len(potential_id) >= 20:  # Match IDs are typically 20+ characters
-                        scraped_ids.add(potential_id)
+                pass
     return scraped_ids
 
 
@@ -133,7 +130,6 @@ def parse_matches_xml(xml_content: str) -> List[Dict]:
         root = ET.fromstring(xml_content)
         today = datetime.now().date()
         
-        # Find all match elements
         for match_elem in root.findall('.//match'):
             match_info = match_elem.find('matchInfo')
             if match_info is not None:
@@ -146,7 +142,6 @@ def parse_matches_xml(xml_content: str) -> List[Dict]:
                 match_date_obj = None
                 if date_elem:
                     try:
-                        # Parse date (format: YYYY-MM-DDZ or similar)
                         date_str = date_elem.replace('Z', '').split('T')[0]
                         match_date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
                         match_date_past = match_date_obj < today
@@ -225,13 +220,24 @@ def fetch_all_matches() -> List[Dict]:
         return []
 
 
+async def scrape_match_test(match_id: str):
+    """
+    Test version of scrape_match that saves to test directory.
+    Uses the output_dir parameter to save to test directory.
+    """
+    # Use the output_dir parameter to save to test directory
+    result = await scrape_match(match_id, output_dir=DATA_DIR)
+    return result
+
+
 async def scrape_new_matches(force: bool = False, dry_run: bool = False, competition_name: str = "Concacaf Caribbean Cup"):
-    """Main function to discover and scrape new matches."""
-    print("🚀 Automated Match Scraper")
+    """Main function to discover and scrape new matches (TEST VERSION)."""
+    print("🧪 TEST MODE - Automated Match Scraper")
+    print("=" * 60)
+    print(f"📁 Test Output Directory: {DATA_DIR}")
     print("=" * 60)
     
-    # Optionally get tournament ID dynamically (like professor showed)
-    # This allows filtering competitions dynamically
+    # Optionally get tournament ID dynamically
     global TOURNAMENT_CALENDAR_ID, MATCHES_LIST_URL
     dynamic_tournament_id = get_tournament_id_for_competition(competition_name)
     if dynamic_tournament_id:
@@ -246,26 +252,19 @@ async def scrape_new_matches(force: bool = False, dry_run: bool = False, competi
     
     print("=" * 60)
     
-    # Ensure data directory exists
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # Get already scraped match IDs
+    # Get already scraped match IDs from TEST directory
     scraped_ids = get_scraped_match_ids()
-    print(f"📋 Already scraped: {len(scraped_ids)} matches")
+    print(f"📋 Already scraped (TEST): {len(scraped_ids)} matches")
     
     # Fetch all matches from API
     print(f"🔍 Fetching all matches from PerformFeeds API...")
-    print(f"   ✅ Using _pgSz=400 parameter to get all matches (including August)")
     all_matches = fetch_all_matches()
     
     if not all_matches:
         print("❌ No matches found or failed to fetch")
         return
     
-    print(f"✅ Found {len(all_matches)} matches from API list endpoint")
-    
-    # Note: The API list endpoint is limited, but individual matches (including August ones)
-    # are accessible via direct calls. We rely on existing scraped files for historical matches.
+    print(f"✅ Found {len(all_matches)} total matches")
     
     # Filter for played matches only (exclude future fixtures)
     played_matches = [m for m in all_matches if m.get('status', False)]
@@ -296,7 +295,7 @@ async def scrape_new_matches(force: bool = False, dry_run: bool = False, competi
     
     if dry_run:
         print("\n🔍 DRY RUN - Would scrape these matches:")
-        for match in new_matches[:10]:  # Show first 10
+        for match in new_matches[:10]:
             print(f"   - {match['id']}: {match['description']} ({match['date']})")
         if len(new_matches) > 10:
             print(f"   ... and {len(new_matches) - 10} more")
@@ -313,10 +312,10 @@ async def scrape_new_matches(force: bool = False, dry_run: bool = False, competi
         print(f"\n[{i}/{len(new_matches)}] {description} ({match_id})")
         
         try:
-            result = await scrape_match(match_id)
+            result = await scrape_match_test(match_id)
             if result:
                 success_count += 1
-                print(f"   ✅ Success")
+                print(f"   ✅ Success (saved to TEST directory)")
             else:
                 fail_count += 1
                 print(f"   ❌ Failed")
@@ -328,16 +327,16 @@ async def scrape_new_matches(force: bool = False, dry_run: bool = False, competi
         await asyncio.sleep(1)
     
     print("\n" + "=" * 60)
-    print(f"✅ Scraping complete!")
+    print(f"✅ TEST Scraping complete!")
     print(f"   Success: {success_count}")
     print(f"   Failed: {fail_count}")
-    print(f"   Total scraped (this run): {success_count}")
-    print(f"   Total matches in database: {len(scraped_ids) + success_count}")
+    print(f"   Total scraped (TEST): {len(scraped_ids) + success_count}")
+    print(f"   📁 Files saved to: {DATA_DIR}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Automatically discover and scrape Concacaf Caribbean Cup matches'
+        description='TEST VERSION: Automatically discover and scrape matches (saves to test directory)'
     )
     parser.add_argument(
         '--force',
