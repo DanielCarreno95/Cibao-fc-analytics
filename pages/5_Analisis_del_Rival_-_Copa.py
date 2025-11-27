@@ -3080,7 +3080,8 @@ def create_formation_chart(formation_stats: Dict, team_color: str):
     fig.add_trace(go.Bar(
         x=formations,
         y=win_rates,
-        marker=dict(color=team_color),  # Usar marker dict para asegurar que el color se aplique
+        marker_color=team_color,  # Use marker_color directly (more reliable than marker dict)
+        marker_line=dict(width=0),  # Remove border
         text=[f"{wr:.1f}%" for wr in win_rates],
         textposition='outside',
         name="Tasa de Victoria",
@@ -3138,9 +3139,17 @@ def create_phase_chart(phase_stats: Dict, team_color: str):
     if not team_color.startswith('#'):
         team_color = '#' + team_color
     
+    # CRITICAL: Store original color to verify it's not being changed
+    original_color = team_color
+    
     # For tactical analysis tab: use opponent's color for goals scored, lighter shade for goals conceded
     goals_for_color = team_color
     goals_against_color = lighten_color(team_color, factor=0.6)  # 60% lighter
+    
+    # Debug: verify color is correct (will show in console if there's an issue)
+    if goals_for_color != original_color:
+        import sys
+        print(f"WARNING: Color changed from {original_color} to {goals_for_color}", file=sys.stderr)
     
     fig = go.Figure()
     
@@ -3148,7 +3157,8 @@ def create_phase_chart(phase_stats: Dict, team_color: str):
         x=phases,
         y=goals_for,
         name="Goles a Favor",
-        marker=dict(color=goals_for_color),  # Usar marker dict para asegurar que el color se aplique
+        marker_color=goals_for_color,  # Use marker_color directly (more reliable than marker dict)
+        marker_line=dict(width=0),  # Remove border
         text=[f"{g:.2f}" for g in goals_for],
         textposition='outside',
         textfont=dict(color='white')
@@ -3158,7 +3168,8 @@ def create_phase_chart(phase_stats: Dict, team_color: str):
         x=phases,
         y=goals_against,
         name="Goles en Contra",
-        marker=dict(color=goals_against_color),  # Usar marker dict para asegurar que el color se aplique
+        marker_color=goals_against_color,  # Use marker_color directly (more reliable than marker dict)
+        marker_line=dict(width=0),  # Remove border
         text=[f"{g:.2f}" for g in goals_against],
         textposition='outside',
         textfont=dict(color='black')
@@ -3198,8 +3209,16 @@ def create_goal_timing_chart(patterns: Dict, team_color: str):
     if not team_color.startswith('#'):
         team_color = '#' + team_color
     
+    # CRITICAL: Store original color to verify it's not being changed
+    original_color = team_color
+    
     # Use a light gray color for opponent goals instead of white
     opponent_color = lighten_color(team_color, factor=0.7)  # Usar versión más clara del color del equipo
+    
+    # Debug: verify color is correct
+    if team_color != original_color:
+        import sys
+        print(f"WARNING: Color changed from {original_color} to {team_color}", file=sys.stderr)
     
     fig = go.Figure()
     
@@ -3207,7 +3226,8 @@ def create_goal_timing_chart(patterns: Dict, team_color: str):
         fig.add_trace(go.Histogram(
             x=team_goals,
             name="Goles a Favor",
-            marker=dict(color=team_color),  # Usar marker dict para asegurar que el color se aplique
+            marker_color=team_color,  # Use marker_color directly (more reliable than marker dict)
+            marker_line=dict(width=0),  # Remove border
             nbinsx=18,
             opacity=0.7
         ))
@@ -3216,7 +3236,8 @@ def create_goal_timing_chart(patterns: Dict, team_color: str):
         fig.add_trace(go.Histogram(
             x=opp_goals,
             name="Goles en Contra",
-            marker=dict(color=opponent_color),  # Usar marker dict para asegurar que el color se aplique
+            marker_color=opponent_color,  # Use marker_color directly (more reliable than marker dict)
+            marker_line=dict(width=0),  # Remove border
             nbinsx=18,
             opacity=0.7
         ))
@@ -5783,40 +5804,88 @@ def main():
         if not selected_opponent:
             st.info("👈 **Selecciona un equipo desde el selector en la barra lateral** para ver su análisis táctico y fases del partido.")
         elif selected_opponent:
-            # Get team color from CSV with flexible matching
+            # Reload colors directly from CSV - this is the source of truth
+            current_colors = load_team_colors()
+            
+            # Get team color DIRECTLY from CSV with comprehensive matching
             # IMPORTANT: On tactical analysis tab, we're analyzing the OPPONENT, so use opponent's color
-            if selected_opponent == CIBAO_TEAM_NAME:
-                team_color = CIBAO_COLOR
-            else:
-                # Reload colors to ensure we have the latest from CSV (in case it was updated)
-                current_colors = load_team_colors()
-                team_color = get_team_color(selected_opponent)
+            team_color = None
+            normalized_name = selected_opponent.strip()
+            
+            # Create multiple variations of the team name to try matching
+            name_variations = [
+                normalized_name,  # Original
+                normalized_name.lower(),  # Lowercase
+                normalized_name.replace(' FC', '').strip(),  # Remove " FC"
+                normalized_name.replace(' FC', '').strip().lower(),  # Remove " FC" + lowercase
+                normalized_name.replace(' ', '').lower(),  # Remove spaces + lowercase
+                normalized_name.replace(' FC', '').replace(' ', '').lower(),  # Remove " FC" and spaces + lowercase
+            ]
+            
+            # Try each variation until we find a match
+            matched_variation = None
+            for variation in name_variations:
+                if variation in current_colors:
+                    team_color = current_colors[variation]
+                    matched_variation = variation
+                    break
+            
+            # If still no match, try partial matching (but skip Cibao)
+            if not team_color:
+                normalized_lower = normalized_name.lower().replace(' fc', '').strip()
+                for csv_team, color in current_colors.items():
+                    csv_team_lower = csv_team.lower()
+                    # Skip Cibao variations to avoid false matches
+                    if 'cibao' in csv_team_lower:
+                        continue
+                    # Try matching core team names (remove common suffixes)
+                    csv_core = csv_team_lower.replace(' fc', '').replace(' ', '').strip()
+                    name_core = normalized_lower.replace(' ', '').strip()
+                    if csv_core == name_core or (len(csv_core) >= 5 and csv_core in name_core) or (len(name_core) >= 5 and name_core in csv_core):
+                        team_color = color
+                        break
+            
+            # Final fallback: use default gray (NOT white, NOT Cibao's color)
+            if not team_color:
+                team_color = "#CCCCCC"
+            
+            # Ensure team_color has # prefix
+            if team_color and not team_color.startswith('#'):
+                team_color = '#' + team_color
+            
+            # CRITICAL SAFETY CHECK: Never use Cibao's color for non-Cibao teams
+            # Get Cibao's actual color from CSV to compare
+            cibao_csv_color = current_colors.get('Cibao', CIBAO_COLOR)
+            if not cibao_csv_color.startswith('#'):
+                cibao_csv_color = '#' + cibao_csv_color
+            
+            if selected_opponent != CIBAO_TEAM_NAME and team_color == cibao_csv_color:
+                # This should never happen, but if it does, force gray
+                team_color = "#CCCCCC"
+            
+            # Debug: mostrar el color obtenido
+            with st.expander("Debug: Color del Equipo", expanded=False):
+                st.write(f"**Equipo seleccionado:** {selected_opponent}")
+                st.write(f"**Color obtenido del CSV:** {team_color}")
+                st.write(f"**Es Cibao?:** {selected_opponent == CIBAO_TEAM_NAME}")
+                st.write(f"**Color de Cibao (CSV):** {cibao_csv_color}")
+                st.write(f"**Color de Cibao (constante):** {CIBAO_COLOR}")
+                st.write(f"**¿Son iguales?:** {team_color == cibao_csv_color}")
                 
-                # Double-check: if we got Cibao's color for a non-Cibao team, something is wrong
-                if team_color == CIBAO_COLOR and selected_opponent != CIBAO_TEAM_NAME:
-                    # Try direct lookup in current_colors
-                    if selected_opponent in current_colors:
-                        team_color = current_colors[selected_opponent]
-                    elif selected_opponent.lower() in current_colors:
-                        team_color = current_colors[selected_opponent.lower()]
-                    else:
-                        # Fallback: use a default color that's not Cibao's
-                        team_color = "#CCCCCC"
+                # Show which variation matched (matched_variation is set above)
+                if matched_variation:
+                    st.write(f"✅ **Variación que coincidió:** '{matched_variation}' = {current_colors[matched_variation]}")
+                else:
+                    st.write(f"⚠️ **No se encontró coincidencia exacta** - usando color por defecto: {team_color}")
                 
-                # Debug: mostrar el color obtenido
-                with st.expander("🔍 Debug: Color del Equipo", expanded=False):
-                    st.write(f"**Equipo seleccionado:** {selected_opponent}")
-                    st.write(f"**Color obtenido:** {team_color}")
-                    st.write(f"**Es Cibao?:** {selected_opponent == CIBAO_TEAM_NAME}")
-                    st.write(f"**Color de Cibao:** {CIBAO_COLOR}")
-                    st.write(f"**Colores disponibles en CSV:** {sorted(list(current_colors.keys()))}")
-                    if selected_opponent in current_colors:
-                        st.write(f"✅ Encontrado en CSV como: '{selected_opponent}'")
-                    elif selected_opponent.lower() in current_colors:
-                        st.write(f"✅ Encontrado en CSV como: '{selected_opponent.lower()}'")
-                    else:
-                        st.write(f"⚠️ No encontrado exactamente en CSV")
-                    st.color_picker("Color Visualizado", value=team_color, key="debug_color_picker", disabled=True)
+                st.write(f"**Colores disponibles en CSV (equipos principales):**")
+                # Show only the original team names (not lowercase variations)
+                original_teams = sorted([k for k in current_colors.keys() if k[0].isupper() or k == 'cibao'])
+                for team in original_teams[:15]:  # Show first 15 to avoid clutter
+                    if team in current_colors:
+                        st.write(f"  - {team}: {current_colors[team]}")
+                
+                st.color_picker("Color Visualizado", value=team_color, key="debug_color_picker", disabled=True)
             
             # Get matches for the selected team
             if selected_opponent == CIBAO_TEAM_NAME:
@@ -5843,7 +5912,7 @@ def main():
             if not played_matches:
                 st.info("No hay partidos jugados disponibles para este equipo.")
             else:
-                st.markdown(f"### ⚽ Análisis Táctico y Fases del Partido — {selected_opponent}")
+                st.markdown(f"### Análisis Táctico y Fases del Partido — {selected_opponent}")
                 st.markdown("<br>", unsafe_allow_html=True)
                 
                 # Obtener formaciones disponibles para el filtro
@@ -5853,7 +5922,7 @@ def main():
                 # Filtro de formación
                 if available_formations:
                     selected_formation = st.selectbox(
-                        "🔍 Filtrar por Formación",
+                        "Filtrar por Formación",
                         options=["Todas las Formaciones"] + available_formations,
                         index=0,
                         key="formation_filter_tactical"
@@ -5877,35 +5946,124 @@ def main():
                 
                 # ========== SECCIÓN 1: FORMACIONES ==========
                 st.markdown("---")
-                st.markdown("### 📐 Formaciones")
+                st.markdown("### Formaciones")
                 
                 if not formation_stats:
                     st.info("No hay datos de formaciones disponibles.")
                 else:
-                    col1, col2, col3, col4 = st.columns(4)
-                    
                     total_matches = sum([s["count"] for s in formation_stats.values()])
                     most_used = max(formation_stats.items(), key=lambda x: x[1]["count"])
                     best_formation = max([(f, s) for f, s in formation_stats.items() if s["count"] >= 2], 
                                        key=lambda x: x[1].get("win_rate", 0), default=(None, None))
                     
+                    # Calculate overall averages for comparison
+                    total_wins = sum([s["wins"] for s in formation_stats.values()])
+                    total_draws = sum([s["draws"] for s in formation_stats.values()])
+                    total_losses = sum([s["losses"] for s in formation_stats.values()])
+                    overall_win_rate = (total_wins / total_matches * 100) if total_matches > 0 else 0
+                    
+                    total_goals_for = sum([s.get("goals_for", 0) for s in formation_stats.values()])
+                    total_goals_against = sum([s.get("goals_against", 0) for s in formation_stats.values()])
+                    avg_goals_for = total_goals_for / total_matches if total_matches > 0 else 0
+                    avg_goals_against = total_goals_against / total_matches if total_matches > 0 else 0
+                    
+                    # Get best formation stats
+                    best_win_rate = best_formation[1].get("win_rate", 0) if best_formation[0] else 0
+                    most_used_count = most_used[1]["count"] if most_used else 0
+                    most_used_percentage = (most_used_count / total_matches * 100) if total_matches > 0 else 0
+                    
+                    # KPI Tiles in 3x4 grid (3 rows, 4 columns)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # Row 1
+                    col1, col2, col3, col4 = st.columns(4)
+                    
                     with col1:
-                        st.metric("Total de Formaciones", len(formation_stats))
+                        display_metric_card(
+                            "Total de Formaciones",
+                            f"{len(formation_stats)}",
+                            "",
+                            f"Formaciones únicas utilizadas",
+                            color="normal"
+                        )
+                    
                     with col2:
-                        st.metric("Partidos Analizados", total_matches)
+                        display_metric_card(
+                            "Partidos Analizados",
+                            f"{total_matches}",
+                            "",
+                            f"Total de partidos con datos",
+                            color="normal"
+                        )
+                    
                     with col3:
-                        st.metric("Formación Más Usada", format_formation(most_used[0]) if most_used else "N/A")
+                        display_metric_card(
+                            "Formación Más Usada",
+                            format_formation(most_used[0]) if most_used else "N/A",
+                            "",
+                            f"{most_used_percentage:.1f}% de los partidos" if most_used else "Sin datos",
+                            color="normal"
+                        )
+                    
                     with col4:
                         if best_formation[0]:
-                            st.metric("Mejor Formación", f"{format_formation(best_formation[0])} ({best_formation[1].get('win_rate', 0):.1f}%)")
+                            display_metric_card(
+                                "Mejor Formación",
+                                format_formation(best_formation[0]),
+                                "",
+                                f"{best_win_rate:.1f}% tasa de victoria",
+                                color="normal"
+                            )
                         else:
-                            st.metric("Mejor Formación", "N/A")
+                            display_metric_card(
+                                "Mejor Formación",
+                                "N/A",
+                                "",
+                                "Datos insuficientes",
+                                color="normal"
+                            )
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     
-                    fig = create_formation_chart(formation_stats, team_color)
-                    if fig:
-                        st.plotly_chart(fig, use_container_width=True)
+                    # Row 2
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        display_metric_card(
+                            "Tasa de Victoria",
+                            f"{overall_win_rate:.1f}%",
+                            "",
+                            f"{total_wins} victorias en {total_matches} partidos",
+                            color="normal"
+                        )
+                    
+                    with col2:
+                        display_metric_card(
+                            "Goles por Partido",
+                            f"{avg_goals_for:.2f}",
+                            "",
+                            f"Promedio a favor",
+                            color="normal"
+                        )
+                    
+                    with col3:
+                        display_metric_card(
+                            "Goles Recibidos",
+                            f"{avg_goals_against:.2f}",
+                            "",
+                            f"Promedio en contra",
+                            color="normal"
+                        )
+                    
+                    with col4:
+                        goal_diff = avg_goals_for - avg_goals_against
+                        display_metric_card(
+                            "Diferencia de Goles",
+                            f"{goal_diff:+.2f}",
+                            "",
+                            f"Por partido",
+                            color="normal"
+                        )
                     
                     # Tabla detallada
                     formation_data = []
@@ -5927,7 +6085,7 @@ def main():
                 
                 # ========== SECCIÓN 2: FASES DEL PARTIDO ==========
                 st.markdown("---")
-                st.markdown("### ⏱️ Fases del Partido")
+                st.markdown("### Fases del Partido")
                 
                 # Recalcular con partidos filtrados (si hay filtro de formación)
                 phase_stats = analyze_match_phases(played_matches, selected_opponent)
@@ -5949,9 +6107,13 @@ def main():
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                fig = create_phase_chart(phase_stats, team_color)
+                # Use the team_color we already calculated from CSV (it's already correct)
+                chart_color = team_color
+                
+                # Pass verified color directly to chart
+                fig = create_phase_chart(phase_stats, chart_color)
                 if fig:
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key=f"phase_chart_{selected_opponent}_{chart_color}")
                 
                 # Tabla detallada
                 phase_data = []
@@ -5974,7 +6136,7 @@ def main():
                 
                 # ========== SECCIÓN 3: PATRONES DE EVENTOS ==========
                 st.markdown("---")
-                st.markdown("### 📊 Patrones de Eventos")
+                st.markdown("### Patrones de Eventos")
                 
                 # Recalcular con partidos filtrados (si hay filtro de formación)
                 patterns = analyze_event_patterns(played_matches, selected_opponent)
@@ -5993,11 +6155,15 @@ def main():
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                fig = create_goal_timing_chart(patterns, team_color)
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True)
+                # Use the team_color we already calculated from CSV (it's already correct)
+                chart_color = team_color
                 
-                st.markdown("### 🎯 Goles Tras Eventos Clave")
+                # Pass verified color directly to chart
+                fig = create_goal_timing_chart(patterns, chart_color)
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True, key=f"goal_timing_chart_{selected_opponent}_{chart_color}")
+                
+                st.markdown("### Goles Tras Eventos Clave")
                 col1, col2 = st.columns(2)
                 
                 with col1:
@@ -6014,7 +6180,7 @@ def main():
                 
                 # ========== SECCIÓN 4: MOMENTUM ==========
                 st.markdown("---")
-                st.markdown("### ⚡ Momentum")
+                st.markdown("### Momentum")
                 
                 # Recalcular con partidos filtrados (si hay filtro de formación)
                 momentum_data = analyze_momentum(played_matches, selected_opponent)
@@ -6040,15 +6206,35 @@ def main():
                     momentum_data.get("comeback_draws", 0)
                 ]
                 
+                # CRITICAL: Get color directly from CSV, don't rely on team_color variable
+                chart_color = team_color  # Start with current value
+                if selected_opponent != CIBAO_TEAM_NAME:
+                    # Get color directly from current_colors dictionary
+                    if selected_opponent in current_colors:
+                        chart_color = current_colors[selected_opponent]
+                    elif selected_opponent.lower() in current_colors:
+                        chart_color = current_colors[selected_opponent.lower()]
+                    else:
+                        chart_color = "#CCCCCC"
+                    
+                    # Ensure # prefix
+                    if not chart_color.startswith('#'):
+                        chart_color = '#' + chart_color
+                    
+                    # ABSOLUTE SAFETY: Never use Cibao's color for non-Cibao teams
+                    if chart_color == CIBAO_COLOR:
+                        chart_color = "#CCCCCC"
+                
                 # Asegurar que el color tenga el formato correcto
-                if not team_color.startswith('#'):
-                    team_color = '#' + team_color
+                if not chart_color.startswith('#'):
+                    chart_color = '#' + chart_color
                 
                 fig = go.Figure()
                 fig.add_trace(go.Bar(
                     x=categories,
                     y=values,
-                    marker=dict(color=[team_color, "#EF4444", "#10B981", "#F59E0B"]),  # Usar marker dict
+                    marker_color=[chart_color, "#EF4444", "#10B981", "#F59E0B"],  # Use marker_color directly with list
+                    marker_line=dict(width=0),  # Remove border
                     text=values,
                     textposition='outside'
                 ))
@@ -6064,11 +6250,11 @@ def main():
                     font=dict(color='white')
                 )
                 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key=f"momentum_chart_{selected_opponent}_{chart_color}")
                 
                 # ========== SECCIÓN 5: SET PIECES ==========
                 st.markdown("---")
-                st.markdown("### 🎯 Set Pieces")
+                st.markdown("### Set Pieces")
                 
                 # Recalcular con partidos filtrados (si hay filtro de formación)
                 set_pieces_stats = analyze_set_pieces(played_matches, selected_opponent)
@@ -6079,7 +6265,7 @@ def main():
                     col1, col2, col3 = st.columns(3)
                     
                     with col1:
-                        st.markdown("#### ⚽ Corners")
+                        st.markdown("#### Corners")
                         corners_won = set_pieces_stats["corners"]["won"]
                         corners_lost = set_pieces_stats["corners"]["lost"]
                         avg_won = set_pieces_stats["corners"].get("avg_won", 0)
@@ -6093,7 +6279,7 @@ def main():
                             st.metric("Tasa de Ganancia", f"{win_rate:.1f}%")
                     
                     with col2:
-                        st.markdown("#### 🦵 Tiros Libres")
+                        st.markdown("#### Tiros Libres")
                         fk_won = set_pieces_stats["free_kicks"]["won"]
                         fk_lost = set_pieces_stats["free_kicks"]["lost"]
                         avg_won = set_pieces_stats["free_kicks"].get("avg_won", 0)
@@ -6107,7 +6293,7 @@ def main():
                             st.metric("Tasa de Ganancia", f"{win_rate:.1f}%")
                     
                     with col3:
-                        st.markdown("#### ⚖️ Penales")
+                        st.markdown("#### Penales")
                         penalties_taken = set_pieces_stats["penalties"]["taken"]
                         penalties_scored = set_pieces_stats["penalties"]["scored"]
                         penalties_missed = set_pieces_stats["penalties"]["missed"]
@@ -6129,18 +6315,18 @@ def main():
                         set_pieces_stats["free_kicks"].get("avg_lost", 0)
                     ]
                     
-                    # Asegurar que el color tenga el formato correcto
-                    if not team_color.startswith('#'):
-                        team_color = '#' + team_color
+                    # Use the team_color we already calculated from CSV (it's already correct)
+                    chart_color = team_color
                     
                     # Use lighter version of team color for opponent stats
-                    opponent_color = lighten_color(team_color, factor=0.7)
+                    opponent_color = lighten_color(chart_color, factor=0.7)
                     
                     fig = go.Figure()
                     fig.add_trace(go.Bar(
                         x=categories,
                         y=values,
-                        marker=dict(color=[team_color, opponent_color, team_color, opponent_color]),  # Usar marker dict
+                        marker_color=[chart_color, opponent_color, chart_color, opponent_color],  # Use marker_color directly with list
+                        marker_line=dict(width=0),  # Remove border
                         text=[f"{v:.2f}" for v in values],
                         textposition='outside',
                         textfont=dict(color=['white', 'black', 'white', 'black'])
@@ -6157,7 +6343,7 @@ def main():
                         font=dict(color='white')
                     )
                     
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key=f"set_pieces_chart_{selected_opponent}_{chart_color}")
         else:
             st.info("Selecciona un equipo para ver su análisis táctico.")
 
