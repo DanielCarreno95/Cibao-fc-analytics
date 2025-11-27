@@ -3077,13 +3077,17 @@ def create_formation_chart(formation_stats: Dict, team_color: str):
     
     fig = go.Figure()
     
+    # Determine text color based on bar color brightness
+    text_color = get_text_color(team_color)
+    
     fig.add_trace(go.Bar(
         x=formations,
         y=win_rates,
         marker_color=team_color,  # Use marker_color directly (more reliable than marker dict)
         marker_line=dict(width=0),  # Remove border
         text=[f"{wr:.1f}%" for wr in win_rates],
-        textposition='outside',
+        textposition='inside',  # Anchor text inside the bar
+        textfont=dict(color=text_color, size=12, family="Arial Black"),
         name="Tasa de Victoria",
         hovertemplate="<b>%{x}</b><br>Tasa de Victoria: %{y:.1f}%<br>Partidos: %{customdata}<extra></extra>",
         customdata=counts
@@ -3127,13 +3131,46 @@ def lighten_color(hex_color: str, factor: float = 0.5) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def create_phase_chart(phase_stats: Dict, team_color: str):
+def get_text_color(hex_color):
+    """Determine if text should be black or white based on color brightness."""
+    hex_color = hex_color.lstrip('#')
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    # Calculate brightness (0-255)
+    brightness = (r * 299 + g * 587 + b * 114) / 1000
+    # If brightness is above 128, use black text; otherwise white
+    return 'black' if brightness > 128 else 'white'
+
+def create_phase_chart(phase_stats: Dict, team_color: str, metric_config: Dict = None):
     """Crea gráfico de fases del partido."""
     phases = ["0-15'", "16-30'", "31-45'", "46-60'", "61-75'", "76-90'", "90+'"]
     phase_keys = ["first_15", "16_30", "31_45", "46_60", "61_75", "76_90", "90_plus"]
     
-    goals_for = [phase_stats[key].get("avg_goals_for", 0) for key in phase_keys]
-    goals_against = [phase_stats[key].get("avg_goals_against", 0) for key in phase_keys]
+    # Default to average goals if no metric config provided
+    if metric_config is None:
+        metric_config = {
+            "for_key": "avg_goals_for",
+            "against_key": "avg_goals_against",
+            "y_axis_title": "Promedio de Goles",
+            "for_label": "Goles a Favor",
+            "against_label": "Goles en Contra"
+        }
+    
+    # Get values based on selected metric
+    if metric_config["for_key"] == "goal_difference":
+        # Calculate difference for each phase (goals_for - goals_against)
+        values_for = [
+            phase_stats[key].get("goals_for", 0) - phase_stats[key].get("goals_against", 0)
+            for key in phase_keys
+        ]
+        values_against = None  # Don't show second trace for difference
+    else:
+        values_for = [phase_stats[key].get(metric_config["for_key"], 0) for key in phase_keys]
+        if metric_config.get("against_key"):
+            values_against = [phase_stats[key].get(metric_config["against_key"], 0) for key in phase_keys]
+        else:
+            values_against = None
     
     # Asegurar que el color tenga el formato correcto
     if not team_color.startswith('#'):
@@ -3144,36 +3181,62 @@ def create_phase_chart(phase_stats: Dict, team_color: str):
     
     # For tactical analysis tab: use opponent's color for goals scored, lighter shade for goals conceded
     goals_for_color = team_color
-    goals_against_color = lighten_color(team_color, factor=0.6)  # 60% lighter
+    goals_against_color = lighten_color(team_color, factor=0.75)  # 75% lighter (more distinct)
     
     # Debug: verify color is correct (will show in console if there's an issue)
     if goals_for_color != original_color:
         import sys
         print(f"WARNING: Color changed from {original_color} to {goals_for_color}", file=sys.stderr)
     
+    # Determine colors
+    goals_for_color = team_color
+    if values_against is not None:
+        goals_against_color = lighten_color(team_color, factor=0.75)  # 75% lighter (more distinct)
+    else:
+        goals_against_color = None
+    
     fig = go.Figure()
     
-    fig.add_trace(go.Bar(
-        x=phases,
-        y=goals_for,
-        name="Goles a Favor",
-        marker_color=goals_for_color,  # Use marker_color directly (more reliable than marker dict)
-        marker_line=dict(width=0),  # Remove border
-        text=[f"{g:.2f}" for g in goals_for],
-        textposition='outside',
-        textfont=dict(color='white')
-    ))
+    # Determine text colors based on bar color brightness
+    goals_for_text_color = get_text_color(goals_for_color)
+    
+    # Format text based on metric type
+    if metric_config["for_key"] == "goal_difference":
+        text_format = [f"{v:+.1f}" for v in values_for]
+    elif "avg" in metric_config["for_key"]:
+        text_format = [f"{v:.2f}" for v in values_for]
+    else:
+        text_format = [f"{int(v)}" for v in values_for]
     
     fig.add_trace(go.Bar(
         x=phases,
-        y=goals_against,
-        name="Goles en Contra",
-        marker_color=goals_against_color,  # Use marker_color directly (more reliable than marker dict)
-        marker_line=dict(width=0),  # Remove border
-        text=[f"{g:.2f}" for g in goals_against],
-        textposition='outside',
-        textfont=dict(color='black')
+        y=values_for,
+        name=metric_config["for_label"],
+        marker_color=goals_for_color,
+        marker_line=dict(width=0),
+        text=text_format,
+        textposition='inside',
+        textfont=dict(color=goals_for_text_color, size=12, family="Arial Black")
     ))
+    
+    # Add second trace only if against_key is provided
+    if values_against is not None:
+        goals_against_text_color = get_text_color(goals_against_color)
+        if "avg" in metric_config["against_key"]:
+            text_format_against = [f"{v:.2f}" for v in values_against]
+        else:
+            text_format_against = [f"{int(v)}" for v in values_against]
+        
+        fig.add_trace(go.Bar(
+            x=phases,
+            y=values_against,
+            name=metric_config["against_label"],
+            marker_color=goals_against_color,
+            marker_line=dict(width=0),
+            text=text_format_against,
+            textposition='inside',
+            textfont=dict(color=goals_against_text_color, size=12, family="Arial Black")
+        ))
     
     fig.update_layout(
         template='plotly_dark',
@@ -3181,7 +3244,7 @@ def create_phase_chart(phase_stats: Dict, team_color: str):
         plot_bgcolor='rgba(0,0,0,0)',
         height=400,
         xaxis_title="Fase del Partido",
-        yaxis_title="Promedio de Goles",
+        yaxis_title=metric_config["y_axis_title"],
         barmode='group',
         font=dict(color='white'),
         legend=dict(
@@ -3209,47 +3272,69 @@ def create_goal_timing_chart(patterns: Dict, team_color: str):
     if not team_color.startswith('#'):
         team_color = '#' + team_color
     
-    # CRITICAL: Store original color to verify it's not being changed
-    original_color = team_color
+    # Use a much lighter, more distinct color for opponent goals
+    # For overlay histograms, we need very distinct colors
+    opponent_color = lighten_color(team_color, factor=0.9)  # 90% lighter for maximum distinction
     
-    # Use a light gray color for opponent goals instead of white
-    opponent_color = lighten_color(team_color, factor=0.7)  # Usar versión más clara del color del equipo
+    # Create phase-based bins instead of automatic binning for better clarity
+    # Use 15-minute intervals: 0-15, 15-30, 30-45, 45-60, 60-75, 75-90, 90+
+    phase_bins = [0, 15, 30, 45, 60, 75, 90, 120]  # 120 to catch any extra time
     
-    # Debug: verify color is correct
-    if team_color != original_color:
-        import sys
-        print(f"WARNING: Color changed from {original_color} to {team_color}", file=sys.stderr)
+    # Count goals in each phase for team
+    team_counts = [0] * (len(phase_bins) - 1)
+    for goal_time in team_goals:
+        for i in range(len(phase_bins) - 1):
+            if phase_bins[i] <= goal_time < phase_bins[i + 1]:
+                team_counts[i] += 1
+                break
+    
+    # Count goals in each phase for opponent
+    opp_counts = [0] * (len(phase_bins) - 1)
+    for goal_time in opp_goals:
+        for i in range(len(phase_bins) - 1):
+            if phase_bins[i] <= goal_time < phase_bins[i + 1]:
+                opp_counts[i] += 1
+                break
+    
+    # Create phase labels
+    phase_labels = ["0-15'", "15-30'", "30-45'", "45-60'", "60-75'", "75-90'", "90+'"]
     
     fig = go.Figure()
     
-    if team_goals:
-        fig.add_trace(go.Histogram(
-            x=team_goals,
-            name="Goles a Favor",
-            marker_color=team_color,  # Use marker_color directly (more reliable than marker dict)
-            marker_line=dict(width=0),  # Remove border
-            nbinsx=18,
-            opacity=0.7
-        ))
+    # Add team goals trace
+    fig.add_trace(go.Bar(
+        x=phase_labels,
+        y=team_counts,
+        name="Goles a Favor",
+        marker_color=team_color,
+        marker_line=dict(width=0),
+        opacity=0.8,
+        text=[f"{count}" if count > 0 else "" for count in team_counts],
+        textposition='inside',
+        textfont=dict(color=get_text_color(team_color), size=12, family="Arial Black")
+    ))
     
-    if opp_goals:
-        fig.add_trace(go.Histogram(
-            x=opp_goals,
-            name="Goles en Contra",
-            marker_color=opponent_color,  # Use marker_color directly (more reliable than marker dict)
-            marker_line=dict(width=0),  # Remove border
-            nbinsx=18,
-            opacity=0.7
-        ))
+    # Add opponent goals trace
+    fig.add_trace(go.Bar(
+        x=phase_labels,
+        y=opp_counts,
+        name="Goles en Contra",
+        marker_color=opponent_color,
+        marker_line=dict(width=0),
+        opacity=0.8,
+        text=[f"{count}" if count > 0 else "" for count in opp_counts],
+        textposition='inside',
+        textfont=dict(color=get_text_color(opponent_color), size=12, family="Arial Black")
+    ))
     
     fig.update_layout(
         template='plotly_dark',
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         height=400,
-        xaxis_title="Minuto del Partido",
+        xaxis_title="Fase del Partido",
         yaxis_title="Cantidad de Goles",
-        barmode='overlay',
+        barmode='group',  # Changed from 'overlay' to 'group' for better visibility
         font=dict(color='white'),
         legend=dict(
             orientation="h",
@@ -6090,6 +6175,40 @@ def main():
                 # Recalcular con partidos filtrados (si hay filtro de formación)
                 phase_stats = analyze_match_phases(played_matches, selected_opponent)
                 
+                # Dropdown menu for metric selection
+                metric_options = {
+                    "Promedio de Goles": {
+                        "for_key": "avg_goals_for",
+                        "against_key": "avg_goals_against",
+                        "y_axis_title": "Promedio de Goles",
+                        "for_label": "Goles a Favor (Promedio)",
+                        "against_label": "Goles en Contra (Promedio)"
+                    },
+                    "Total de Goles": {
+                        "for_key": "goals_for",
+                        "against_key": "goals_against",
+                        "y_axis_title": "Total de Goles",
+                        "for_label": "Goles a Favor (Total)",
+                        "against_label": "Goles en Contra (Total)"
+                    },
+                    "Diferencia de Goles": {
+                        "for_key": "goal_difference",
+                        "against_key": None,
+                        "y_axis_title": "Diferencia de Goles",
+                        "for_label": "Diferencia (GF - GC)",
+                        "against_label": None
+                    }
+                }
+                
+                selected_metric = st.selectbox(
+                    "Seleccionar Métrica:",
+                    options=list(metric_options.keys()),
+                    index=0,
+                    key=f"phase_metric_{selected_opponent}"
+                )
+                
+                metric_config = metric_options[selected_metric]
+                
                 col1, col2, col3 = st.columns(3)
                 
                 total_goals_for = sum([p["goals_for"] for p in phase_stats.values()])
@@ -6110,8 +6229,8 @@ def main():
                 # Use the team_color we already calculated from CSV (it's already correct)
                 chart_color = team_color
                 
-                # Pass verified color directly to chart
-                fig = create_phase_chart(phase_stats, chart_color)
+                # Pass verified color directly to chart with selected metric
+                fig = create_phase_chart(phase_stats, chart_color, metric_config)
                 if fig:
                     st.plotly_chart(fig, use_container_width=True, key=f"phase_chart_{selected_opponent}_{chart_color}")
                 
@@ -6132,53 +6251,25 @@ def main():
                     })
                 
                 df = pd.DataFrame(phase_data)
+                # Add CSS before rendering to override global dark theme
+                st.markdown("""
+                <style>
+                /* Override global theme for phase data table headers */
+                div[data-testid="stDataFrame"] table thead th,
+                div[data-testid="stDataFrame"] table th,
+                .stDataFrame table thead th,
+                .stDataFrame table th,
+                .dataframe thead th,
+                .dataframe th {
+                    color: #000000 !important;
+                    font-weight: 900 !important;
+                    background-color: #ff8c00 !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
                 st.dataframe(df, use_container_width=True, hide_index=True)
                 
-                # ========== SECCIÓN 3: PATRONES DE EVENTOS ==========
-                st.markdown("---")
-                st.markdown("### Patrones de Eventos")
-                
-                # Recalcular con partidos filtrados (si hay filtro de formación)
-                patterns = analyze_event_patterns(played_matches, selected_opponent)
-                
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.metric("Total Goles", len(patterns.get("goal_times", [])))
-                with col2:
-                    st.metric("Total Tarjetas", len(patterns.get("card_times", [])))
-                with col3:
-                    st.metric("Total Sustituciones", len(patterns.get("substitution_times", [])))
-                with col4:
-                    goals_after = patterns.get("goals_after_scoring", {})
-                    st.metric("Goles Tras Marcar", goals_after.get("for", 0))
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                # Use the team_color we already calculated from CSV (it's already correct)
-                chart_color = team_color
-                
-                # Pass verified color directly to chart
-                fig = create_goal_timing_chart(patterns, chart_color)
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True, key=f"goal_timing_chart_{selected_opponent}_{chart_color}")
-                
-                st.markdown("### Goles Tras Eventos Clave")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown("**Tras Marcar:**")
-                    after_scoring = patterns.get("goals_after_scoring", {})
-                    st.metric("Goles a Favor", after_scoring.get("for", 0))
-                    st.metric("Goles en Contra", after_scoring.get("against", 0))
-                
-                with col2:
-                    st.markdown("**Tras Recibir Gol:**")
-                    after_conceding = patterns.get("goals_after_conceding", {})
-                    st.metric("Goles a Favor", after_conceding.get("for", 0))
-                    st.metric("Goles en Contra", after_conceding.get("against", 0))
-                
-                # ========== SECCIÓN 4: MOMENTUM ==========
+                # ========== SECCIÓN 3: MOMENTUM ==========
                 st.markdown("---")
                 st.markdown("### Momentum")
                 
@@ -6229,14 +6320,19 @@ def main():
                 if not chart_color.startswith('#'):
                     chart_color = '#' + chart_color
                 
+                # Determine text colors for each bar based on their color brightness
+                momentum_colors = [chart_color, "#EF4444", "#10B981", "#F59E0B"]
+                momentum_text_colors = [get_text_color(color) for color in momentum_colors]
+                
                 fig = go.Figure()
                 fig.add_trace(go.Bar(
                     x=categories,
                     y=values,
-                    marker_color=[chart_color, "#EF4444", "#10B981", "#F59E0B"],  # Use marker_color directly with list
+                    marker_color=momentum_colors,  # Use marker_color directly with list
                     marker_line=dict(width=0),  # Remove border
-                    text=values,
-                    textposition='outside'
+                    text=[f"{v}" for v in values],
+                    textposition='inside',  # Anchor text inside the bar
+                    textfont=dict(color=momentum_text_colors, size=12, family="Arial Black")
                 ))
                 
                 fig.update_layout(
@@ -6321,6 +6417,14 @@ def main():
                     # Use lighter version of team color for opponent stats
                     opponent_color = lighten_color(chart_color, factor=0.7)
                     
+                    # Determine text colors for each bar based on their color brightness
+                    text_colors = [
+                        get_text_color(chart_color),      # Corners Ganados
+                        get_text_color(opponent_color),   # Corners Recibidos
+                        get_text_color(chart_color),      # Faltas a Favor
+                        get_text_color(opponent_color)    # Faltas en Contra
+                    ]
+                    
                     fig = go.Figure()
                     fig.add_trace(go.Bar(
                         x=categories,
@@ -6328,8 +6432,8 @@ def main():
                         marker_color=[chart_color, opponent_color, chart_color, opponent_color],  # Use marker_color directly with list
                         marker_line=dict(width=0),  # Remove border
                         text=[f"{v:.2f}" for v in values],
-                        textposition='outside',
-                        textfont=dict(color=['white', 'black', 'white', 'black'])
+                        textposition='inside',  # Anchor text inside the bar
+                        textfont=dict(color=text_colors, size=12, family="Arial Black")
                     ))
                     
                     fig.update_layout(
