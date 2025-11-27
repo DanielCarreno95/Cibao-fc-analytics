@@ -384,7 +384,7 @@ def get_next_fixtures() -> Dict[str, Optional[Dict]]:
 # FUNCIONES DE CARGA DE DATOS
 # ===========================================
 
-@st.cache_data
+@st.cache_data(ttl=300)  # Cache expires after 5 minutes (auto-refresh)
 def load_all_matches() -> List[Dict]:
     """Carga todos los partidos desde los archivos JSON."""
     matches = []
@@ -4551,6 +4551,15 @@ def main():
     </p>
     """, unsafe_allow_html=True)
     
+    # Botón de actualización de datos
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("🔄 Actualizar Datos", type="primary", use_container_width=True, 
+                     help="Actualiza los datos desde los archivos JSON más recientes"):
+            # Limpiar cache y recargar
+            load_all_matches.clear()
+            st.rerun()
+    
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Cargar datos
@@ -4645,6 +4654,20 @@ def main():
         """, unsafe_allow_html=True)
         
         st.info(f"**Equipo seleccionado:**\n\n**{selected_opponent}**")
+        
+        st.markdown("---")
+        
+        # Información sobre actualización de datos
+        with st.expander("ℹ️ Actualización de Datos", expanded=False):
+            st.markdown("""
+            **¿Cómo se actualizan los datos?**
+            
+            • Los datos se actualizan **automáticamente cada 5 minutos**
+            
+            • O haz clic en **"🔄 Actualizar Datos"** arriba para actualizar inmediatamente
+            
+            • Después de ejecutar el script de scraping, espera 5 minutos o usa el botón de actualización
+            """)
         
         st.markdown("---")
         
