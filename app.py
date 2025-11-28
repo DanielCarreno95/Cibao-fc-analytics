@@ -275,6 +275,7 @@ def main_hub():
         with cols_copa[i]:
             if st.button(f"**{title}**", use_container_width=True, key=f"copa_btn_{i}"):
                 st.switch_page(page)
+    
             
 # ===========================================
 # CONTROL DE AUTENTICACIÓN

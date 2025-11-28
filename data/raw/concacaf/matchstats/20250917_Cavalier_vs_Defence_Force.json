@@ -10,7 +10,7 @@
     "postMatch": "1",
     "numberOfPeriods": 2,
     "periodLength": 45,
-    "lastUpdated": "2025-09-25T23:14:25Z",
+    "lastUpdated": "2025-11-26T16:42:32Z",
     "description": "Cavalier vs Defence Force",
     "sport": {
       "id": "289u5typ3vp4ifwh5thalohmq",
@@ -34,7 +34,7 @@
     "tournamentCalendar": {
       "id": "bygi47fmsxgbzysjdf9u481lg",
       "startDate": "2025-08-20Z",
-      "endDate": "2025-12-02Z",
+      "endDate": "2025-12-03Z",
       "name": "2025"
     },
     "stage": {
@@ -46,6 +46,7 @@
     },
     "series": {
       "id": "bzvjje87vdpzyn1y453bqp72s",
+      "horizontal": 2,
       "formatId": "ci6ciikoil0ifcuis37z8h7md",
       "name": "Group B"
     },
@@ -265,7 +266,7 @@
         "playerOnId": "1t8spvrmfb1t43gv2ijjr110q",
         "playerOnName": "D. Ollivierra",
         "playerOffId": "8cx8sx1owbe45ks0p23qh0x61",
-        "playerOffName": "K. St Hillaire",
+        "playerOffName": "K. St. Hillaire",
         "subReason": "Tactical"
       },
       {
@@ -2106,11 +2107,11 @@
           {
             "playerId": "8cx8sx1owbe45ks0p23qh0x61",
             "firstName": "Kathon Kenroy",
-            "lastName": "St Hillaire",
+            "lastName": "St. Hillaire",
             "shortFirstName": "Kathon",
             "shortLastName": "St Hillaire",
             "knownName": "Kathon St Hillaire",
-            "matchName": "K. St Hillaire",
+            "matchName": "K. St. Hillaire",
             "shirtNumber": 77,
             "position": "Attacking Midfielder",
             "positionSide": "Right",
@@ -2516,11 +2517,11 @@
           {
             "playerId": "26d37faltf4zz4ue71lspabmy",
             "firstName": "Jabari Dimitri Anthony",
-            "lastName": "St Hillaire",
+            "lastName": "St. Hillaire",
             "shortFirstName": "Jabari",
             "shortLastName": "St Hillaire",
             "knownName": "Jabari St Hillaire",
-            "matchName": "J. St Hillaire",
+            "matchName": "J. St. Hillaire",
             "shirtNumber": 80,
             "position": "Substitute",
             "subPosition": "Goalkeeper",

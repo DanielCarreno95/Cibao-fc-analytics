@@ -11,7 +11,7 @@
     "periodLength": 45,
     "overtimeLength": 15,
     "var": "1",
-    "lastUpdated": "2025-10-23T18:57:41Z",
+    "lastUpdated": "2025-11-26T16:42:17Z",
     "description": "Defence Force vs Mount Pleasant Academy",
     "sport": {
       "id": "289u5typ3vp4ifwh5thalohmq",
@@ -35,7 +35,7 @@
     "tournamentCalendar": {
       "id": "bygi47fmsxgbzysjdf9u481lg",
       "startDate": "2025-08-20Z",
-      "endDate": "2025-12-02Z",
+      "endDate": "2025-12-03Z",
       "name": "2025"
     },
     "stage": {
@@ -87,6 +87,7 @@
       "winner": "away",
       "leg": 1,
       "relatedMatchId": "2j2eyie5rd7y7ct1blmb4naqc",
+      "aggregateWinnerId": "34xm0flo8kh6skplqk4qybmui",
       "matchLengthMin": 102,
       "matchLengthSec": 17,
       "period": [
@@ -121,7 +122,7 @@
           "away": 5
         },
         "aggregate": {
-          "home": 1,
+          "home": 2,
           "away": 5
         }
       }
@@ -1479,11 +1480,11 @@
           {
             "playerId": "26d37faltf4zz4ue71lspabmy",
             "firstName": "Jabari Dimitri Anthony",
-            "lastName": "St Hillaire",
+            "lastName": "St. Hillaire",
             "shortFirstName": "Jabari",
             "shortLastName": "St Hillaire",
             "knownName": "Jabari St Hillaire",
-            "matchName": "J. St Hillaire",
+            "matchName": "J. St. Hillaire",
             "shirtNumber": 80,
             "position": "Substitute",
             "subPosition": "Goalkeeper",

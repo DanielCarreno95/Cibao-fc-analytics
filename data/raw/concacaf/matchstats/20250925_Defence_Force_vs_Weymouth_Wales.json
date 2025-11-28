@@ -10,7 +10,7 @@
     "postMatch": "1",
     "numberOfPeriods": 2,
     "periodLength": 45,
-    "lastUpdated": "2025-10-03T11:52:57Z",
+    "lastUpdated": "2025-11-26T16:42:32Z",
     "description": "Defence Force vs Weymouth Wales",
     "sport": {
       "id": "289u5typ3vp4ifwh5thalohmq",
@@ -34,7 +34,7 @@
     "tournamentCalendar": {
       "id": "bygi47fmsxgbzysjdf9u481lg",
       "startDate": "2025-08-20Z",
-      "endDate": "2025-12-02Z",
+      "endDate": "2025-12-03Z",
       "name": "2025"
     },
     "stage": {
@@ -46,6 +46,7 @@
     },
     "series": {
       "id": "bzvjje87vdpzyn1y453bqp72s",
+      "horizontal": 2,
       "formatId": "ci6ciikoil0ifcuis37z8h7md",
       "name": "Group B"
     },
@@ -219,7 +220,7 @@
         "lastUpdated": "2025-09-26T01:20:46Z",
         "timestamp": "2025-09-26T01:20:35Z",
         "playerOnId": "8cx8sx1owbe45ks0p23qh0x61",
-        "playerOnName": "K. St Hillaire",
+        "playerOnName": "K. St. Hillaire",
         "playerOffId": "33ym8s4p1pr2yednzer7z482x",
         "playerOffName": "S. Bertrand",
         "subReason": "Injury"
@@ -337,11 +338,11 @@
           {
             "playerId": "26d37faltf4zz4ue71lspabmy",
             "firstName": "Jabari Dimitri Anthony",
-            "lastName": "St Hillaire",
+            "lastName": "St. Hillaire",
             "shortFirstName": "Jabari",
             "shortLastName": "St Hillaire",
             "knownName": "Jabari St Hillaire",
-            "matchName": "J. St Hillaire",
+            "matchName": "J. St. Hillaire",
             "shirtNumber": 80,
             "position": "Goalkeeper",
             "positionSide": "Centre",
@@ -1299,11 +1300,11 @@
           {
             "playerId": "8cx8sx1owbe45ks0p23qh0x61",
             "firstName": "Kathon Kenroy",
-            "lastName": "St Hillaire",
+            "lastName": "St. Hillaire",
             "shortFirstName": "Kathon",
             "shortLastName": "St Hillaire",
             "knownName": "Kathon St Hillaire",
-            "matchName": "K. St Hillaire",
+            "matchName": "K. St. Hillaire",
             "shirtNumber": 77,
             "position": "Substitute",
             "subPosition": "Attacker",
@@ -2265,7 +2266,7 @@
             "matchName": "R. Bynoe",
             "shirtNumber": 25,
             "position": "Substitute",
-            "subPosition": "Midfielder",
+            "subPosition": "Attacker",
             "stat": [
               {
                 "type": "formationPlace",

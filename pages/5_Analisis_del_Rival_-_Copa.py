@@ -201,6 +201,18 @@ st.markdown("""
         padding: 12px !important;
     }
     
+    /* Table headers - black text, bold, orange background */
+    div[data-testid="stDataFrame"] table thead th,
+    div[data-testid="stDataFrame"] table th,
+    .stDataFrame table thead th,
+    .stDataFrame table th,
+    .dataframe thead th,
+    .dataframe th {
+        color: #000000 !important;
+        font-weight: 900 !important;
+        background-color: #ff8c00 !important;
+    }
+    
     .stDataFrame td {
         font-size: 1.4rem !important;
         padding: 10px !important;
@@ -222,6 +234,50 @@ st.markdown("""
     /* Sidebar */
     [data-testid="stSidebar"] {
         font-size: 1.3rem !important;
+    }
+    
+    /* Custom tab styling to match original st.tabs() appearance */
+    /* Hide radio button circles completely */
+    div[data-testid="stRadio"] > div > label > div[data-baseweb="radio"] {
+        display: none !important;
+    }
+    
+    /* Hide the actual radio input */
+    div[data-testid="stRadio"] input[type="radio"] {
+        display: none !important;
+    }
+    
+    /* Container styling */
+    div[data-testid="stRadio"] > div {
+        flex-direction: row !important;
+        gap: 0 !important;
+        background-color: transparent !important;
+    }
+    
+    /* Base label styling - inactive tabs */
+    div[data-testid="stRadio"] > div > label {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: rgba(255, 255, 255, 0.6) !important;
+        padding: 0.75rem 1.5rem !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        transition: all 0.2s !important;
+    }
+    
+    /* Active/selected tab - orange background like original */
+    div[data-testid="stRadio"] > div > label:has(input:checked),
+    div[data-testid="stRadio"] > div > label[aria-checked="true"] {
+        background-color: #FF9900 !important;
+        color: white !important;
+    }
+    
+    /* Hover effect for inactive tabs */
+    div[data-testid="stRadio"] > div > label:not(:has(input:checked)):hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: white !important;
     }
     
     [data-testid="stSidebar"] h1,
@@ -827,6 +883,7 @@ def get_all_teams_average_metrics(all_matches: List[Dict], filter_type: str = "a
         "totalTackle": 0,
         "wonTackle": 0,
         "totalClearance": 0,
+        "subsMade": 0,
     }
     
     match_count = len(all_teams_stats)
@@ -993,6 +1050,8 @@ def calculate_average_metrics_from_matches(matches: List[Dict], stats_key: str) 
         "wonTackle": 0,
         "totalClearance": 0,
         "interception": 0,
+        "totalOffside": 0,
+        "subsMade": 0,
     }
     
     # Métricas que ya están estandarizadas (porcentajes)
@@ -2517,6 +2576,7 @@ def extract_player_stats_from_matches(matches: List[Dict], team_name: str) -> Di
                     "clearances": 0,
                     "interceptions": 0,
                     "saves": 0,
+                    "offsides": 0,
                     "matches_played": 0,
                     "matches_started": 0,
                     "total_minutes": 0,
@@ -2565,6 +2625,8 @@ def extract_player_stats_from_matches(matches: List[Dict], team_name: str) -> Di
                         player_stats[player_id]["interceptions"] += num_value
                     elif stat_type == "saves":
                         player_stats[player_id]["saves"] += num_value
+                    elif stat_type == "totalOffside":
+                        player_stats[player_id]["offsides"] += num_value
                     elif stat_type == "minsPlayed":
                         player_stats[player_id]["total_minutes"] += num_value
                     elif stat_type == "gameStarted":
@@ -2618,6 +2680,52 @@ def extract_player_stats_from_matches(matches: List[Dict], team_name: str) -> Di
                     break
     
     return player_stats
+
+
+def get_competition_position_offside_average(all_matches: List[Dict], target_position: str) -> float:
+    """Calcula el promedio de fuera de juego por 90 minutos para una posición específica en la competencia."""
+    if not target_position or target_position == "N/A":
+        return 0.0
+    
+    total_offsides = 0
+    total_minutes = 0
+    
+    # Normalize target position for matching (case-insensitive)
+    target_normalized = target_position.strip()
+    
+    # Get all unique teams
+    all_teams = set()
+    for match in all_matches:
+        home_team = match.get("home_team")
+        away_team = match.get("away_team")
+        if home_team:
+            all_teams.add(home_team)
+        if away_team:
+            all_teams.add(away_team)
+    
+    # Extract player stats for all teams
+    for team_name in all_teams:
+        team_matches = get_opponent_matches_data(all_matches, team_name)
+        if not team_matches:
+            continue
+        
+        player_stats = extract_player_stats_from_matches(team_matches, team_name)
+        
+        # Filter for players with matching position (exact match, case-insensitive)
+        for player_id, stats in player_stats.items():
+            position = stats.get("position", "").strip()
+            player_offsides = stats.get("offsides", 0)
+            player_minutes = stats.get("total_minutes", 0)
+            
+            # Exact position match (case-insensitive) - include ALL players in position, not just those with offsides
+            if position.lower() == target_normalized.lower() and player_minutes > 0:
+                total_offsides += player_offsides
+                total_minutes += player_minutes
+    
+    # Calculate average: total offsides / total minutes * 90
+    if total_minutes > 0:
+        return (total_offsides / total_minutes) * 90
+    return 0.0
 
 
 def analyze_set_pieces(matches: List[Dict], team_name: str) -> Dict:
@@ -2743,12 +2851,17 @@ def display_set_pieces_analysis(set_pieces_stats: Dict, team_name: str):
     ]
     
     fig = go.Figure()
+    # Use adaptive text colors
+    colors = ['#10B981', '#EF4444', '#10B981', '#EF4444']
+    text_colors = [get_text_color(color) for color in colors]
     fig.add_trace(go.Bar(
         x=categories,
         y=values,
-        marker_color=['#10B981', '#EF4444', '#10B981', '#EF4444'],
+        marker_color=colors,
+        marker_line=dict(width=0),
         text=[f"{v:.2f}" for v in values],
-        textposition='outside'
+        textposition='inside',
+        textfont=dict(color=text_colors, size=14, family="Arial Black")
     ))
     
     fig.update_layout(
@@ -3087,7 +3200,7 @@ def create_formation_chart(formation_stats: Dict, team_color: str):
         marker_line=dict(width=0),  # Remove border
         text=[f"{wr:.1f}%" for wr in win_rates],
         textposition='inside',  # Anchor text inside the bar
-        textfont=dict(color=text_color, size=12, family="Arial Black"),
+        textfont=dict(color=text_color, size=14, family="Arial Black"),
         name="Tasa de Victoria",
         hovertemplate="<b>%{x}</b><br>Tasa de Victoria: %{y:.1f}%<br>Partidos: %{customdata}<extra></extra>",
         customdata=counts
@@ -3216,7 +3329,7 @@ def create_phase_chart(phase_stats: Dict, team_color: str, metric_config: Dict =
         marker_line=dict(width=0),
         text=text_format,
         textposition='inside',
-        textfont=dict(color=goals_for_text_color, size=12, family="Arial Black")
+        textfont=dict(color=goals_for_text_color, size=14, family="Arial Black")
     ))
     
     # Add second trace only if against_key is provided
@@ -3235,7 +3348,7 @@ def create_phase_chart(phase_stats: Dict, team_color: str, metric_config: Dict =
             marker_line=dict(width=0),
             text=text_format_against,
             textposition='inside',
-            textfont=dict(color=goals_against_text_color, size=12, family="Arial Black")
+            textfont=dict(color=goals_against_text_color, size=14, family="Arial Black")
         ))
     
     fig.update_layout(
@@ -3311,7 +3424,7 @@ def create_goal_timing_chart(patterns: Dict, team_color: str):
         opacity=0.8,
         text=[f"{count}" if count > 0 else "" for count in team_counts],
         textposition='inside',
-        textfont=dict(color=get_text_color(team_color), size=12, family="Arial Black")
+        textfont=dict(color=get_text_color(team_color), size=14, family="Arial Black")
     ))
     
     # Add opponent goals trace
@@ -3324,7 +3437,7 @@ def create_goal_timing_chart(patterns: Dict, team_color: str):
         opacity=0.8,
         text=[f"{count}" if count > 0 else "" for count in opp_counts],
         textposition='inside',
-        textfont=dict(color=get_text_color(opponent_color), size=12, family="Arial Black")
+        textfont=dict(color=get_text_color(opponent_color), size=14, family="Arial Black")
     ))
     
     fig.update_layout(
@@ -3423,22 +3536,32 @@ def display_timeline_patterns(timeline_stats: Dict, team_name: str):
     # Gráfico de barras
     fig = go.Figure()
     
+    # Use adaptive text colors
+    goals_for_color = '#10B981'
+    goals_against_color = '#EF4444'
+    goals_for_text_color = get_text_color(goals_for_color)
+    goals_against_text_color = get_text_color(goals_against_color)
+    
     fig.add_trace(go.Bar(
         name="Goles a Favor",
         x=periods,
         y=goals_for,
-        marker_color='#10B981',
+        marker_color=goals_for_color,
+        marker_line=dict(width=0),
         text=goals_for,
-        textposition='outside'
+        textposition='inside',
+        textfont=dict(color=goals_for_text_color, size=14, family="Arial Black")
     ))
     
     fig.add_trace(go.Bar(
         name="Goles en Contra",
         x=periods,
         y=goals_against,
-        marker_color='#EF4444',
+        marker_color=goals_against_color,
+        marker_line=dict(width=0),
         text=goals_against,
-        textposition='outside'
+        textposition='inside',
+        textfont=dict(color=goals_against_text_color, size=14, family="Arial Black")
     ))
     
     fig.update_layout(
@@ -3989,25 +4112,35 @@ def create_phase_comparison_chart(opponent_phase_stats: Dict, cibao_phase_stats:
         cibao_phase_stats["second_half"]["avg_goals_conceded"]
     ]
     
+    # Use adaptive text colors
+    opponent_color = '#FFFFFF'
+    cibao_color = '#FF8C00'
+    cibao_against_color = '#F97316'
+    opponent_text_color = get_text_color(opponent_color)
+    cibao_text_color = get_text_color(cibao_color)
+    cibao_against_text_color = get_text_color(cibao_against_color)
+    
     # Agregar barras para goles a favor
     fig.add_trace(go.Bar(
         name=f'{opponent_name} - Goles a Favor',
         x=phases,
         y=opponent_goals_for,
-        marker_color='#FFFFFF',
+        marker_color=opponent_color,
+        marker_line=dict(width=0),
         text=[f"{v:.2f}" for v in opponent_goals_for],
         textposition='inside',
-        textfont=dict(size=12, color='black', family='Arial Black')
+        textfont=dict(size=14, color=opponent_text_color, family='Arial Black')
     ))
     
     fig.add_trace(go.Bar(
         name='Cibao - Goles a Favor',
         x=phases,
         y=cibao_goals_for,
-        marker_color='#FF8C00',
+        marker_color=cibao_color,
+        marker_line=dict(width=0),
         text=[f"{v:.2f}" for v in cibao_goals_for],
         textposition='inside',
-        textfont=dict(size=12, color='white', family='Arial Black')
+        textfont=dict(size=14, color=cibao_text_color, family='Arial Black')
     ))
     
     # Agregar barras para goles en contra (con patrón diferente)
@@ -4015,20 +4148,22 @@ def create_phase_comparison_chart(opponent_phase_stats: Dict, cibao_phase_stats:
         name=f'{opponent_name} - Goles en Contra',
         x=phases,
         y=[-v for v in opponent_goals_against],  # Negativo para mostrar abajo
-        marker_color='#FFFFFF',
+        marker_color=opponent_color,
+        marker_line=dict(width=0),
         text=[f"{v:.2f}" for v in opponent_goals_against],
         textposition='inside',
-        textfont=dict(size=12, color='black', family='Arial Black')
+        textfont=dict(size=14, color=opponent_text_color, family='Arial Black')
     ))
     
     fig.add_trace(go.Bar(
         name='Cibao - Goles en Contra',
         x=phases,
         y=[-v for v in cibao_goals_against],  # Negativo para mostrar abajo
-        marker_color='#F97316',
+        marker_color=cibao_against_color,
+        marker_line=dict(width=0),
         text=[f"{v:.2f}" for v in cibao_goals_against],
         textposition='inside',
-        textfont=dict(size=12, color='white', family='Arial Black')
+        textfont=dict(size=14, color=cibao_against_text_color, family='Arial Black')
     ))
     
     fig.update_layout(
@@ -4215,6 +4350,7 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
         background-color: #1e1e1e;
         color: white;
         margin: 10px 0;
+        font-size: 1.4rem !important;
     }
     .player-table th {
         background-color: #2d2d2d;
@@ -4222,10 +4358,13 @@ def display_key_players_analysis(player_stats: Dict, team_name: str):
         padding: 10px;
         text-align: left;
         border: 1px solid #444;
+        font-size: 1.5rem !important;
+        font-weight: bold !important;
     }
     .player-table td {
         padding: 8px;
         border: 1px solid #444;
+        font-size: 1.4rem !important;
     }
     .player-table tr:hover {
         background-color: #333;
@@ -4602,23 +4741,32 @@ def display_comparison_charts(opponent_metrics: Dict[str, float], cibao_metrics:
     
     fig = go.Figure()
     
+    # Use adaptive text colors
+    opponent_color = '#FFFFFF'
+    cibao_color = '#FF8C00'
+    opponent_text_color = get_text_color(opponent_color)
+    cibao_text_color = get_text_color(cibao_color)
+    
     fig.add_trace(go.Bar(
         name=opponent_name,
         x=categories,
         y=opponent_vals,
-        marker_color='#FFFFFF',
+        marker_color=opponent_color,
+        marker_line=dict(width=0),
         text=[f"{v:.2f}" for v in opponent_vals],
-        textposition='outside',
-        textfont=dict(size=12, color='black', family='Arial Black')
+        textposition='inside',
+        textfont=dict(size=14, color=opponent_text_color, family='Arial Black')
     ))
     
     fig.add_trace(go.Bar(
         name='Cibao',
         x=categories,
         y=cibao_vals,
-        marker_color='#FF8C00',
+        marker_color=cibao_color,
+        marker_line=dict(width=0),
         text=[f"{v:.2f}" for v in cibao_vals],
-        textposition='outside'
+        textposition='inside',
+        textfont=dict(size=14, color=cibao_text_color, family='Arial Black')
     ))
     
     fig.update_layout(
@@ -4685,7 +4833,9 @@ def main():
     upcoming_opponent_names = {name for name, _ in upcoming_opponents}
     
     # Selector de equipo en la parte superior (visible)
-    st.markdown("### 🔍 Seleccionar Equipo para Analizar")
+    st.markdown("""
+    <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Seleccionar Equipo para Analizar</h2>
+    """, unsafe_allow_html=True)
     
     # Preparar opciones
     if upcoming_opponents:
@@ -4894,16 +5044,33 @@ def main():
                 break
     
     
-    # Crear pestañas para organizar el contenido (ocultando algunas por ahora)
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "Resumen",
-        "Comparación",
-        "Jugadores Clave",
-        "Análisis Táctico y Fases"
-    ])
+    # Crear pestañas para organizar el contenido
+    # Use session state to preserve selected tab across reruns
+    if 'selected_tab_index' not in st.session_state:
+        st.session_state.selected_tab_index = 0
+    
+    # Tab navigation using radio buttons (preserves state on rerun)
+    tab_options = ["Resumen", "Comparación", "Jugadores Clave", "Análisis Táctico y Fases"]
+    selected_tab = st.radio(
+        "",
+        options=tab_options,
+        index=st.session_state.selected_tab_index,
+        key="tab_selector",
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    
+    # Update session state with selected tab index
+    st.session_state.selected_tab_index = tab_options.index(selected_tab)
+    
+    # Create tab content containers (using conditional rendering instead of st.tabs)
+    tab1 = selected_tab == "Resumen"
+    tab2 = selected_tab == "Comparación"
+    tab3 = selected_tab == "Jugadores Clave"
+    tab4 = selected_tab == "Análisis Táctico y Fases"
     
     # TAB 1: RESUMEN (Métricas clave + Radar)
-    with tab1:
+    if tab1:
         if team_averages:
             # Calcular datos iniciales sin filtro (para Forma Reciente)
             filtered_matches = team_all_matches
@@ -5402,9 +5569,11 @@ def main():
             st.warning("No se pudieron calcular las métricas del equipo.")
     
     # TAB 2: COMPARACIÓN (Gráficos comparativos + Radar Chart)
-    with tab2:
+    if tab2:
         if team_averages and cibao_averages and selected_opponent != CIBAO_TEAM_NAME:
-            st.markdown(f"### Comparación Directa: {selected_opponent} vs Cibao")
+            st.markdown(f"""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Comparación Directa: {selected_opponent} vs Cibao</h2>
+            """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
             # Filter selector for comparison tab
@@ -5749,6 +5918,10 @@ def main():
                             # Crear gráfico de barras
                             fig = go.Figure()
                             
+                            # Use adaptive text colors
+                            opponent_text_color = get_text_color('#FFFFFF')
+                            cibao_text_color = get_text_color('#FF8C00')
+                            
                             fig.add_trace(go.Bar(
                                 name=selected_opponent,
                                 x=[metric_name],
@@ -5756,7 +5929,7 @@ def main():
                                 marker_color='#FFFFFF',
                                 text=[f"{opponent_val:.2f}"],
                                 textposition='inside',
-                                textfont=dict(size=14, color='black', family='Arial Black')
+                                textfont=dict(size=14, color=opponent_text_color, family='Arial Black')
                             ))
                             
                             fig.add_trace(go.Bar(
@@ -5766,7 +5939,7 @@ def main():
                                 marker_color='#FF8C00',
                                 text=[f"{cibao_val:.2f}"],
                                 textposition='inside',
-                                textfont=dict(size=14, color='black', family='Arial Black')
+                                textfont=dict(size=14, color=cibao_text_color, family='Arial Black')
                             ))
                             
                             fig.update_layout(
@@ -5794,71 +5967,697 @@ def main():
                             st.markdown("<br>", unsafe_allow_html=True)
                 else:
                     # Modo combinado: todas las métricas en un gráfico
-                    categories = []
-                    opponent_vals = []
-                    cibao_vals = []
-                    
+                    # First, collect all metrics and their values
+                    all_metrics_data = []
                     for metric_name in selected_comparison_metrics:
                         if metric_name in available_comparison_metrics:
                             metric_key = available_comparison_metrics[metric_name]["key"]
-                            categories.append(metric_name)
-                            opponent_vals.append(comparison_team_averages.get(metric_key, 0))
-                            cibao_vals.append(comparison_cibao_averages.get(metric_key, 0))
+                            opponent_val = comparison_team_averages.get(metric_key, 0)
+                            cibao_val = comparison_cibao_averages.get(metric_key, 0)
+                            max_val = max(abs(opponent_val), abs(cibao_val))
+                            all_metrics_data.append({
+                                "name": metric_name,
+                                "key": metric_key,
+                                "opponent_val": opponent_val,
+                                "cibao_val": cibao_val,
+                                "max_val": max_val
+                            })
                     
-                    if categories:
-                        fig = go.Figure()
+                    if all_metrics_data:
+                        # Find the overall maximum value across all metrics
+                        overall_max = max([m["max_val"] for m in all_metrics_data]) if all_metrics_data else 1
                         
-                        fig.add_trace(go.Bar(
-                            name=selected_opponent,
-                            x=categories,
-                            y=opponent_vals,
-                            marker_color='#FFFFFF',
-                            text=[f"{v:.2f}" for v in opponent_vals],
-                            textposition='inside',
-                            textfont=dict(size=11, color='black', family='Arial Black')
-                        ))
+                        # Separate metrics into large-scale (for combined chart) and small-scale (for individual charts)
+                        # A metric is considered "small-scale" if its max value is less than 5% of the overall max
+                        threshold = overall_max * 0.05
+                        large_scale_metrics = []
+                        small_scale_metrics = []
                         
-                        fig.add_trace(go.Bar(
-                            name='Cibao',
-                            x=categories,
-                            y=cibao_vals,
-                            marker_color='#FF8C00',
-                            text=[f"{v:.2f}" for v in cibao_vals],
-                            textposition='inside',
-                            textfont=dict(size=11, color='black', family='Arial Black')
-                        ))
+                        for metric_data in all_metrics_data:
+                            if metric_data["max_val"] < threshold and overall_max > 0:
+                                small_scale_metrics.append(metric_data)
+                            else:
+                                large_scale_metrics.append(metric_data)
                         
-                        fig.update_layout(
-                            template='plotly_dark',
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            height=400,
-                            title="Comparación de Múltiples Métricas",
-                            xaxis_title="Métricas",
-                            yaxis_title="Valor",
-                            barmode='group',
-                            legend=dict(
-                                orientation="h",
-                                yanchor="bottom",
-                                y=1.02,
-                                xanchor="center",
-                                x=0.5,
-                                font=dict(size=14)
-                            ),
-                            xaxis=dict(tickangle=-45),
-                            font=dict(size=12, color='white')
-                        )
+                        # Create combined chart with large-scale metrics
+                        if large_scale_metrics:
+                            categories = [m["name"] for m in large_scale_metrics]
+                            opponent_vals = [m["opponent_val"] for m in large_scale_metrics]
+                            cibao_vals = [m["cibao_val"] for m in large_scale_metrics]
+                            
+                            fig = go.Figure()
+                            
+                            # Use adaptive text colors
+                            opponent_text_color = get_text_color('#FFFFFF')
+                            cibao_text_color = get_text_color('#FF8C00')
+                            
+                            fig.add_trace(go.Bar(
+                                name=selected_opponent,
+                                x=categories,
+                                y=opponent_vals,
+                                marker_color='#FFFFFF',
+                                marker_line=dict(width=0),
+                                text=[f"{v:.2f}" for v in opponent_vals],
+                                textposition='inside',
+                                textfont=dict(size=14, color=opponent_text_color, family='Arial Black')
+                            ))
+                            
+                            fig.add_trace(go.Bar(
+                                name='Cibao',
+                                x=categories,
+                                y=cibao_vals,
+                                marker_color='#FF8C00',
+                                marker_line=dict(width=0),
+                                text=[f"{v:.2f}" for v in cibao_vals],
+                                textposition='inside',
+                                textfont=dict(size=14, color=cibao_text_color, family='Arial Black')
+                            ))
+                            
+                            fig.update_layout(
+                                template='plotly_dark',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                height=400,
+                                title="Comparación de Múltiples Métricas",
+                                xaxis_title="Métricas",
+                                yaxis_title="Valor",
+                                barmode='group',
+                                legend=dict(
+                                    orientation="h",
+                                    yanchor="bottom",
+                                    y=1.02,
+                                    xanchor="center",
+                                    x=0.5,
+                                    font=dict(size=14)
+                                ),
+                                xaxis=dict(tickangle=-45),
+                                font=dict(size=12, color='white')
+                            )
+                            
+                            st.plotly_chart(fig, use_container_width=True)
                         
-                        st.plotly_chart(fig, use_container_width=True)
+                        # Create individual charts for small-scale metrics
+                        if small_scale_metrics:
+                            st.markdown("<br>", unsafe_allow_html=True)
+                            st.markdown("""
+                            <h3 style='color:#FF9900; margin-top:20px;'>Métricas con Escala Diferente</h3>
+                            <p style='color:#D1D5DB; font-size:14px; margin-bottom:15px;'>
+                                Las siguientes métricas se muestran por separado debido a su escala diferente:
+                            </p>
+                            """, unsafe_allow_html=True)
+                            
+                            # Use adaptive text colors
+                            opponent_text_color = get_text_color('#FFFFFF')
+                            cibao_text_color = get_text_color('#FF8C00')
+                            
+                            for metric_data in small_scale_metrics:
+                                metric_name = metric_data["name"]
+                                metric_def = available_comparison_metrics[metric_name]
+                                unit = metric_def.get("unit", "")
+                                
+                                fig = go.Figure()
+                                
+                                fig.add_trace(go.Bar(
+                                    name=selected_opponent,
+                                    x=[metric_name],
+                                    y=[metric_data["opponent_val"]],
+                                    marker_color='#FFFFFF',
+                                    marker_line=dict(width=0),
+                                    text=[f"{metric_data['opponent_val']:.2f}"],
+                                    textposition='inside',
+                                    textfont=dict(size=14, color=opponent_text_color, family='Arial Black')
+                                ))
+                                
+                                fig.add_trace(go.Bar(
+                                    name='Cibao',
+                                    x=[metric_name],
+                                    y=[metric_data["cibao_val"]],
+                                    marker_color='#FF8C00',
+                                    marker_line=dict(width=0),
+                                    text=[f"{metric_data['cibao_val']:.2f}"],
+                                    textposition='inside',
+                                    textfont=dict(size=14, color=cibao_text_color, family='Arial Black')
+                                ))
+                                
+                                fig.update_layout(
+                                    template='plotly_dark',
+                                    paper_bgcolor='rgba(0,0,0,0)',
+                                    plot_bgcolor='rgba(0,0,0,0)',
+                                    height=300,
+                                    title=f"{metric_name}",
+                                    xaxis_title="",
+                                    yaxis_title=f"Valor ({unit})" if unit else "Valor",
+                                    showlegend=True,
+                                    legend=dict(
+                                        orientation="h",
+                                        yanchor="bottom",
+                                        y=1.02,
+                                        xanchor="center",
+                                        x=0.5,
+                                        font=dict(size=14)
+                                    ),
+                                    barmode='group',
+                                    font=dict(size=12, color='white')
+                                )
+                                
+                                st.plotly_chart(fig, use_container_width=True)
+                                st.markdown("<br>", unsafe_allow_html=True)
             else:
                 st.info("Selecciona al menos una métrica para mostrar la comparación.")
+            
+            # ========== SECCIÓN: DISCIPLINE COMPARISON ==========
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("---")
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Análisis de Disciplina</h2>
+            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Get discipline metrics
+            opp_yellow = comparison_team_averages.get("totalYellowCard", 0)
+            opp_red = comparison_team_averages.get("totalRedCard", 0)
+            opp_fouls_committed = comparison_team_averages.get("fkFoulLost", 0)
+            opp_fouls_won = comparison_team_averages.get("fkFoulWon", 0)
+            
+            cibao_yellow = comparison_cibao_averages.get("totalYellowCard", 0)
+            cibao_red = comparison_cibao_averages.get("totalRedCard", 0)
+            cibao_fouls_committed = comparison_cibao_averages.get("fkFoulLost", 0)
+            cibao_fouls_won = comparison_cibao_averages.get("fkFoulWon", 0)
+            
+            # KPI Cards for Discipline
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Tarjetas Amarillas", f"{opp_yellow:.1f}", delta=f"vs {cibao_yellow:.1f} Cibao", delta_color="inverse")
+            with col2:
+                st.metric("Tarjetas Rojas", f"{opp_red:.1f}", delta=f"vs {cibao_red:.1f} Cibao", delta_color="inverse")
+            with col3:
+                st.metric("Faltas Cometidas", f"{opp_fouls_committed:.1f}", delta=f"vs {cibao_fouls_committed:.1f} Cibao", delta_color="inverse")
+            with col4:
+                st.metric("Faltas Recibidas", f"{opp_fouls_won:.1f}", delta=f"vs {cibao_fouls_won:.1f} Cibao")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Use adaptive text colors
+            opponent_text_color = get_text_color('#FFFFFF')
+            cibao_text_color = get_text_color('#FF8C00')
+            
+            # Two charts side by side
+            col1, col2 = st.columns(2)
+            
+            # Chart 1: Cards
+            with col1:
+                card_categories = ["Tarjetas\nAmarillas"]
+                opponent_card_vals = [opp_yellow]
+                cibao_card_vals = [cibao_yellow]
+                
+                fig_cards = go.Figure()
+                fig_cards.add_trace(go.Bar(
+                    name=selected_opponent,
+                    x=card_categories,
+                    y=opponent_card_vals,
+                    marker_color='#FFFFFF',
+                    marker_line=dict(width=0),
+                    text=[f"{v:.1f}" for v in opponent_card_vals],
+                    textposition='inside',
+                    textfont=dict(size=14, color=opponent_text_color, family='Arial Black')
+                ))
+                
+                fig_cards.add_trace(go.Bar(
+                    name='Cibao',
+                    x=card_categories,
+                    y=cibao_card_vals,
+                    marker_color='#FF8C00',
+                    marker_line=dict(width=0),
+                    text=[f"{v:.1f}" for v in cibao_card_vals],
+                    textposition='inside',
+                    textfont=dict(size=14, color=cibao_text_color, family='Arial Black')
+                ))
+                
+                fig_cards.update_layout(
+                    template='plotly_dark',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    height=400,
+                    title="Tarjetas",
+                    xaxis_title="Tipo de Tarjeta",
+                    yaxis_title="Promedio por 90 min",
+                    barmode='group',
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="center",
+                        x=0.5,
+                        font=dict(size=14)
+                    ),
+                    font=dict(size=12, color='white')
+                )
+                
+                st.plotly_chart(fig_cards, use_container_width=True)
+            
+            # Chart 2: Fouls
+            with col2:
+                foul_categories = ["Faltas\nCometidas", "Faltas\nRecibidas"]
+                opponent_foul_vals = [opp_fouls_committed, opp_fouls_won]
+                cibao_foul_vals = [cibao_fouls_committed, cibao_fouls_won]
+                
+                fig_fouls = go.Figure()
+                fig_fouls.add_trace(go.Bar(
+                    name=selected_opponent,
+                    x=foul_categories,
+                    y=opponent_foul_vals,
+                    marker_color='#FFFFFF',
+                    marker_line=dict(width=0),
+                    text=[f"{v:.1f}" for v in opponent_foul_vals],
+                    textposition='inside',
+                    textfont=dict(size=14, color=opponent_text_color, family='Arial Black')
+                ))
+                
+                fig_fouls.add_trace(go.Bar(
+                    name='Cibao',
+                    x=foul_categories,
+                    y=cibao_foul_vals,
+                    marker_color='#FF8C00',
+                    marker_line=dict(width=0),
+                    text=[f"{v:.1f}" for v in cibao_foul_vals],
+                    textposition='inside',
+                    textfont=dict(size=14, color=cibao_text_color, family='Arial Black')
+                ))
+                
+                fig_fouls.update_layout(
+                    template='plotly_dark',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    height=400,
+                    title="Faltas",
+                    xaxis_title="Tipo de Falta",
+                    yaxis_title="Promedio por 90 min",
+                    barmode='group',
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="center",
+                        x=0.5,
+                        font=dict(size=14)
+                    ),
+                    font=dict(size=12, color='white')
+                )
+                
+                st.plotly_chart(fig_fouls, use_container_width=True)
+            
+            # ========== SECCIÓN: OFFSIDE ANALYSIS ==========
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("---")
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Análisis de Fuera de Juego</h2>
+            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Get offside data
+            opp_offsides = comparison_team_averages.get("totalOffside", 0)
+            cibao_offsides = comparison_cibao_averages.get("totalOffside", 0)
+            
+            # KPI Cards for Offsides
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric(f"Fuera de Juego ({selected_opponent})", f"{opp_offsides:.1f}", delta="Por 90 min")
+            with col2:
+                st.metric("Fuera de Juego (Cibao)", f"{cibao_offsides:.1f}", delta="Por 90 min")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Offside Comparison Chart
+            categories = ["Fuera de Juego"]
+            opponent_vals = [opp_offsides]
+            cibao_vals = [cibao_offsides]
+            
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name=selected_opponent,
+                x=categories,
+                y=opponent_vals,
+                marker_color='#FFFFFF',
+                marker_line=dict(width=0),
+                text=[f"{v:.1f}" for v in opponent_vals],
+                textposition='inside',
+                textfont=dict(size=14, color=opponent_text_color, family='Arial Black')
+            ))
+            
+            fig.add_trace(go.Bar(
+                name='Cibao',
+                x=categories,
+                y=cibao_vals,
+                marker_color='#FF8C00',
+                marker_line=dict(width=0),
+                text=[f"{v:.1f}" for v in cibao_vals],
+                textposition='inside',
+                textfont=dict(size=14, color=cibao_text_color, family='Arial Black')
+            ))
+            
+            fig.update_layout(
+                template='plotly_dark',
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                height=400,
+                title="Comparación de Fuera de Juego",
+                xaxis_title="",
+                yaxis_title="Promedio por 90 min",
+                barmode='group',
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5,
+                    font=dict(size=14)
+                ),
+                font=dict(size=12, color='white')
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Add insights
+            st.markdown("<br>", unsafe_allow_html=True)
+            if opp_offsides > cibao_offsides * 1.2:
+                st.info(f"⚠️ **{selected_opponent} tiene más fuera de juego** ({opp_offsides:.1f} vs {cibao_offsides:.1f} de Cibao). Esto puede indicar un juego más agresivo o una línea defensiva más alta del oponente.")
+            elif cibao_offsides > opp_offsides * 1.2:
+                st.info(f"✅ **Cibao tiene más fuera de juego** ({cibao_offsides:.1f} vs {opp_offsides:.1f} del oponente). El oponente mantiene mejor la línea defensiva.")
+            else:
+                st.info(f"📊 **Niveles similares de fuera de juego** ({opp_offsides:.1f} vs {cibao_offsides:.1f} de Cibao).")
+            
+            # Player Offside Analysis Table
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("""
+            <h3 style='color:#FF9900; margin-top:20px;'>Jugadores con Más Fuera de Juego</h3>
+            """, unsafe_allow_html=True)
+            
+            # Get player stats for opponent (use team_all_matches which is available in Tab 2)
+            if team_all_matches:
+                player_stats = extract_player_stats_from_matches(team_all_matches, selected_opponent)
+                
+                # Filter players with offsides and calculate per 90
+                player_offside_data = []
+                for player_id, stats in player_stats.items():
+                    total_offsides = stats.get("offsides", 0)
+                    total_minutes = stats.get("total_minutes", 0)
+                    
+                    if total_offsides > 0 and total_minutes > 0:
+                        offsides_per_90 = (total_offsides / total_minutes) * 90
+                        player_position = stats.get("position", "N/A")
+                        
+                        player_offside_data.append({
+                            "Jugador": stats.get("name", "N/A"),
+                            "Posición": player_position,
+                            "Total Fuera de Juego": int(total_offsides),
+                            "Fuera de Juego por 90 min": round(offsides_per_90, 2),
+                            "Minutos Jugados": int(total_minutes)
+                        })
+                
+                # Sort by total offsides (descending)
+                player_offside_data.sort(key=lambda x: x["Total Fuera de Juego"], reverse=True)
+                
+                if player_offside_data:
+                    # Create DataFrame
+                    df_offside_players = pd.DataFrame(player_offside_data)
+                    st.dataframe(df_offside_players, use_container_width=True, hide_index=True)
+                else:
+                    st.info("No hay datos de fuera de juego a nivel de jugador disponibles.")
+            else:
+                st.info("No hay partidos disponibles para analizar jugadores.")
+            
+            # Get team color for opponent (for charts) - always white in comparison tab
+            opponent_color = '#FFFFFF'  # Always white for opponent in comparison tab
+            
+            opp_text_color = get_text_color(opponent_color)
+            cibao_text_color = get_text_color(CIBAO_COLOR)
+            
+            # ========== SECCIÓN: SUBSTITUTION PATTERNS ==========
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("---")
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Patrones de Sustituciones</h2>
+            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Get substitution data
+            opp_subs = comparison_team_averages.get("subsMade", 0)
+            cibao_subs = comparison_cibao_averages.get("subsMade", 0)
+            
+            # KPI Cards for Substitutions
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric(f"Sustituciones ({selected_opponent})", f"{opp_subs:.1f}", delta="Por partido")
+            with col2:
+                st.metric("Sustituciones (Cibao)", f"{cibao_subs:.1f}", delta="Por partido")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Substitution Comparison Chart
+            categories = ["Sustituciones"]
+            opponent_vals = [opp_subs]
+            cibao_vals = [cibao_subs]
+            
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name=selected_opponent,
+                x=categories,
+                y=opponent_vals,
+                marker_color=opponent_color,
+                marker_line=dict(width=0),
+                text=[f"{v:.1f}" for v in opponent_vals],
+                textposition='inside',
+                textfont=dict(color=opp_text_color, size=14, family='Arial Black')
+            ))
+            fig.add_trace(go.Bar(
+                name="Cibao",
+                x=categories,
+                y=cibao_vals,
+                marker_color=CIBAO_COLOR,
+                marker_line=dict(width=0),
+                text=[f"{v:.1f}" for v in cibao_vals],
+                textposition='inside',
+                textfont=dict(color=cibao_text_color, size=14, family='Arial Black')
+            ))
+            
+            fig.update_layout(
+                template='plotly_dark',
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                height=400,
+                title="Comparación de Sustituciones",
+                xaxis_title="",
+                yaxis_title="Promedio por Partido",
+                barmode='group',
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5,
+                    font=dict(size=14)
+                ),
+                font=dict(size=12, color='white')
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Add insights
+            st.markdown("<br>", unsafe_allow_html=True)
+            if opp_subs > cibao_subs * 1.2:
+                st.info(f"⚠️ **{selected_opponent} hace más sustituciones** ({opp_subs:.1f} vs {cibao_subs:.1f} de Cibao). Esto puede indicar un estilo de juego más rotativo o mayor profundidad en el banquillo.")
+            elif cibao_subs > opp_subs * 1.2:
+                st.info(f"✅ **Cibao hace más sustituciones** ({cibao_subs:.1f} vs {opp_subs:.1f} del oponente). El oponente tiende a mantener más estabilidad en su alineación.")
+            else:
+                st.info(f"📊 **Niveles similares de sustituciones** ({opp_subs:.1f} vs {cibao_subs:.1f} de Cibao).")
+            
+            # ========== SECCIÓN: POSSESSION PATTERNS ==========
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("---")
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Patrones de Posesión</h2>
+            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Get possession data
+            opp_possession = comparison_team_averages.get("possessionPercentage", 0)
+            cibao_possession = comparison_cibao_averages.get("possessionPercentage", 0)
+            
+            # KPI Cards for Possession
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric(f"Posesión ({selected_opponent})", f"{opp_possession:.1f}%", delta="Promedio")
+            with col2:
+                st.metric("Posesión (Cibao)", f"{cibao_possession:.1f}%", delta="Promedio")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Possession Comparison Chart
+            categories = ["Posesión %"]
+            opponent_vals = [opp_possession]
+            cibao_vals = [cibao_possession]
+            
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name=selected_opponent,
+                x=categories,
+                y=opponent_vals,
+                marker_color=opponent_color,
+                marker_line=dict(width=0),
+                text=[f"{v:.1f}%" for v in opponent_vals],
+                textposition='inside',
+                textfont=dict(color=opp_text_color, size=14, family='Arial Black')
+            ))
+            fig.add_trace(go.Bar(
+                name="Cibao",
+                x=categories,
+                y=cibao_vals,
+                marker_color=CIBAO_COLOR,
+                marker_line=dict(width=0),
+                text=[f"{v:.1f}%" for v in cibao_vals],
+                textposition='inside',
+                textfont=dict(color=cibao_text_color, size=14, family='Arial Black')
+            ))
+            
+            fig.update_layout(
+                template='plotly_dark',
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                height=400,
+                title="Comparación de Posesión",
+                xaxis_title="",
+                yaxis_title="Porcentaje de Posesión",
+                barmode='group',
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5,
+                    font=dict(size=14)
+                ),
+                font=dict(size=12, color='white')
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Add insights
+            st.markdown("<br>", unsafe_allow_html=True)
+            if opp_possession > cibao_possession + 10:
+                st.info(f"⚠️ **{selected_opponent} domina más la posesión** ({opp_possession:.1f}% vs {cibao_possession:.1f}% de Cibao). Preparar estrategia de contraataque y presión alta.")
+            elif cibao_possession > opp_possession + 10:
+                st.info(f"✅ **Cibao domina más la posesión** ({cibao_possession:.1f}% vs {opp_possession:.1f}% del oponente). Mantener control del juego y ritmo.")
+            else:
+                st.info(f"📊 **Posesión equilibrada** ({opp_possession:.1f}% vs {cibao_possession:.1f}% de Cibao). El partido será disputado en el centro del campo.")
+            
+            # ========== SECCIÓN: PASSING STATS ==========
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("---")
+            st.markdown("""
+            <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Estadísticas de Pases</h2>
+            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Get passing data
+            opp_total_passes = comparison_team_averages.get("totalPass", 0)
+            opp_accurate_passes = comparison_team_averages.get("accuratePass", 0)
+            opp_pass_accuracy = (opp_accurate_passes / opp_total_passes * 100) if opp_total_passes > 0 else 0
+            
+            cibao_total_passes = comparison_cibao_averages.get("totalPass", 0)
+            cibao_accurate_passes = comparison_cibao_averages.get("accuratePass", 0)
+            cibao_pass_accuracy = (cibao_accurate_passes / cibao_total_passes * 100) if cibao_total_passes > 0 else 0
+            
+            # KPI Cards for Passing
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(f"Pases Totales ({selected_opponent})", f"{opp_total_passes:.0f}", delta="Por partido")
+            with col2:
+                st.metric("Pases Totales (Cibao)", f"{cibao_total_passes:.0f}", delta="Por partido")
+            with col3:
+                st.metric(f"Precisión ({selected_opponent})", f"{opp_pass_accuracy:.1f}%", delta="Pases precisos")
+            with col4:
+                st.metric("Precisión (Cibao)", f"{cibao_pass_accuracy:.1f}%", delta="Pases precisos")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Passing Comparison Chart
+            categories = ["Pases Totales", "Pases Precisos", "Precisión %"]
+            opponent_vals = [opp_total_passes, opp_accurate_passes, opp_pass_accuracy]
+            cibao_vals = [cibao_total_passes, cibao_accurate_passes, cibao_pass_accuracy]
+            
+            # Normalize values for display (passes in hundreds, accuracy as percentage)
+            opp_display_vals = [opp_total_passes, opp_accurate_passes, opp_pass_accuracy]
+            cibao_display_vals = [cibao_total_passes, cibao_accurate_passes, cibao_pass_accuracy]
+            
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name=selected_opponent,
+                x=categories,
+                y=opp_display_vals,
+                marker_color=opponent_color,
+                marker_line=dict(width=0),
+                text=[f"{v:.0f}" if i < 2 else f"{v:.1f}%" for i, v in enumerate(opp_display_vals)],
+                textposition='inside',
+                textfont=dict(color=opp_text_color, size=14, family='Arial Black')
+            ))
+            fig.add_trace(go.Bar(
+                name="Cibao",
+                x=categories,
+                y=cibao_display_vals,
+                marker_color=CIBAO_COLOR,
+                marker_line=dict(width=0),
+                text=[f"{v:.0f}" if i < 2 else f"{v:.1f}%" for i, v in enumerate(cibao_display_vals)],
+                textposition='inside',
+                textfont=dict(color=cibao_text_color, size=14, family='Arial Black')
+            ))
+            
+            fig.update_layout(
+                template='plotly_dark',
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                height=400,
+                title="Comparación de Pases",
+                xaxis_title="Métrica",
+                yaxis_title="Valor",
+                barmode='group',
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5,
+                    font=dict(size=14)
+                ),
+                font=dict(size=12, color='white')
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Add insights
+            st.markdown("<br>", unsafe_allow_html=True)
+            if opp_pass_accuracy > cibao_pass_accuracy + 5:
+                st.info(f"⚠️ **{selected_opponent} tiene mejor precisión de pases** ({opp_pass_accuracy:.1f}% vs {cibao_pass_accuracy:.1f}% de Cibao). Presionar alto para interrumpir su juego de pases.")
+            elif cibao_pass_accuracy > opp_pass_accuracy + 5:
+                st.info(f"✅ **Cibao tiene mejor precisión de pases** ({cibao_pass_accuracy:.1f}% vs {opp_pass_accuracy:.1f}% del oponente). Aprovechar la ventaja en construcción de juego.")
+            else:
+                st.info(f"📊 **Precisión de pases similar** ({opp_pass_accuracy:.1f}% vs {cibao_pass_accuracy:.1f}% de Cibao).")
+            
+            if opp_total_passes > cibao_total_passes * 1.2:
+                st.info(f"📊 **{selected_opponent} juega más pases** ({opp_total_passes:.0f} vs {cibao_total_passes:.0f} de Cibao). Equipo más orientado a la posesión.")
+            elif cibao_total_passes > opp_total_passes * 1.2:
+                st.info(f"📊 **Cibao juega más pases** ({cibao_total_passes:.0f} vs {opp_total_passes:.0f} del oponente). Mayor construcción de juego.")
         elif selected_opponent == CIBAO_TEAM_NAME:
             st.info("Selecciona otro equipo para ver comparación con Cibao")
         else:
             st.warning("⚠No se pudieron calcular las métricas para la comparación.")
     
     # TAB 3: KEY PLAYERS (Jugadores Clave)
-    with tab3:
+    if tab3:
         if selected_opponent and selected_opponent != CIBAO_TEAM_NAME:
             st.markdown("""
             <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Jugadores Clave de {opponent}</h2>
@@ -5885,7 +6684,7 @@ def main():
             st.warning("Selecciona un equipo para ver sus jugadores clave.")
     
     # TAB 4: ANÁLISIS TÁCTICO Y FASES (Consolidado)
-    with tab4:
+    if tab4:
         if not selected_opponent:
             st.info("👈 **Selecciona un equipo desde el selector en la barra lateral** para ver su análisis táctico y fases del partido.")
         elif selected_opponent:
@@ -5997,7 +6796,9 @@ def main():
             if not played_matches:
                 st.info("No hay partidos jugados disponibles para este equipo.")
             else:
-                st.markdown(f"### Análisis Táctico y Fases del Partido — {selected_opponent}")
+                st.markdown(f"""
+                <h2 style='color:#FF9900; text-align:center; margin-top:20px;'>Análisis Táctico y Fases del Partido — {selected_opponent}</h2>
+                """, unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True)
                 
                 # Obtener formaciones disponibles para el filtro
@@ -6031,7 +6832,9 @@ def main():
                 
                 # ========== SECCIÓN 1: FORMACIONES ==========
                 st.markdown("---")
-                st.markdown("### Formaciones")
+                st.markdown("""
+                <h3 style='color:#FF9900; margin-top:20px;'>Formaciones</h3>
+                """, unsafe_allow_html=True)
                 
                 if not formation_stats:
                     st.info("No hay datos de formaciones disponibles.")
@@ -6170,7 +6973,9 @@ def main():
                 
                 # ========== SECCIÓN 2: FASES DEL PARTIDO ==========
                 st.markdown("---")
-                st.markdown("### Fases del Partido")
+                st.markdown("""
+                <h3 style='color:#FF9900; margin-top:20px;'>Fases del Partido</h3>
+                """, unsafe_allow_html=True)
                 
                 # Recalcular con partidos filtrados (si hay filtro de formación)
                 phase_stats = analyze_match_phases(played_matches, selected_opponent)
@@ -6251,106 +7056,13 @@ def main():
                     })
                 
                 df = pd.DataFrame(phase_data)
-                # Add CSS before rendering to override global dark theme
-                st.markdown("""
-                <style>
-                /* Override global theme for phase data table headers */
-                div[data-testid="stDataFrame"] table thead th,
-                div[data-testid="stDataFrame"] table th,
-                .stDataFrame table thead th,
-                .stDataFrame table th,
-                .dataframe thead th,
-                .dataframe th {
-                    color: #000000 !important;
-                    font-weight: 900 !important;
-                    background-color: #ff8c00 !important;
-                }
-                </style>
-                """, unsafe_allow_html=True)
                 st.dataframe(df, use_container_width=True, hide_index=True)
                 
-                # ========== SECCIÓN 3: MOMENTUM ==========
+                # ========== SECCIÓN 4: SET PIECES ==========
                 st.markdown("---")
-                st.markdown("### Momentum")
-                
-                # Recalcular con partidos filtrados (si hay filtro de formación)
-                momentum_data = analyze_momentum(played_matches, selected_opponent)
-                
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.metric("Remontadas", momentum_data.get("comebacks", 0))
-                with col2:
-                    st.metric("Ventajas Perdidas", momentum_data.get("blown_leads", 0))
-                with col3:
-                    st.metric("Remontadas Ganadas", momentum_data.get("comeback_wins", 0))
-                with col4:
-                    st.metric("Remontadas Empatadas", momentum_data.get("comeback_draws", 0))
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                categories = ["Remontadas", "Ventajas Perdidas", "Remontadas Ganadas", "Remontadas Empatadas"]
-                values = [
-                    momentum_data.get("comebacks", 0),
-                    momentum_data.get("blown_leads", 0),
-                    momentum_data.get("comeback_wins", 0),
-                    momentum_data.get("comeback_draws", 0)
-                ]
-                
-                # CRITICAL: Get color directly from CSV, don't rely on team_color variable
-                chart_color = team_color  # Start with current value
-                if selected_opponent != CIBAO_TEAM_NAME:
-                    # Get color directly from current_colors dictionary
-                    if selected_opponent in current_colors:
-                        chart_color = current_colors[selected_opponent]
-                    elif selected_opponent.lower() in current_colors:
-                        chart_color = current_colors[selected_opponent.lower()]
-                    else:
-                        chart_color = "#CCCCCC"
-                    
-                    # Ensure # prefix
-                    if not chart_color.startswith('#'):
-                        chart_color = '#' + chart_color
-                    
-                    # ABSOLUTE SAFETY: Never use Cibao's color for non-Cibao teams
-                    if chart_color == CIBAO_COLOR:
-                        chart_color = "#CCCCCC"
-                
-                # Asegurar que el color tenga el formato correcto
-                if not chart_color.startswith('#'):
-                    chart_color = '#' + chart_color
-                
-                # Determine text colors for each bar based on their color brightness
-                momentum_colors = [chart_color, "#EF4444", "#10B981", "#F59E0B"]
-                momentum_text_colors = [get_text_color(color) for color in momentum_colors]
-                
-                fig = go.Figure()
-                fig.add_trace(go.Bar(
-                    x=categories,
-                    y=values,
-                    marker_color=momentum_colors,  # Use marker_color directly with list
-                    marker_line=dict(width=0),  # Remove border
-                    text=[f"{v}" for v in values],
-                    textposition='inside',  # Anchor text inside the bar
-                    textfont=dict(color=momentum_text_colors, size=12, family="Arial Black")
-                ))
-                
-                fig.update_layout(
-                    template='plotly_dark',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    height=400,
-                    xaxis_title="Tipo de Evento",
-                    yaxis_title="Cantidad",
-                    showlegend=False,
-                    font=dict(color='white')
-                )
-                
-                st.plotly_chart(fig, use_container_width=True, key=f"momentum_chart_{selected_opponent}_{chart_color}")
-                
-                # ========== SECCIÓN 5: SET PIECES ==========
-                st.markdown("---")
-                st.markdown("### Set Pieces")
+                st.markdown("""
+                <h3 style='color:#FF9900; margin-top:20px;'>Set Pieces</h3>
+                """, unsafe_allow_html=True)
                 
                 # Recalcular con partidos filtrados (si hay filtro de formación)
                 set_pieces_stats = analyze_set_pieces(played_matches, selected_opponent)
@@ -6361,7 +7073,9 @@ def main():
                     col1, col2, col3 = st.columns(3)
                     
                     with col1:
-                        st.markdown("#### Corners")
+                        st.markdown("""
+                        <h3 style='color:#FF9900; margin-top:20px;'>Corners</h3>
+                        """, unsafe_allow_html=True)
                         corners_won = set_pieces_stats["corners"]["won"]
                         corners_lost = set_pieces_stats["corners"]["lost"]
                         avg_won = set_pieces_stats["corners"].get("avg_won", 0)
@@ -6375,7 +7089,9 @@ def main():
                             st.metric("Tasa de Ganancia", f"{win_rate:.1f}%")
                     
                     with col2:
-                        st.markdown("#### Tiros Libres")
+                        st.markdown("""
+                        <h3 style='color:#FF9900; margin-top:20px;'>Tiros Libres</h3>
+                        """, unsafe_allow_html=True)
                         fk_won = set_pieces_stats["free_kicks"]["won"]
                         fk_lost = set_pieces_stats["free_kicks"]["lost"]
                         avg_won = set_pieces_stats["free_kicks"].get("avg_won", 0)
@@ -6389,7 +7105,9 @@ def main():
                             st.metric("Tasa de Ganancia", f"{win_rate:.1f}%")
                     
                     with col3:
-                        st.markdown("#### Penales")
+                        st.markdown("""
+                        <h3 style='color:#FF9900; margin-top:20px;'>Penales</h3>
+                        """, unsafe_allow_html=True)
                         penalties_taken = set_pieces_stats["penalties"]["taken"]
                         penalties_scored = set_pieces_stats["penalties"]["scored"]
                         penalties_missed = set_pieces_stats["penalties"]["missed"]
@@ -6433,7 +7151,7 @@ def main():
                         marker_line=dict(width=0),  # Remove border
                         text=[f"{v:.2f}" for v in values],
                         textposition='inside',  # Anchor text inside the bar
-                        textfont=dict(color=text_colors, size=12, family="Arial Black")
+                        textfont=dict(color=text_colors, size=14, family="Arial Black")
                     ))
                     
                     fig.update_layout(

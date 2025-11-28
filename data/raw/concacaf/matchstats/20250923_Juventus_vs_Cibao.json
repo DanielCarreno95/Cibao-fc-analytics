@@ -10,7 +10,7 @@
     "postMatch": "1",
     "numberOfPeriods": 2,
     "periodLength": 45,
-    "lastUpdated": "2025-10-21T19:09:36Z",
+    "lastUpdated": "2025-11-12T01:06:20Z",
     "description": "Juventus vs Cibao",
     "sport": {
       "id": "289u5typ3vp4ifwh5thalohmq",
@@ -34,7 +34,7 @@
     "tournamentCalendar": {
       "id": "bygi47fmsxgbzysjdf9u481lg",
       "startDate": "2025-08-20Z",
-      "endDate": "2025-12-02Z",
+      "endDate": "2025-12-03Z",
       "name": "2025"
     },
     "stage": {
@@ -289,10 +289,10 @@
         "periodId": 2,
         "timeMin": 68,
         "timeMinSec": "67:51",
-        "lastUpdated": "2025-10-21T17:53:10Z",
+        "lastUpdated": "2025-11-08T23:58:56Z",
         "timestamp": "2025-09-24T01:35:50Z",
-        "playerOnId": "4rzn3szcgpxqd4bdihsssh6ac",
-        "playerOnName": "Á. Pérez",
+        "playerOnId": "6r97vn6l9uty6huxa9nehn2ms",
+        "playerOnName": "Ángel Pérez",
         "playerOffId": "43bkvmye0otnx2bkqyhou9yhh",
         "playerOffName": "W. Acuña",
         "subReason": "Tactical"
@@ -2397,37 +2397,15 @@
             ]
           },
           {
-            "playerId": "4rzn3szcgpxqd4bdihsssh6ac",
+            "playerId": "6r97vn6l9uty6huxa9nehn2ms",
             "firstName": "Ángel",
             "lastName": "Pérez Araújo",
             "shortFirstName": "Ángel",
             "shortLastName": "Pérez",
-            "matchName": "Á. Pérez",
+            "matchName": "Ángel Pérez",
             "shirtNumber": 21,
             "position": "Substitute",
-            "subPosition": "Attacker",
-            "stat": [
-              {
-                "type": "accuratePass",
-                "value": "8"
-              },
-              {
-                "type": "minsPlayed",
-                "value": "22"
-              },
-              {
-                "type": "totalPass",
-                "value": "9"
-              },
-              {
-                "type": "totalSubOn",
-                "value": "1"
-              },
-              {
-                "type": "formationPlace",
-                "value": "0"
-              }
-            ]
+            "subPosition": "Attacker"
           },
           {
             "playerId": "dqndylksqwrpyvm0snsgheihg",

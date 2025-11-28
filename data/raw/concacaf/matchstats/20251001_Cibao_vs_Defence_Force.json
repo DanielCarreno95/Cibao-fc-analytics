@@ -10,7 +10,7 @@
     "postMatch": "1",
     "numberOfPeriods": 2,
     "periodLength": 45,
-    "lastUpdated": "2025-10-21T19:09:36Z",
+    "lastUpdated": "2025-11-26T16:42:17Z",
     "description": "Cibao vs Defence Force",
     "sport": {
       "id": "289u5typ3vp4ifwh5thalohmq",
@@ -34,7 +34,7 @@
     "tournamentCalendar": {
       "id": "bygi47fmsxgbzysjdf9u481lg",
       "startDate": "2025-08-20Z",
-      "endDate": "2025-12-02Z",
+      "endDate": "2025-12-03Z",
       "name": "2025"
     },
     "stage": {
@@ -208,8 +208,8 @@
         "timestamp": "2025-10-02T01:24:42Z",
         "playerOnId": "dbqtzb8bzhttrc0o3vb0cgk5w",
         "playerOnName": "C. Ventura",
-        "playerOffId": "4rzn3szcgpxqd4bdihsssh6ac",
-        "playerOffName": "Á. Pérez",
+        "playerOffId": "6r97vn6l9uty6huxa9nehn2ms",
+        "playerOffName": "Ángel Pérez",
         "subReason": "Tactical"
       },
       {
@@ -912,50 +912,16 @@
             ]
           },
           {
-            "playerId": "4rzn3szcgpxqd4bdihsssh6ac",
+            "playerId": "6r97vn6l9uty6huxa9nehn2ms",
             "firstName": "Ángel",
             "lastName": "Pérez Araújo",
             "shortFirstName": "Ángel",
             "shortLastName": "Pérez",
-            "matchName": "Á. Pérez",
+            "matchName": "Ángel Pérez",
             "shirtNumber": 21,
             "position": "Striker",
             "positionSide": "Centre",
-            "formationPlace": "9",
-            "stat": [
-              {
-                "type": "accuratePass",
-                "value": "7"
-              },
-              {
-                "type": "gameStarted",
-                "value": "1"
-              },
-              {
-                "type": "goalsConceded",
-                "value": "2"
-              },
-              {
-                "type": "minsPlayed",
-                "value": "62"
-              },
-              {
-                "type": "totalOffside",
-                "value": "1"
-              },
-              {
-                "type": "totalPass",
-                "value": "9"
-              },
-              {
-                "type": "totalSubOff",
-                "value": "1"
-              },
-              {
-                "type": "formationPlace",
-                "value": "9"
-              }
-            ]
+            "formationPlace": "9"
           },
           {
             "playerId": "5meu6hidmzkkirddnqxf05250",
@@ -1470,11 +1436,11 @@
           {
             "playerId": "26d37faltf4zz4ue71lspabmy",
             "firstName": "Jabari Dimitri Anthony",
-            "lastName": "St Hillaire",
+            "lastName": "St. Hillaire",
             "shortFirstName": "Jabari",
             "shortLastName": "St Hillaire",
             "knownName": "Jabari St Hillaire",
-            "matchName": "J. St Hillaire",
+            "matchName": "J. St. Hillaire",
             "shirtNumber": 80,
             "position": "Goalkeeper",
             "positionSide": "Centre",
