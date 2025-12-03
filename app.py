@@ -181,96 +181,91 @@ def main_hub():
 
     # ======== CSS ========
     st.markdown("""
-        <style>
-        [data-testid="stSidebar"], [data-testid="stToolbar"], header[data-testid="stHeader"] {
-            display: none !important;
-        }
-
-        /* Fondo del estadio */
-        [data-testid="stAppViewContainer"] {
-            background:
-              linear-gradient(rgba(10,10,10,0.75), rgba(10,10,10,0.85)),
-              url("https://www.presidencia.gob.do/sites/default/files/inline-images/00449e09-428b-4cf5-9264-c9204705de13.jpeg");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }
-
-        /* TITULOS */
-        .hub-title {
-            font-size: 2.8rem;
-            font-weight: 900;
-            color: #ff7b00;
-            text-align: center;
-            margin-top: 6vh;
-            margin-bottom: 0.4rem;
-            text-shadow: 0 0 10px rgba(255,123,0,0.5);
-        }
-
-        .hub-subtitle {
-            text-align: center;
-            color: #f0f0f0;
-            font-size: 1.05rem;
-            margin-bottom: 3rem;
-        }
-
-        /* TARJETAS DESCRIPTIVAS */
-        .module-desc {
-            font-size: 0.92rem; /* ≈ 12px */
-            color: #f0f0f0;
-            line-height: 1.4;
-            text-align: center;
-            margin-top: 0.8rem;
-            font-weight: 400;
-        }
-
-        /* BOTONES STREAMLIT PERSONALIZADOS */
-        div[data-testid="stButton"] > button {
-            background-color: rgba(20,20,20,0.85) !important;
-            border: 1.5px solid rgba(255,123,0,0.6) !important;
-            color: #ffffff !important;
-            font-weight: 800 !important;
-            font-size: 0.91rem !important; /* ≈ 14.5px */
-            border-radius: 14px !important;
-            height: 85px !important;
-            transition: all 0.3s ease !important;
-            box-shadow: 0 6px 15px rgba(0,0,0,0.25) !important;
-        }
-
-        div[data-testid="stButton"] > button:hover {
-            background-color: rgba(255,123,0,0.15) !important;
-            border-color: #ff9b25 !important;
-            color: #ff9b25 !important;
-            box-shadow: 0 0 20px rgba(255,123,0,0.4) !important;
-            transform: translateY(-3px);
-        }
-
-        </style>
+    <style>
+    [data-testid="stSidebar"], [data-testid="stToolbar"], header[data-testid="stHeader"] {
+        display: none !important;
+    }
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(rgba(10,10,10,0.75), rgba(10,10,10,0.85)), url("https://www.presidencia.gob.do/sites/default/files/inline-images/00449e09-428b-4cf5-9264-c9204705de13.jpeg");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+    .hub-title {
+        font-size: 2.8rem;
+        font-weight: 900;
+        color: #ff7b00;
+        text-align: center;
+        margin-top: 6vh;
+        margin-bottom: 0.4rem;
+        text-shadow: 0 0 10px rgba(255,123,0,0.5);
+    }
+    .hub-subtitle {
+        text-align: center;
+        color: #f0f0f0;
+        font-size: 1.05rem;
+        margin-bottom: 3rem;
+    }
+    .module-desc {
+        font-size: 0.92rem;
+        color: #f0f0f0;
+        line-height: 1.4;
+        text-align: center;
+        margin-top: 0.8rem;
+        font-weight: 400;
+    }
+    div[data-testid="stButton"] > button {
+        background-color: rgba(20,20,20,0.85) !important;
+        border: 1.5px solid rgba(255,123,0,0.6) !important;
+        color: #ffffff !important;
+        font-weight: 800 !important;
+        font-size: 0.91rem !important;
+        border-radius: 14px !important;
+        height: 85px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.25) !important;
+    }
+    div[data-testid="stButton"] > button:hover {
+        background-color: rgba(255,123,0,0.15) !important;
+        border-color: #ff9b25 !important;
+        color: #ff9b25 !important;
+        box-shadow: 0 0 20px rgba(255,123,0,0.4) !important;
+        transform: translateY(-3px);
+    }
+    </style>
     """, unsafe_allow_html=True)
 
     # ======== LOGO + TITULOS ========
     st.markdown("""
-        <div style="text-align:center; margin-top:2vh;">
-            <img src="https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png" width="120">
-        </div>
+    <div style="text-align:center; margin-top:2vh;">
+        <img src="https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png" width="120">
+    </div>
     """, unsafe_allow_html=True)
-
     st.markdown("<div class='hub-title'>Cibao FC - Data Hub</div>", unsafe_allow_html=True)
     st.markdown("<div class='hub-subtitle'>Centro integral de análisis táctico y rendimiento basado en datos ⚽</div>", unsafe_allow_html=True)
 
-    # ======== MÓDULOS ========
-    modules = [
-        ("Rendimiento Colectivo", "Visión global del equipo: métricas, eficiencia y tendencias tácticas.", "pages/1_Rendimiento_Colectivo.py"),
-        ("Análisis del Rival", "Estudio detallado del oponente: patrones, fortalezas y debilidades.", "pages/2_Análisis_del_Rival.py"),
-    ]
+    # ======== MÓDULOS ORGANIZADOS 2x1 ========
+    col1, col2 = st.columns(2, gap="large")
 
-    # ======== FILA DE TARJETAS ========
-    cols = st.columns(2, gap="large")
-    for i, (title, desc, page) in enumerate(modules):
-        with cols[i]:
-            if st.button(f"**{title}**", use_container_width=True, key=f"btn_{i}"):
-                st.switch_page(page)
-            st.markdown(f"<div class='module-desc'>{desc}</div>", unsafe_allow_html=True)
+    with col1:
+        st.subheader("📊 Análisis Liga")
+        if st.button("Rendimiento Colectivo - Liga", use_container_width=True):
+            st.switch_page("pages/1_Rendimiento_Colectivo.py")
+        st.markdown(f"<div class='module-desc'>Visión táctica y métrica del equipo en partidos de liga.</div>", unsafe_allow_html=True)
+
+        if st.button("Análisis del Rival - Liga", use_container_width=True):
+            st.switch_page("pages/2_Análisis_del_Rival.py")
+        st.markdown(f"<div class='module-desc'>Fortalezas, debilidades y patrones del oponente en liga.</div>", unsafe_allow_html=True)
+
+    with col2:
+        st.subheader("🥇 Análisis Copa")
+        if st.button("Rendimiento Colectivo - Copa", use_container_width=True):
+            st.switch_page("pages/1_Rendimiento_Colectivo.py")
+        st.markdown(f"<div class='module-desc'>Indicadores clave del equipo en competiciones de copa.</div>", unsafe_allow_html=True)
+
+        if st.button("Análisis del Rival - Copa", use_container_width=True):
+            st.switch_page("pages/2_Análisis_del_Rival.py")
+        st.markdown(f"<div class='module-desc'>Estudio estratégico de oponentes en formato copa.</div>", unsafe_allow_html=True)
 
 # ===========================================
 # CONTROL DE AUTENTICACIÓN
