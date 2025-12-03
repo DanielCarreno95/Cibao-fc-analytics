@@ -9,8 +9,8 @@ from src.utils.metrics_dictionary_concacaf import METRICS_CONCACAF, METRIC_GROUP
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
 from graficos_de_navaja_suiza import make_team_scatter
 
-CIBAO_ORANGE = "#FF8C00"
-CIBAO_ORANGE_LIGHT = "#FFB347"  # Naranja pastel para rivales (más contraste)
+CIBAO_ORANGE = "#FF8C00"  # Naranja vibrante principal
+CIBAO_ORANGE_LIGHT = "#FFC966"  # Naranja dorado/ámbar claro para rivales (mayor contraste)
 CIBAO_GRAY = "#D3D3D3"
 
 st.set_page_config(page_title="Rendimiento Colectivo - Copa", layout="wide")
