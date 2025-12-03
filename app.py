@@ -259,18 +259,41 @@ def main_hub():
     st.markdown("<div class='hub-title'>Cibao FC - Data Hub</div>", unsafe_allow_html=True)
     st.markdown("<div class='hub-subtitle'>Centro integral de análisis táctico y rendimiento basado en datos ⚽</div>", unsafe_allow_html=True)
 
-    # ======== MÓDULOS ========
-    modules = [
-        ("Rendimiento Colectivo", "Visión global del equipo: métricas, eficiencia y tendencias tácticas.", "pages/1_Rendimiento_Colectivo.py"),
+    # ======== ANÁLISIS LIGA ========
+    st.markdown("""
+        <div style='text-align:center; margin-top:2rem; margin-bottom:1rem;'>
+            <h2 style='color:#ff7b00; font-weight:800; font-size:1.8rem;'>📊 Análisis Liga</h2>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    liga_modules = [
+        ("Rendimiento Colectivo", "Visión global del equipo: métricas, eficiencia y tendencias tácticas.", "pages/1_Rendimiento_Colectivo_-_Liga (9).py"),
         ("Análisis del Rival", "Estudio detallado del oponente: patrones, fortalezas y debilidades.", "pages/2_Análisis_del_Rival.py"),
-        ("Rendimiento Individual", "Desempeño por jugador: contribución, perfil y evolución individual.", "pages/3_Rendimiento_Individual.py"),
     ]
+    
+    cols_liga = st.columns(2, gap="large")
+    for i, (title, desc, page) in enumerate(liga_modules):
+        with cols_liga[i]:
+            if st.button(f"**{title}**", use_container_width=True, key=f"liga_btn_{i}"):
+                st.switch_page(page)
+            st.markdown(f"<div class='module-desc'>{desc}</div>", unsafe_allow_html=True)
 
-    # ======== FILA DE TARJETAS ========
-    cols = st.columns(3, gap="large")
-    for i, (title, desc, page) in enumerate(modules):
-        with cols[i]:
-            if st.button(f"**{title}**", use_container_width=True, key=f"btn_{i}"):
+    # ======== ANÁLISIS COPA ========
+    st.markdown("""
+        <div style='text-align:center; margin-top:3rem; margin-bottom:1rem;'>
+            <h2 style='color:#ff7b00; font-weight:800; font-size:1.8rem;'>🏆 Análisis Copa</h2>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    copa_modules = [
+        ("Rendimiento Colectivo", "Visión global del equipo: métricas, eficiencia y tendencias tácticas.", "pages/4_Rendimiento_Colectivo_-_Copa (3).py"),
+        ("Análisis del Rival", "Estudio detallado del oponente: patrones, fortalezas y debilidades.", "pages/5_Analisis_del_Rival_-_Copa (6).py"),
+    ]
+    
+    cols_copa = st.columns(2, gap="large")
+    for i, (title, desc, page) in enumerate(copa_modules):
+        with cols_copa[i]:
+            if st.button(f"**{title}**", use_container_width=True, key=f"copa_btn_{i}"):
                 st.switch_page(page)
             st.markdown(f"<div class='module-desc'>{desc}</div>", unsafe_allow_html=True)
 
