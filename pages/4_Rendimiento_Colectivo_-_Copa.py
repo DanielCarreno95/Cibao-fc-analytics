@@ -293,62 +293,26 @@ def plot_horizontal_group(group_title, mapping_pairs):
         df_block[col] = pd.to_numeric(df_block[col], errors="coerce").fillna(0)
 
     mean_vals = df_block[cols].mean()
-    
-    # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
-    df_liga = df_copa_merged.copy()
-    
-    # Manejo robusto para encontrar la columna de equipo
-    if "team" not in df_liga.columns:
-        df_liga = df_liga.reset_index()
-        
-    team_col = None
-    possible_cols = ["team", "Team", "equipo", "Equipo", "Team Name", "Squad"]
-    for col_name in possible_cols:
-        if col_name in df_liga.columns:
-            team_col = col_name
-            break
-    
-    if team_col:
-        df_liga = df_liga[~df_liga[team_col].str.contains("Cibao", case=False, na=False)]
-        
-    for col in cols:
-        if col in df_liga.columns:
-            df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
-    liga_means = df_liga[cols].mean()
-    
-    # Preparar datos para gráfico de barras agrupadas
-    data_list = []
-    for label, col in mapping_pairs:
-        # Valor Cibao
-        data_list.append({
-            "Métrica": label,
-            "Valor": mean_vals[col],
-            "Equipo": "Cibao FC"
-        })
-        # Valor Liga
-        data_list.append({
-            "Métrica": label,
-            "Valor": liga_means[col] if col in liga_means else 0,
-            "Equipo": "Promedio Liga"
-        })
-        
-    df_plot = pd.DataFrame(data_list)
+    df_plot = (
+        pd.DataFrame(
+            {
+                "label": [label for label, col in mapping_pairs],
+                "valor": [mean_vals[col] for _, col in mapping_pairs],
+            }
+        )
+        .sort_values("valor", ascending=True)
+        .reset_index(drop=True)
+    )
 
     fig = px.bar(
         df_plot,
-        x="Valor",
-        y="Métrica",
-        color="Equipo",
-        barmode="group",
-        orientation="h",
+        x="valor",
+        y="label",
         text_auto=".2f",
-        color_discrete_map={
-            "Cibao FC": CIBAO_ORANGE,
-            "Promedio Liga": "#00D9FF"
-        },
-        height=400,
+        orientation="h",
+        color_discrete_sequence=[CIBAO_ORANGE],
+        height=300,
     )
-    
     fig.update_layout(
         template="plotly_dark",
         plot_bgcolor="#0B0B0B",
@@ -357,45 +321,23 @@ def plot_horizontal_group(group_title, mapping_pairs):
         title=dict(text=f"<b>{group_title}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
         title_x=0.5,
         font=dict(color=CIBAO_GRAY, size=12),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        ),
-        xaxis_title="",
-        yaxis_title=""
+        showlegend=False,
     )
-    
     st.plotly_chart(fig, use_container_width=True)
 
-    # Conclusiones Tácticas
-    # Encontramos la métrica con mayor diferencia positiva para Cibao y la de mayor déficit
-    df_diff = df_plot.pivot(index="Métrica", columns="Equipo", values="Valor")
-    if not df_diff.empty and "Cibao FC" in df_diff.columns and "Promedio Liga" in df_diff.columns:
-        df_diff["Diff"] = df_diff["Cibao FC"] - df_diff["Promedio Liga"]
-        
-        max_diff_metric = df_diff["Diff"].idxmax()
-        min_diff_metric = df_diff["Diff"].idxmin()
-        
-        val_cibao_max = df_diff.loc[max_diff_metric, "Cibao FC"]
-        val_liga_max = df_diff.loc[max_diff_metric, "Promedio Liga"]
-        
-        val_cibao_min = df_diff.loc[min_diff_metric, "Cibao FC"]
-        val_liga_min = df_diff.loc[min_diff_metric, "Promedio Liga"]
-
-        st.markdown(
-            f"""
-            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                        margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
-                <b>Conclusiones tácticas</b><br><br>
-                • <b>Punto fuerte:</b> mayor ventaja en <b>{max_diff_metric}</b> ({val_cibao_max:.2f} vs Liga: {val_liga_max:.2f}).<br>
-                • <b>Área a vigilar:</b> menor desempeño relativo en <b>{min_diff_metric}</b> ({val_cibao_min:.2f} vs Liga: {val_liga_min:.2f}).<br>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    max_row = df_plot.iloc[-1]
+    min_row = df_plot.iloc[0]
+    st.markdown(
+        f"""
+        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
+            <b>Conclusiones tácticas</b><br><br>
+            • <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+            • <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 with tab_ofensivo:
     st.markdown(
@@ -540,62 +482,21 @@ with tab_defensivo:
             df_d[col] = pd.to_numeric(df_d[col], errors="coerce").fillna(0)
 
         mean_vals = df_d[cols].mean()
-        
-        # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
-        df_liga = df_copa_merged.copy()
-        
-        # Manejo robusto para encontrar la columna de equipo
-        if "team" not in df_liga.columns:
-            df_liga = df_liga.reset_index()
-            
-        team_col = None
-        possible_cols = ["team", "Team", "equipo", "Equipo", "Team Name", "Squad"]
-        for col_name in possible_cols:
-            if col_name in df_liga.columns:
-                team_col = col_name
-                break
-        
-        if team_col:
-            df_liga = df_liga[~df_liga[team_col].str.contains("Cibao", case=False, na=False)]
-            
-        for col in cols:
-            if col in df_liga.columns:
-                df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
-        liga_means = df_liga[cols].mean()
-        
-        # Preparar datos para gráfico de barras agrupadas
-        data_list = []
-        for label, col in pares:
-            # Valor Cibao
-            data_list.append({
-                "Métrica": label,
-                "Valor": mean_vals[col],
-                "Equipo": "Cibao FC"
-            })
-            # Valor Liga
-            data_list.append({
-                "Métrica": label,
-                "Valor": liga_means[col] if col in liga_means else 0,
-                "Equipo": "Promedio Liga"
-            })
-            
-        df_plot = pd.DataFrame(data_list)
+        df_plot = (
+            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
+            .sort_values("valor", ascending=True)
+            .reset_index(drop=True)
+        )
 
         fig = px.bar(
             df_plot,
-            x="Valor",
-            y="Métrica",
-            color="Equipo",
-            barmode="group",
+            x="valor",
+            y="label",
             orientation="h",
             text_auto=".2f",
-            color_discrete_map={
-                "Cibao FC": CIBAO_ORANGE,
-                "Promedio Liga": "#00D9FF"
-            },
-            height=400,
+            color_discrete_sequence=[CIBAO_ORANGE],
+            height=320,
         )
-        
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -604,44 +505,24 @@ with tab_defensivo:
             title=dict(text=f"<b>{title}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
             title_x=0.5,
             font=dict(color=CIBAO_GRAY, size=12),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            xaxis_title="",
-            yaxis_title=""
+            showlegend=False,
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
 
-        # Conclusiones Tácticas
-        df_diff = df_plot.pivot(index="Métrica", columns="Equipo", values="Valor")
-        if not df_diff.empty and "Cibao FC" in df_diff.columns and "Promedio Liga" in df_diff.columns:
-            df_diff["Diff"] = df_diff["Cibao FC"] - df_diff["Promedio Liga"]
-            
-            max_diff_metric = df_diff["Diff"].idxmax()
-            min_diff_metric = df_diff["Diff"].idxmin()
-            
-            val_cibao_max = df_diff.loc[max_diff_metric, "Cibao FC"]
-            val_liga_max = df_diff.loc[max_diff_metric, "Promedio Liga"]
-            
-            val_cibao_min = df_diff.loc[min_diff_metric, "Cibao FC"]
-            val_liga_min = df_diff.loc[min_diff_metric, "Promedio Liga"]
-
-            st.markdown(
-                f"""
-                <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                            margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
-                    <b>Conclusiones tácticas</b><br><br>
-                    • <b>Punto fuerte:</b> mayor ventaja en <b>{max_diff_metric}</b> ({val_cibao_max:.2f} vs Liga: {val_liga_max:.2f}).<br>
-                    • <b>Área a vigilar:</b> menor desempeño relativo en <b>{min_diff_metric}</b> ({val_cibao_min:.2f} vs Liga: {val_liga_min:.2f}).<br>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        max_row = df_plot.iloc[-1]
+        min_row = df_plot.iloc[0]
+        st.markdown(
+            f"""
+            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
+                <b>Conclusiones tácticas</b><br><br>
+                • <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                • <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     col_def1, col_def2 = st.columns(2)
     with col_def1:
@@ -683,62 +564,21 @@ with tab_set_pieces:
             df_sp[col] = pd.to_numeric(df_sp[col], errors="coerce").fillna(0)
 
         mean_vals = df_sp[cols].mean()
-        
-        # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
-        df_liga = df_copa_merged.copy()
-        
-        # Manejo robusto para encontrar la columna de equipo
-        if "team" not in df_liga.columns:
-            df_liga = df_liga.reset_index()
-            
-        team_col = None
-        possible_cols = ["team", "Team", "equipo", "Equipo", "Team Name", "Squad"]
-        for col_name in possible_cols:
-            if col_name in df_liga.columns:
-                team_col = col_name
-                break
-        
-        if team_col:
-            df_liga = df_liga[~df_liga[team_col].str.contains("Cibao", case=False, na=False)]
-            
-        for col in cols:
-            if col in df_liga.columns:
-                df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
-        liga_means = df_liga[cols].mean()
-        
-        # Preparar datos para gráfico de barras agrupadas
-        data_list = []
-        for label, col in pares:
-            # Valor Cibao
-            data_list.append({
-                "Métrica": label,
-                "Valor": mean_vals[col],
-                "Equipo": "Cibao FC"
-            })
-            # Valor Liga
-            data_list.append({
-                "Métrica": label,
-                "Valor": liga_means[col] if col in liga_means else 0,
-                "Equipo": "Promedio Liga"
-            })
-            
-        df_plot = pd.DataFrame(data_list)
+        df_plot = (
+            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
+            .sort_values("valor", ascending=True)
+            .reset_index(drop=True)
+        )
 
         fig = px.bar(
             df_plot,
-            x="Valor",
-            y="Métrica",
-            color="Equipo",
-            barmode="group",
+            x="valor",
+            y="label",
             orientation="h",
             text_auto=".2f",
-            color_discrete_map={
-                "Cibao FC": CIBAO_ORANGE,
-                "Promedio Liga": "#00D9FF"
-            },
-            height=400,
+            color_discrete_sequence=[CIBAO_ORANGE],
+            height=320,
         )
-        
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -747,44 +587,24 @@ with tab_set_pieces:
             title=dict(text=f"<b>{title}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
             title_x=0.5,
             font=dict(color=CIBAO_GRAY, size=12),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            xaxis_title="",
-            yaxis_title=""
+            showlegend=False,
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
 
-        # Conclusiones Tácticas
-        df_diff = df_plot.pivot(index="Métrica", columns="Equipo", values="Valor")
-        if not df_diff.empty and "Cibao FC" in df_diff.columns and "Promedio Liga" in df_diff.columns:
-            df_diff["Diff"] = df_diff["Cibao FC"] - df_diff["Promedio Liga"]
-            
-            max_diff_metric = df_diff["Diff"].idxmax()
-            min_diff_metric = df_diff["Diff"].idxmin()
-            
-            val_cibao_max = df_diff.loc[max_diff_metric, "Cibao FC"]
-            val_liga_max = df_diff.loc[max_diff_metric, "Promedio Liga"]
-            
-            val_cibao_min = df_diff.loc[min_diff_metric, "Cibao FC"]
-            val_liga_min = df_diff.loc[min_diff_metric, "Promedio Liga"]
-
-            st.markdown(
-                f"""
-                <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                            margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
-                    <b>Conclusiones tácticas</b><br><br>
-                    • <b>Punto fuerte:</b> mayor producción en <b>{max_diff_metric}</b> ({val_cibao_max:.2f} vs Liga: {val_liga_max:.2f}).<br>
-                    • <b>Área a seguir:</b> menor incidencia en <b>{min_diff_metric}</b> ({val_cibao_min:.2f} vs Liga: {val_liga_min:.2f}).<br>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        max_row = df_plot.iloc[-1]
+        min_row = df_plot.iloc[0]
+        st.markdown(
+            f"""
+            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
+                <b>Conclusiones tácticas</b><br><br>
+                • <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                • <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     col_sp1, col_sp2 = st.columns(2)
     with col_sp1:
