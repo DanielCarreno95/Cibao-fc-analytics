@@ -262,7 +262,7 @@ def main_hub():
     # ======== ANÁLISIS LIGA ========
     st.markdown("""
         <div style='text-align:center; margin-top:2rem; margin-bottom:1rem;'>
-            <h2 style='color:#ff7b00; font-weight:800; font-size:1.8rem;'>📊 Análisis Liga</h2>
+            <h2 style='color:#ff7b00; font-weight:800; font-size:1.8rem;'> Análisis Liga</h2>
         </div>
     """, unsafe_allow_html=True)
     
@@ -281,7 +281,7 @@ def main_hub():
     # ======== ANÁLISIS COPA ========
     st.markdown("""
         <div style='text-align:center; margin-top:3rem; margin-bottom:1rem;'>
-            <h2 style='color:#ff7b00; font-weight:800; font-size:1.8rem;'>🏆 Análisis Copa</h2>
+            <h2 style='color:#ff7b00; font-weight:800; font-size:1.8rem;'> Análisis Copa</h2>
         </div>
     """, unsafe_allow_html=True)
     
