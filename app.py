@@ -232,7 +232,7 @@ def main_hub():
             font-weight: 800 !important;
             font-size: 0.91rem !important;
             border-radius: 14px !important;
-            height: 65px !important;
+            height: 85px !important;
             transition: all 0.3s ease !important;
             box-shadow: 0 6px 15px rgba(0,0,0,0.25) !important;
         }
@@ -258,23 +258,29 @@ def main_hub():
     st.markdown("<div class='hub-title'>Cibao FC - Data Hub</div>", unsafe_allow_html=True)
     st.markdown("<div class='hub-subtitle'>Centro integral de análisis táctico y rendimiento basado en datos ⚽</div>", unsafe_allow_html=True)
 
-    # ======== 2x1 LAYOUT: Liga y Copa ========
+    # ======== MÓDULOS: 2 columnas con Liga y Copa ========
     col1, col2 = st.columns(2, gap="large")
 
     with col1:
         st.markdown("### Liga")
-        if st.button("Rendimiento Colectivo (Liga)", use_container_width=True):
-            st.switch_page("pages/1_Rendimiento_Colectivo.py")  # Asegúrate que esta página sepa que es "liga"
-        if st.button("Análisis del Rival (Liga)", use_container_width=True):
-            st.switch_page("pages/2_Análisis_del_Rival.py")  # Asegúrate que esta página sepa que es "liga"
+        if st.button("**Rendimiento Colectivo**", use_container_width=True, key="btn_liga_colectivo"):
+            st.switch_page("pages/1_Rendimiento_Colectivo.py")
+        st.markdown(f"<div class='module-desc'>Visión global del equipo en liga: métricas, eficiencia y tendencias tácticas.</div>", unsafe_allow_html=True)
+
+        if st.button("**Análisis del Rival**", use_container_width=True, key="btn_liga_rival"):
+            st.switch_page("pages/2_Análisis_del_Rival.py")
+        st.markdown(f"<div class='module-desc'>Estudio del oponente en liga: patrones, fortalezas y debilidades.</div>", unsafe_allow_html=True)
 
     with col2:
         st.markdown("### Copa")
-        if st.button("Rendimiento Colectivo (Copa)", use_container_width=True):
-            st.switch_page("pages/1_Rendimiento_Colectivo.py")  # Asegúrate que esta página sepa que es "copa"
-        if st.button("Análisis del Rival (Copa)", use_container_width=True):
-            st.switch_page("pages/2_Análisis_del_Rival.py")  # Asegúrate que esta página sepa que es "copa"
-    
+        if st.button("**Rendimiento Colectivo**", use_container_width=True, key="btn_copa_colectivo"):
+            st.switch_page("pages/1_Rendimiento_Colectivo.py")
+        st.markdown(f"<div class='module-desc'>Visión global del equipo en copa: métricas, eficiencia y tendencias tácticas.</div>", unsafe_allow_html=True)
+
+        if st.button("**Análisis del Rival**", use_container_width=True, key="btn_copa_rival"):
+            st.switch_page("pages/2_Análisis_del_Rival.py")
+        st.markdown(f"<div class='module-desc'>Estudio del oponente en copa: patrones, fortalezas y debilidades.</div>", unsafe_allow_html=True)
+
             
 # ===========================================
 # CONTROL DE AUTENTICACIÓN
