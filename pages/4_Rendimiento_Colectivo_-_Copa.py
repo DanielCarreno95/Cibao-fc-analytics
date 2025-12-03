@@ -292,27 +292,43 @@ def plot_horizontal_group(group_title, mapping_pairs):
     for col in cols:
         df_block[col] = pd.to_numeric(df_block[col], errors="coerce").fillna(0)
 
-    mean_vals = df_block[cols].mean()
+    # Calcular promedio solo de Cibao
+    df_cibao_only = df_block[df_block["team"].str.contains("Cibao", case=False, na=False)]
+    mean_vals = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
+
+    # Calcular promedio de rivales (equipos que NO son Cibao)
+    df_rivales = df_block[~df_block["team"].str.contains("Cibao", case=False, na=False)]
+    rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
+
     df_plot = (
         pd.DataFrame(
             {
                 "label": [label for label, col in mapping_pairs],
                 "valor": [mean_vals[col] for _, col in mapping_pairs],
+                "rival_avg": [rival_means[col] for _, col in mapping_pairs],
             }
         )
         .sort_values("valor", ascending=True)
         .reset_index(drop=True)
     )
 
+    # Preparar datos para gráfico de barras agrupadas
+    df_plot_melted = df_plot.melt(id_vars=['label'], value_vars=['valor', 'rival_avg'], 
+                                   var_name='Equipo', value_name='Valor')
+    df_plot_melted['Equipo'] = df_plot_melted['Equipo'].map({'valor': 'Cibao FC', 'rival_avg': 'Promedio Rivales'})
+    
     fig = px.bar(
-        df_plot,
-        x="valor",
+        df_plot_melted,
+        x="Valor",
         y="label",
+        color="Equipo",
         text_auto=".2f",
         orientation="h",
-        color_discrete_sequence=[CIBAO_ORANGE],
-        height=300,
+        color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFA64D"},
+        barmode="group",
+        height=350,
     )
+
     fig.update_layout(
         template="plotly_dark",
         plot_bgcolor="#0B0B0B",
@@ -321,10 +337,20 @@ def plot_horizontal_group(group_title, mapping_pairs):
         title=dict(text=f"<b>{group_title}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
         title_x=0.5,
         font=dict(color=CIBAO_GRAY, size=12),
-        showlegend=False,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(0,0,0,0.5)",
+            font=dict(size=10)
+        ),
     )
+
     st.plotly_chart(fig, use_container_width=True)
 
+    # Conclusiones basadas en Cibao únicamente
     max_row = df_plot.iloc[-1]
     min_row = df_plot.iloc[0]
     st.markdown(
@@ -332,8 +358,8 @@ def plot_horizontal_group(group_title, mapping_pairs):
         <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                     margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
             <b>Conclusiones tácticas</b><br><br>
-            • <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
-            • <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+            • <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Rivales: {max_row['rival_avg']:.2f}).<br>
+            • <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Rivales: {min_row['rival_avg']:.2f}).<br>
         </div>
         """,
         unsafe_allow_html=True,
@@ -399,22 +425,38 @@ with tab_pases:
         for col in cols:
             df_p[col] = pd.to_numeric(df_p[col], errors="coerce").fillna(0)
 
-        mean_vals = df_p[cols].mean()
+        # Calcular promedio solo de Cibao
+        df_cibao_only = df_p[df_p["team"].str.contains("Cibao", case=False, na=False)]
+        mean_vals = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
+
+        # Calcular promedio de rivales
+        df_rivales = df_p[~df_p["team"].str.contains("Cibao", case=False, na=False)]
+        rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
+
         df_plot = pd.DataFrame(
             {
                 "label": [label for label, _ in pares],
                 "valor": [mean_vals[col] for _, col in pares],
+                "rival_avg": [rival_means[col] for _, col in pares],
             }
         ).sort_values("valor", ascending=False)
 
+        # Preparar datos para gráfico de barras agrupadas
+        df_plot_melted = df_plot.melt(id_vars=['label'], value_vars=['valor', 'rival_avg'], 
+                                       var_name='Equipo', value_name='Valor')
+        df_plot_melted['Equipo'] = df_plot_melted['Equipo'].map({'valor': 'Cibao FC', 'rival_avg': 'Promedio Rivales'})
+        
         fig = px.bar(
-            df_plot,
+            df_plot_melted,
             x="label",
-            y="valor",
+            y="Valor",
+            color="Equipo",
             text_auto=".2f",
-            color_discrete_sequence=[CIBAO_ORANGE],
-            height=380,
+            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFA64D"},
+            barmode="group",
+            height=420,
         )
+
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -423,12 +465,21 @@ with tab_pases:
             title=dict(text="<b>Volumen y precisión en la circulación</b>", font=dict(size=18, color=CIBAO_ORANGE)),
             title_x=0.5,
             font=dict(color=CIBAO_GRAY, size=12),
-            showlegend=False,
             xaxis=dict(tickangle=-15),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                bgcolor="rgba(0,0,0,0.5)",
+                font=dict(size=10)
+            ),
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
+        # Obtener valores originales de df_plot (antes del melt)
         max_row = df_plot.iloc[0]
         min_row = df_plot.iloc[-1]
 
@@ -437,8 +488,8 @@ with tab_pases:
             <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                         margin-top:-8px; border-radius:6px;'>
                 <b>Conclusiones tácticas</b><br><br>
-                • <b>Punto fuerte:</b> mayor aporte en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
-                • <b>Área por optimizar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+                • <b>Punto fuerte:</b> mayor aporte en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Rivales: {max_row['rival_avg']:.2f}).<br>
+                • <b>Área por optimizar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Rivales: {min_row['rival_avg']:.2f}).<br>
             </div>
             """,
             unsafe_allow_html=True,
@@ -481,22 +532,41 @@ with tab_defensivo:
         for col in cols:
             df_d[col] = pd.to_numeric(df_d[col], errors="coerce").fillna(0)
 
-        mean_vals = df_d[cols].mean()
+        # Calcular promedio solo de Cibao
+        df_cibao_only = df_d[df_d["team"].str.contains("Cibao", case=False, na=False)]
+        mean_vals = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
+
+        # Calcular promedio de rivales
+        df_rivales = df_d[~df_d["team"].str.contains("Cibao", case=False, na=False)]
+        rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
+
         df_plot = (
-            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
+            pd.DataFrame({
+                "label": [label for label, _ in pares], 
+                "valor": [mean_vals[col] for _, col in pares],
+                "rival_avg": [rival_means[col] for _, col in pares]
+            })
             .sort_values("valor", ascending=True)
             .reset_index(drop=True)
         )
 
+        # Preparar datos para gráfico de barras agrupadas
+        df_plot_melted = df_plot.melt(id_vars=['label'], value_vars=['valor', 'rival_avg'], 
+                                       var_name='Equipo', value_name='Valor')
+        df_plot_melted['Equipo'] = df_plot_melted['Equipo'].map({'valor': 'Cibao FC', 'rival_avg': 'Promedio Rivales'})
+        
         fig = px.bar(
-            df_plot,
-            x="valor",
+            df_plot_melted,
+            x="Valor",
             y="label",
-            orientation="h",
+            color="Equipo",
             text_auto=".2f",
-            color_discrete_sequence=[CIBAO_ORANGE],
-            height=320,
+            orientation="h",
+            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFA64D"},
+            barmode="group",
+            height=360,
         )
+
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -505,7 +575,15 @@ with tab_defensivo:
             title=dict(text=f"<b>{title}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
             title_x=0.5,
             font=dict(color=CIBAO_GRAY, size=12),
-            showlegend=False,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                bgcolor="rgba(0,0,0,0.5)",
+                font=dict(size=10)
+            ),
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -517,8 +595,8 @@ with tab_defensivo:
             <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                         margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
                 <b>Conclusiones tácticas</b><br><br>
-                • <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
-                • <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+                • <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Rivales: {max_row['rival_avg']:.2f}).<br>
+                • <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Rivales: {min_row['rival_avg']:.2f}).<br>
             </div>
             """,
             unsafe_allow_html=True,
@@ -563,22 +641,41 @@ with tab_set_pieces:
         for col in cols:
             df_sp[col] = pd.to_numeric(df_sp[col], errors="coerce").fillna(0)
 
-        mean_vals = df_sp[cols].mean()
+        # Calcular promedio solo de Cibao
+        df_cibao_only = df_sp[df_sp["team"].str.contains("Cibao", case=False, na=False)]
+        mean_vals = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
+
+        # Calcular promedio de rivales
+        df_rivales = df_sp[~df_sp["team"].str.contains("Cibao", case=False, na=False)]
+        rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
+
         df_plot = (
-            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
+            pd.DataFrame({
+                "label": [label for label, _ in pares], 
+                "valor": [mean_vals[col] for _, col in pares],
+                "rival_avg": [rival_means[col] for _, col in pares]
+            })
             .sort_values("valor", ascending=True)
             .reset_index(drop=True)
         )
 
+        # Preparar datos para gráfico de barras agrupadas
+        df_plot_melted = df_plot.melt(id_vars=['label'], value_vars=['valor', 'rival_avg'], 
+                                       var_name='Equipo', value_name='Valor')
+        df_plot_melted['Equipo'] = df_plot_melted['Equipo'].map({'valor': 'Cibao FC', 'rival_avg': 'Promedio Rivales'})
+        
         fig = px.bar(
-            df_plot,
-            x="valor",
+            df_plot_melted,
+            x="Valor",
             y="label",
-            orientation="h",
+            color="Equipo",
             text_auto=".2f",
-            color_discrete_sequence=[CIBAO_ORANGE],
-            height=320,
+            orientation="h",
+            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFA64D"},
+            barmode="group",
+            height=360,
         )
+
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -587,7 +684,15 @@ with tab_set_pieces:
             title=dict(text=f"<b>{title}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
             title_x=0.5,
             font=dict(color=CIBAO_GRAY, size=12),
-            showlegend=False,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                bgcolor="rgba(0,0,0,0.5)",
+                font=dict(size=10)
+            ),
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -599,8 +704,8 @@ with tab_set_pieces:
             <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                         margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
                 <b>Conclusiones tácticas</b><br><br>
-                • <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
-                • <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+                • <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Rivales: {max_row['rival_avg']:.2f}).<br>
+                • <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Rivales: {min_row['rival_avg']:.2f}).<br>
             </div>
             """,
             unsafe_allow_html=True,
