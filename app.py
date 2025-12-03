@@ -267,8 +267,8 @@ def main_hub():
     """, unsafe_allow_html=True)
     
     liga_modules = [
-        ("Rendimiento Colectivo", "Visión global del equipo: métricas, eficiencia y tendencias tácticas.", "pages/1_Rendimiento_Colectivo_-_Liga (9).py"),
-        ("Análisis del Rival", "Estudio detallado del oponente: patrones, fortalezas y debilidades.", "pages/2_Análisis_del_Rival.py"),
+        ("Rendimiento Colectivo", "Visión global del equipo: métricas, eficiencia y tendencias tácticas.", "pages/1_Rendimiento_Colectivo_-_Liga.py"),
+        ("Análisis del Rival", "Estudio detallado del oponente: patrones, fortalezas y debilidades.", "pages/2_Analisis_del_Rival_-_Liga.py"),
     ]
     
     cols_liga = st.columns(2, gap="large")
@@ -286,8 +286,8 @@ def main_hub():
     """, unsafe_allow_html=True)
     
     copa_modules = [
-        ("Rendimiento Colectivo", "Visión global del equipo: métricas, eficiencia y tendencias tácticas.", "pages/4_Rendimiento_Colectivo_-_Copa (3).py"),
-        ("Análisis del Rival", "Estudio detallado del oponente: patrones, fortalezas y debilidades.", "pages/5_Analisis_del_Rival_-_Copa (6).py"),
+        ("Rendimiento Colectivo", "Visión global del equipo: métricas, eficiencia y tendencias tácticas.", "pages/4_Rendimiento_Colectivo_-_Copa.py"),
+        ("Análisis del Rival", "Estudio detallado del oponente: patrones, fortalezas y debilidades.", "pages/5_Analisis_del_Rival_-_Copa.py"),
     ]
     
     cols_copa = st.columns(2, gap="large")
