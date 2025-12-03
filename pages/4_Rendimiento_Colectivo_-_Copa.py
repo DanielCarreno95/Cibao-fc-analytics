@@ -10,6 +10,7 @@ from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
 from graficos_de_navaja_suiza import make_team_scatter
 
 CIBAO_ORANGE = "#FF8C00"
+CIBAO_ORANGE_LIGHT = "#FFB347"  # Naranja pastel para rivales (más contraste)
 CIBAO_GRAY = "#D3D3D3"
 
 st.set_page_config(page_title="Rendimiento Colectivo - Copa", layout="wide")
@@ -722,9 +723,120 @@ with tab_general:
         """
         <h3 style='text-align:center; color:#ff8c00;'>Análisis Comparativo (Tablas)</h3>
         <p style='text-align:center; color:#bbb; font-size:14px;'>
-            Aquí podrás incorporar las tablas comparativas o cualquier reporte final que quieras mostrar.
+            Comparación detallada de métricas clave entre Cibao FC y el promedio de sus rivales en Copa Concacaf.
         </p>
         """,
         unsafe_allow_html=True,
     )
-    st.info("Pendiente de integrar las tablas dinámicas para Copa Concacaf.")
+    
+    # Preparar datos comparativos
+    metricas_comparativas = {
+        "⚽ Ofensivas": {
+            "Goles": "goals",
+            "Intentos de Gol": "totalScoringAtt",
+            "Disparos al Arco": "ontargetScoringAtt",
+            "Asistencias": "goalAssist",
+        },
+        "🎯 Pases": {
+            "Total de Pases": "totalPass",
+            "Pases Precisos": "accuratePass",
+        },
+        "🛡️ Defensivas": {
+            "Entradas Totales": "totalTackle",
+            "Entradas Ganadas": "wonTackle",
+            "Despejes": "totalClearance",
+            "Atajadas": "saves",
+            "Goles Recibidos": "goalsConceded",
+        },
+        "⚡ Balón Parado": {
+            "Saques de Esquina Ganados": "wonCorners",
+            "Saques de Esquina Ejecutados": "cornerTaken",
+            "Saques de Meta": "goalKicks",
+        }
+    }
+    
+    for categoria, metricas in metricas_comparativas.items():
+        st.markdown(f"### {categoria}")
+        
+        # Filtrar métricas disponibles
+        metricas_disponibles = {k: v for k, v in metricas.items() if v in df_copa_cibao.columns}
+        
+        if not metricas_disponibles:
+            st.warning(f"No hay datos disponibles para {categoria}")
+            continue
+        
+        # Calcular promedios
+        df_temp = df_copa_cibao.copy()
+        cols = list(metricas_disponibles.values())
+        
+        for col in cols:
+            df_temp[col] = pd.to_numeric(df_temp[col], errors="coerce").fillna(0)
+        
+        # Cibao
+        df_cibao_only = df_temp[df_temp["team"].str.contains("Cibao", case=False, na=False)]
+        cibao_means = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
+        
+        # Rivales
+        df_rivales = df_temp[~df_temp["team"].str.contains("Cibao", case=False, na=False)]
+        rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
+        
+        # Crear tabla comparativa
+        tabla_data = []
+        for label, col in metricas_disponibles.items():
+            cibao_val = cibao_means[col]
+            rival_val = rival_means[col]
+            diferencia = cibao_val - rival_val
+            porcentaje = ((cibao_val / rival_val - 1) * 100) if rival_val != 0 else 0
+            
+            # Indicador visual
+            if diferencia > 0:
+                indicador = "🟢"
+                color_diff = "green"
+            elif diferencia < 0:
+                indicador = "🔴"
+                color_diff = "red"
+            else:
+                indicador = "⚪"
+                color_diff = "gray"
+            
+            tabla_data.append({
+                "Métrica": label,
+                "Cibao FC": f"{cibao_val:.2f}",
+                "Promedio Rivales": f"{rival_val:.2f}",
+                "Diferencia": f"{diferencia:+.2f}",
+                "% Diferencia": f"{porcentaje:+.1f}%",
+                "": indicador
+            })
+        
+        df_tabla = pd.DataFrame(tabla_data)
+        
+        # Mostrar tabla con estilo
+        st.dataframe(
+            df_tabla,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Métrica": st.column_config.TextColumn("Métrica", width="medium"),
+                "Cibao FC": st.column_config.TextColumn("Cibao FC", width="small"),
+                "Promedio Rivales": st.column_config.TextColumn("Promedio Rivales", width="small"),
+                "Diferencia": st.column_config.TextColumn("Diferencia", width="small"),
+                "% Diferencia": st.column_config.TextColumn("% Diferencia", width="small"),
+                "": st.column_config.TextColumn("", width="small"),
+            }
+        )
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Leyenda
+    st.markdown(
+        f"""
+        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE}; border-radius:6px; margin-top:20px;'>
+            <b>Leyenda:</b><br>
+            🟢 Cibao FC supera al promedio de rivales<br>
+            🔴 Cibao FC por debajo del promedio de rivales<br>
+            ⚪ Valores iguales
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
