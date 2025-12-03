@@ -731,24 +731,24 @@ with tab_general:
     
     # Preparar datos comparativos
     metricas_comparativas = {
-        "⚽ Ofensivas": {
+        " Ofensivas": {
             "Goles": "goals",
             "Intentos de Gol": "totalScoringAtt",
             "Disparos al Arco": "ontargetScoringAtt",
             "Asistencias": "goalAssist",
         },
-        "🎯 Pases": {
+        " Pases": {
             "Total de Pases": "totalPass",
             "Pases Precisos": "accuratePass",
         },
-        "🛡️ Defensivas": {
+        " Defensivas": {
             "Entradas Totales": "totalTackle",
             "Entradas Ganadas": "wonTackle",
             "Despejes": "totalClearance",
             "Atajadas": "saves",
             "Goles Recibidos": "goalsConceded",
         },
-        "⚡ Balón Parado": {
+        " Balón Parado": {
             "Saques de Esquina Ganados": "wonCorners",
             "Saques de Esquina Ejecutados": "cornerTaken",
             "Saques de Meta": "goalKicks",
