@@ -293,21 +293,11 @@ def plot_horizontal_group(group_title, mapping_pairs):
         df_block[col] = pd.to_numeric(df_block[col], errors="coerce").fillna(0)
 
     mean_vals = df_block[cols].mean()
-
-    # --- CÁLCULO PROMEDIO RESTO DE LA LIGA (Excluyendo Cibao) ---
-    df_rest_liga = df_copa_merged[~df_copa_merged["team"].str.contains("Cibao", case=False, na=False)].copy()
-    for col in cols:
-        if col in df_rest_liga.columns:
-            df_rest_liga[col] = pd.to_numeric(df_rest_liga[col], errors="coerce").fillna(0)
-    
-    liga_means = df_rest_liga[cols].mean() if not df_rest_liga.empty else pd.Series(0, index=cols)
-
     df_plot = (
         pd.DataFrame(
             {
                 "label": [label for label, col in mapping_pairs],
                 "valor": [mean_vals[col] for _, col in mapping_pairs],
-                "liga_avg": [liga_means[col] for _, col in mapping_pairs],
             }
         )
         .sort_values("valor", ascending=True)
@@ -323,17 +313,6 @@ def plot_horizontal_group(group_title, mapping_pairs):
         color_discrete_sequence=[CIBAO_ORANGE],
         height=300,
     )
-
-    # --- LÍNEAS DE REFERENCIA (Promedio Liga) ---
-    for idx, row in df_plot.iterrows():
-        fig.add_shape(
-            type="line",
-            x0=row["liga_avg"], x1=row["liga_avg"],
-            y0=idx - 0.4, y1=idx + 0.4,
-            line=dict(color="#00D9FF", width=2, dash="dash"),
-            yref="y"
-        )
-
     fig.update_layout(
         template="plotly_dark",
         plot_bgcolor="#0B0B0B",
@@ -344,18 +323,6 @@ def plot_horizontal_group(group_title, mapping_pairs):
         font=dict(color=CIBAO_GRAY, size=12),
         showlegend=False,
     )
-
-    # Leyenda manual
-    fig.add_annotation(
-        text="--- Promedio Resto Liga",
-        xref="paper", yref="paper",
-        x=0.98, y=1.1,
-        showarrow=False,
-        font=dict(size=10, color="#00D9FF"),
-        bgcolor="rgba(0,0,0,0.5)",
-        xanchor="right"
-    )
-
     st.plotly_chart(fig, use_container_width=True)
 
     max_row = df_plot.iloc[-1]
@@ -365,8 +332,8 @@ def plot_horizontal_group(group_title, mapping_pairs):
         <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                     margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
             <b>Conclusiones tácticas</b><br><br>
-            - <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Liga: {max_row['liga_avg']:.2f}).<br>
-            - <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Liga: {min_row['liga_avg']:.2f}).<br>
+            • <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+            • <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
         </div>
         """,
         unsafe_allow_html=True,
@@ -433,20 +400,10 @@ with tab_pases:
             df_p[col] = pd.to_numeric(df_p[col], errors="coerce").fillna(0)
 
         mean_vals = df_p[cols].mean()
-
-        # --- CÁLCULO PROMEDIO RESTO DE LA LIGA ---
-        df_rest_liga = df_copa_merged[~df_copa_merged["team"].str.contains("Cibao", case=False, na=False)].copy()
-        for col in cols:
-            if col in df_rest_liga.columns:
-                df_rest_liga[col] = pd.to_numeric(df_rest_liga[col], errors="coerce").fillna(0)
-        
-        liga_means = df_rest_liga[cols].mean() if not df_rest_liga.empty else pd.Series(0, index=cols)
-
         df_plot = pd.DataFrame(
             {
                 "label": [label for label, _ in pares],
                 "valor": [mean_vals[col] for _, col in pares],
-                "liga_avg": [liga_means[col] for _, col in pares],
             }
         ).sort_values("valor", ascending=False)
 
@@ -458,35 +415,6 @@ with tab_pases:
             color_discrete_sequence=[CIBAO_ORANGE],
             height=380,
         )
-
-        # --- LÍNEAS DE REFERENCIA (Promedio Liga) - Verticales para gráfico de barras vertical ---
-        # En gráfico vertical, las barras son verticales, así que la línea de promedio debe ser horizontal
-        # Pero espera, el gráfico anterior era horizontal. Este es vertical (x="label", y="valor").
-        # Entonces necesitamos líneas horizontales.
-        
-        for idx, row in df_plot.iterrows():
-            # idx es el índice del DataFrame, pero en px.bar el eje X son las etiquetas.
-            # Plotly usa índices numéricos 0, 1, 2... para las categorías en el eje X.
-            # Necesitamos saber la posición de la categoría.
-            # Al resetear el index, podemos usar el índice numérico.
-            pass
-        
-        # Mejor enfoque para gráfico vertical: usar add_shape con x0, x1 basados en coordenadas relativas o de categoría
-        # O simplemente añadir un scatter trace con mode='markers' o 'lines'
-        
-        # Vamos a usar shapes. El eje X es categórico. Plotly asigna 0, 1, 2...
-        # df_plot está ordenado, así que podemos iterar.
-        
-        df_plot = df_plot.reset_index(drop=True)
-        for i, row in df_plot.iterrows():
-            fig.add_shape(
-                type="line",
-                x0=i - 0.4, x1=i + 0.4,
-                y0=row["liga_avg"], y1=row["liga_avg"],
-                line=dict(color="#00D9FF", width=2, dash="dash"),
-                xref="x", yref="y"
-            )
-
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -499,16 +427,6 @@ with tab_pases:
             xaxis=dict(tickangle=-15),
         )
 
-        fig.add_annotation(
-            text="--- Promedio Resto Liga",
-            xref="paper", yref="paper",
-            x=0.98, y=1.05,
-            showarrow=False,
-            font=dict(size=10, color="#00D9FF"),
-            bgcolor="rgba(0,0,0,0.5)",
-            xanchor="right"
-        )
-
         st.plotly_chart(fig, use_container_width=True)
 
         max_row = df_plot.iloc[0]
@@ -519,8 +437,8 @@ with tab_pases:
             <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                         margin-top:-8px; border-radius:6px;'>
                 <b>Conclusiones tácticas</b><br><br>
-                - <b>Punto fuerte:</b> mayor aporte en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Liga: {max_row['liga_avg']:.2f}).<br>
-                - <b>Área por optimizar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Liga: {min_row['liga_avg']:.2f}).<br>
+                • <b>Punto fuerte:</b> mayor aporte en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                • <b>Área por optimizar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
             </div>
             """,
             unsafe_allow_html=True,
@@ -564,23 +482,8 @@ with tab_defensivo:
             df_d[col] = pd.to_numeric(df_d[col], errors="coerce").fillna(0)
 
         mean_vals = df_d[cols].mean()
-
-        # --- CÁLCULO PROMEDIO RESTO DE LA LIGA ---
-        df_rest_liga = df_copa_merged[~df_copa_merged["team"].str.contains("Cibao", case=False, na=False)].copy()
-        for col in cols:
-            if col in df_rest_liga.columns:
-                df_rest_liga[col] = pd.to_numeric(df_rest_liga[col], errors="coerce").fillna(0)
-        
-        liga_means = df_rest_liga[cols].mean() if not df_rest_liga.empty else pd.Series(0, index=cols)
-
         df_plot = (
-            pd.DataFrame(
-                {
-                    "label": [label for label, _ in pares], 
-                    "valor": [mean_vals[col] for _, col in pares],
-                    "liga_avg": [liga_means[col] for _, col in pares]
-                }
-            )
+            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
             .sort_values("valor", ascending=True)
             .reset_index(drop=True)
         )
@@ -594,17 +497,6 @@ with tab_defensivo:
             color_discrete_sequence=[CIBAO_ORANGE],
             height=320,
         )
-
-        # --- LÍNEAS DE REFERENCIA (Promedio Liga) ---
-        for idx, row in df_plot.iterrows():
-            fig.add_shape(
-                type="line",
-                x0=row["liga_avg"], x1=row["liga_avg"],
-                y0=idx - 0.4, y1=idx + 0.4,
-                line=dict(color="#00D9FF", width=2, dash="dash"),
-                yref="y"
-            )
-
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -616,16 +508,6 @@ with tab_defensivo:
             showlegend=False,
         )
 
-        fig.add_annotation(
-            text="--- Promedio Resto Liga",
-            xref="paper", yref="paper",
-            x=0.98, y=1.1,
-            showarrow=False,
-            font=dict(size=10, color="#00D9FF"),
-            bgcolor="rgba(0,0,0,0.5)",
-            xanchor="right"
-        )
-
         st.plotly_chart(fig, use_container_width=True)
 
         max_row = df_plot.iloc[-1]
@@ -635,8 +517,8 @@ with tab_defensivo:
             <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                         margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
                 <b>Conclusiones tácticas</b><br><br>
-                - <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Liga: {max_row['liga_avg']:.2f}).<br>
-                - <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Liga: {min_row['liga_avg']:.2f}).<br>
+                • <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                • <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
             </div>
             """,
             unsafe_allow_html=True,
@@ -682,23 +564,8 @@ with tab_set_pieces:
             df_sp[col] = pd.to_numeric(df_sp[col], errors="coerce").fillna(0)
 
         mean_vals = df_sp[cols].mean()
-
-        # --- CÁLCULO PROMEDIO RESTO DE LA LIGA ---
-        df_rest_liga = df_copa_merged[~df_copa_merged["team"].str.contains("Cibao", case=False, na=False)].copy()
-        for col in cols:
-            if col in df_rest_liga.columns:
-                df_rest_liga[col] = pd.to_numeric(df_rest_liga[col], errors="coerce").fillna(0)
-        
-        liga_means = df_rest_liga[cols].mean() if not df_rest_liga.empty else pd.Series(0, index=cols)
-
         df_plot = (
-            pd.DataFrame(
-                {
-                    "label": [label for label, _ in pares], 
-                    "valor": [mean_vals[col] for _, col in pares],
-                    "liga_avg": [liga_means[col] for _, col in pares]
-                }
-            )
+            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
             .sort_values("valor", ascending=True)
             .reset_index(drop=True)
         )
@@ -712,17 +579,6 @@ with tab_set_pieces:
             color_discrete_sequence=[CIBAO_ORANGE],
             height=320,
         )
-
-        # --- LÍNEAS DE REFERENCIA (Promedio Liga) ---
-        for idx, row in df_plot.iterrows():
-            fig.add_shape(
-                type="line",
-                x0=row["liga_avg"], x1=row["liga_avg"],
-                y0=idx - 0.4, y1=idx + 0.4,
-                line=dict(color="#00D9FF", width=2, dash="dash"),
-                yref="y"
-            )
-
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -734,16 +590,6 @@ with tab_set_pieces:
             showlegend=False,
         )
 
-        fig.add_annotation(
-            text="--- Promedio Resto Liga",
-            xref="paper", yref="paper",
-            x=0.98, y=1.1,
-            showarrow=False,
-            font=dict(size=10, color="#00D9FF"),
-            bgcolor="rgba(0,0,0,0.5)",
-            xanchor="right"
-        )
-
         st.plotly_chart(fig, use_container_width=True)
 
         max_row = df_plot.iloc[-1]
@@ -753,8 +599,8 @@ with tab_set_pieces:
             <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                         margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
                 <b>Conclusiones tácticas</b><br><br>
-                - <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Liga: {max_row['liga_avg']:.2f}).<br>
-                - <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Liga: {min_row['liga_avg']:.2f}).<br>
+                • <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                • <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
             </div>
             """,
             unsafe_allow_html=True,
