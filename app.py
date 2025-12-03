@@ -179,12 +179,14 @@ def login_page():
 def main_hub():
     import streamlit.components.v1 as components
 
-    # ======== CSS GENERAL ========
+    # ======== CSS ========
     st.markdown("""
         <style>
         [data-testid="stSidebar"], [data-testid="stToolbar"], header[data-testid="stHeader"] {
             display: none !important;
         }
+
+        /* Fondo del estadio */
         [data-testid="stAppViewContainer"] {
             background:
               linear-gradient(rgba(10,10,10,0.75), rgba(10,10,10,0.85)),
@@ -193,6 +195,8 @@ def main_hub():
             background-position: center;
             background-attachment: fixed;
         }
+
+        /* TITULOS */
         .hub-title {
             font-size: 2.8rem;
             font-weight: 900;
@@ -202,12 +206,25 @@ def main_hub():
             margin-bottom: 0.4rem;
             text-shadow: 0 0 10px rgba(255,123,0,0.5);
         }
+
         .hub-subtitle {
             text-align: center;
             color: #f0f0f0;
             font-size: 1.05rem;
             margin-bottom: 3rem;
         }
+
+        /* TARJETAS DESCRIPTIVAS */
+        .module-desc {
+            font-size: 0.92rem;
+            color: #f0f0f0;
+            line-height: 1.4;
+            text-align: center;
+            margin-top: 0.8rem;
+            font-weight: 400;
+        }
+
+        /* BOTONES STREAMLIT PERSONALIZADOS */
         div[data-testid="stButton"] > button {
             background-color: rgba(20,20,20,0.85) !important;
             border: 1.5px solid rgba(255,123,0,0.6) !important;
@@ -215,10 +232,11 @@ def main_hub():
             font-weight: 800 !important;
             font-size: 0.91rem !important;
             border-radius: 14px !important;
-            height: 85px !important;
+            height: 65px !important;
             transition: all 0.3s ease !important;
             box-shadow: 0 6px 15px rgba(0,0,0,0.25) !important;
         }
+
         div[data-testid="stButton"] > button:hover {
             background-color: rgba(255,123,0,0.15) !important;
             border-color: #ff9b25 !important;
@@ -226,10 +244,11 @@ def main_hub():
             box-shadow: 0 0 20px rgba(255,123,0,0.4) !important;
             transform: translateY(-3px);
         }
+
         </style>
     """, unsafe_allow_html=True)
 
-    # ======== LOGO Y TITULOS ========
+    # ======== LOGO + TITULOS ========
     st.markdown("""
         <div style="text-align:center; margin-top:2vh;">
             <img src="https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png" width="120">
@@ -239,42 +258,22 @@ def main_hub():
     st.markdown("<div class='hub-title'>Cibao FC - Data Hub</div>", unsafe_allow_html=True)
     st.markdown("<div class='hub-subtitle'>Centro integral de análisis táctico y rendimiento basado en datos ⚽</div>", unsafe_allow_html=True)
 
-    # ===========================================
-    #                ANÁLISIS LIGA
-    # ===========================================
-    st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:20px;'>ANÁLISIS LIGA</h3>", unsafe_allow_html=True)
+    # ======== 2x1 LAYOUT: Liga y Copa ========
+    col1, col2 = st.columns(2, gap="large")
 
-    liga_modules = [
-        ("Rendimiento Colectivo", "pages/1_Rendimiento_Colectivo_-_Liga.py"),
-        ("Análisis del Rival", "pages/2_Analisis_del_Rival_-_Liga.py"),
-        ("Rendimiento Individual", "pages/3_Rendimiento_Individual_-_Liga.py"),
-    ]
+    with col1:
+        st.markdown("### Liga")
+        if st.button("Rendimiento Colectivo (Liga)", use_container_width=True):
+            st.switch_page("pages/1_Rendimiento_Colectivo.py")  # Asegúrate que esta página sepa que es "liga"
+        if st.button("Análisis del Rival (Liga)", use_container_width=True):
+            st.switch_page("pages/2_Análisis_del_Rival.py")  # Asegúrate que esta página sepa que es "liga"
 
-    cols_liga = st.columns(3, gap="large")
-    for i, (title, page) in enumerate(liga_modules):
-        with cols_liga[i]:
-            if st.button(f"**{title}**", use_container_width=True, key=f"liga_btn_{i}"):
-                st.switch_page(page)
-
-    # Separador reducido
-    st.markdown("<hr style='margin-top:20px; margin-bottom:8px; opacity:0.25;'>", unsafe_allow_html=True)
-
-    # ===========================================
-    #                ANÁLISIS COPA
-    # ===========================================
-    st.markdown("<h3 style='text-align:center; color:#ff7b00; margin-top:5px;'>ANÁLISIS COPA</h3>", unsafe_allow_html=True)
-
-    copa_modules = [
-        ("Rendimiento Colectivo", "pages/4_Rendimiento_Colectivo_-_Copa.py"),
-        ("Análisis del Rival", "pages/5_Analisis_del_Rival_-_Copa.py"),
-        ("Rendimiento Individual", "pages/6_Rendimiento_Individual_-_Copa.py"),
-    ]
-
-    cols_copa = st.columns(3, gap="large")
-    for i, (title, page) in enumerate(copa_modules):
-        with cols_copa[i]:
-            if st.button(f"**{title}**", use_container_width=True, key=f"copa_btn_{i}"):
-                st.switch_page(page)
+    with col2:
+        st.markdown("### Copa")
+        if st.button("Rendimiento Colectivo (Copa)", use_container_width=True):
+            st.switch_page("pages/1_Rendimiento_Colectivo.py")  # Asegúrate que esta página sepa que es "copa"
+        if st.button("Análisis del Rival (Copa)", use_container_width=True):
+            st.switch_page("pages/2_Análisis_del_Rival.py")  # Asegúrate que esta página sepa que es "copa"
     
             
 # ===========================================
