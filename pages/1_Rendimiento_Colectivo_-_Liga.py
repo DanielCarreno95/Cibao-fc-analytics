@@ -556,6 +556,150 @@ CIBAO_BLACK = "#111111"
 CIBAO_GRAY = "#D3D3D3"
 PALETTE_CIBAO = ["#FF8C00"]
 
+# ===========================
+# FUNCIÓN DE GRÁFICO + CONCLUSIONES
+# ===========================
+
+def plot_group(nombre_grupo, mapping):
+    
+    columnas = [v for v in mapping.values() if v in df_filtrado.columns]
+    etiquetas = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
+    
+    if len(columnas) == 0:
+        st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
+        return
+    
+    # ===== CALCULAR PROMEDIO DE CIBAO (con filtros) =====
+    df_cibao_filtered = df_filtrado.copy()
+    cibao_means = df_cibao_filtered[columnas].mean()
+    
+    # ===== PREPARAR DATOS PARA COMPARACIÓN =====
+    comparison_data = []
+    
+    # Agregar Cibao
+    for col in columnas:
+        comparison_data.append({
+            "label": etiquetas[col],
+            "Equipo": "Cibao FC",
+            "valor": cibao_means[col]
+        })
+    
+    # ===== PROMEDIO LIGA (si está activado) =====
+    if mostrar_promedio_liga and not df_liga_mayor.empty:
+        # Filtrar equipos excluyendo Cibao
+        df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
+        
+        # Calcular promedio para cada métrica
+        for col in columnas:
+            if col in df_liga_sin_cibao.columns:
+                liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
+                comparison_data.append({
+                    "label": etiquetas[col],
+                    "Equipo": "Promedio Liga",
+                    "valor": liga_val if not pd.isna(liga_val) else 0
+                })
+    
+    # ===== EQUIPO 1 (si está seleccionado) =====
+    if equipo_comparacion_1 != "Ninguno" and not df_liga_mayor.empty:
+        df_equipo1 = df_liga_mayor[df_liga_mayor["Team"] == equipo_comparacion_1].copy()
+        
+        for col in columnas:
+            if col in df_equipo1.columns:
+                eq1_val = pd.to_numeric(df_equipo1[col], errors="coerce").mean()
+                comparison_data.append({
+                    "label": etiquetas[col],
+                    "Equipo": equipo_comparacion_1,
+                    "valor": eq1_val if not pd.isna(eq1_val) else 0
+                })
+    
+    # ===== EQUIPO 2 (si está seleccionado) =====
+    if equipo_comparacion_2 != "Ninguno" and not df_liga_mayor.empty:
+        df_equipo2 = df_liga_mayor[df_liga_mayor["Team"] == equipo_comparacion_2].copy()
+        
+        for col in columnas:
+            if col in df_equipo2.columns:
+                eq2_val = pd.to_numeric(df_equipo2[col], errors="coerce").mean()
+                comparison_data.append({
+                    "label": etiquetas[col],
+                    "Equipo": equipo_comparacion_2,
+                    "valor": eq2_val if not pd.isna(eq2_val) else 0
+                })
+    
+    # ===== CREAR DATAFRAME PARA PLOTLY =====
+    df_plot = pd.DataFrame(comparison_data)
+    
+    # Ordenar por valor de Cibao (para mantener consistencia visual)
+    cibao_order = df_plot[df_plot["Equipo"] == "Cibao FC"].sort_values("valor", ascending=True)["label"].tolist()
+    df_plot["label"] = pd.Categorical(df_plot["label"], categories=cibao_order, ordered=True)
+    df_plot = df_plot.sort_values("label")
+    
+    # ===== MAPA DE COLORES =====
+    color_map = {
+        "Cibao FC": CIBAO_ORANGE,
+        "Promedio Liga": CIBAO_ORANGE_LIGHT,
+    }
+    
+    # Asignar colores dinámicamente a equipos seleccionados
+    if equipo_comparacion_1 != "Ninguno":
+        color_map[equipo_comparacion_1] = CIBAO_WHITE
+    if equipo_comparacion_2 != "Ninguno":
+        color_map[equipo_comparacion_2] = CIBAO_GRAY_MED
+    
+    # ===== CREAR GRÁFICO =====
+    fig = px.bar(
+        df_plot,
+        x="valor",
+        y="label",
+        color="Equipo",
+        orientation="h",
+        text_auto=".2f",
+        color_discrete_map=color_map,
+        barmode="group",
+    )
+    
+    fig.update_layout(
+        height=350,
+        template="plotly_dark",
+        plot_bgcolor=CIBAO_BLACK,
+        paper_bgcolor=CIBAO_BLACK,
+        font=dict(color=CIBAO_GRAY, size=12),
+        title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
+        title_x=0.5,
+        margin=dict(l=20, r=20, t=50, b=20),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(0,0,0,0.5)",
+            font=dict(size=10)
+        ),
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # ===== CONCLUSIONES TÁCTICAS =====
+    cibao_data = df_plot[df_plot["Equipo"] == "Cibao FC"].copy()
+    if not cibao_data.empty:
+        max_row = cibao_data.loc[cibao_data["valor"].idxmax()]
+        min_row = cibao_data.loc[cibao_data["valor"].idxmin()]
+        
+        conclusion = f"""
+        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE}; margin-top:-8px; margin-bottom:25px;'>
+        <b>Conclusiones tácticas</b><br><br>
+        
+        • <b>Punto fuerte:</b> El equipo muestra mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f}),
+          acción que está contribuyendo directamente al modelo ofensivo.<br><br>
+        
+        • <b>Área con menor incidencia:</b> El valor más bajo corresponde a <b>{min_row['label']}</b> ({min_row['valor']:.2f}),
+          indicador de un comportamiento aún mejorable dentro de la estructura ofensiva.<br><br>
+        </div>
+        """
+        
+        st.markdown(conclusion, unsafe_allow_html=True)
+
+
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Eficiencia y Ataque",
     "Construcción y Pases",
