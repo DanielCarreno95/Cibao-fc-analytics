@@ -295,7 +295,21 @@ def plot_horizontal_group(group_title, mapping_pairs):
     mean_vals = df_block[cols].mean()
     
     # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
-    df_liga = df_copa_merged[~df_copa_merged["team"].str.contains("Cibao", case=False, na=False)].copy()
+    df_liga = df_copa_merged.copy()
+    
+    # Manejo robusto para encontrar la columna de equipo
+    if "team" not in df_liga.columns:
+        df_liga = df_liga.reset_index()
+        
+    team_col = None
+    for col_name in ["team", "Team", "equipo", "Equipo"]:
+        if col_name in df_liga.columns:
+            team_col = col_name
+            break
+    
+    if team_col:
+        df_liga = df_liga[~df_liga[team_col].str.contains("Cibao", case=False, na=False)]
+        
     for col in cols:
         if col in df_liga.columns:
             df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
