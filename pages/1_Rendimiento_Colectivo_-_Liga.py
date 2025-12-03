@@ -102,30 +102,44 @@ if "global_partidos" not in st.session_state:
 # ===============================================
 with st.sidebar:
     st.subheader("Filtros")
-
-    jornadas_sel = st.multiselect(
-        "Selecciona Jornadas (máx 5)",
-        options=sorted(df_cibao["Jornada"].unique().tolist()),
-        default=st.session_state["global_jornadas"],
-        key="sidebar_jornadas",
-        max_selections=5,
-    )
-
-    partidos_sel = st.multiselect(
+    
+    # Crear opciones combinadas "Jornada - Partido"
+    if not df_cibao.empty and "Jornada" in df_cibao.columns and "Match" in df_cibao.columns:
+        df_cibao_sorted = df_cibao.sort_values("Date")
+        opciones_partidos = []
+        for _, row in df_cibao_sorted.iterrows():
+            jornada = row.get("Jornada", "")
+            partido = row.get("Match", "")
+            if pd.notna(jornada) and pd.notna(partido):
+                opciones_partidos.append(f"J{int(jornada)} - {partido}")
+        
+        # Eliminar duplicados manteniendo orden
+        opciones_partidos = list(dict.fromkeys(opciones_partidos))
+        
+        # Seleccionar últimos 3 por defecto
+        default_selection = opciones_partidos[-3:] if len(opciones_partidos) >= 3 else opciones_partidos
+    else:
+        opciones_partidos = []
+        default_selection = []
+    
+    # Inicializar estado
+    if "partidos_seleccionados" not in st.session_state:
+        st.session_state["partidos_seleccionados"] = default_selection
+    
+    partidos_seleccionados = st.multiselect(
         "Selecciona Partidos (máx 5)",
-        options=df_cibao["Match"].unique().tolist(),
-        default=st.session_state["global_partidos"],
-        key="sidebar_partidos",
+        options=opciones_partidos,
+        default=st.session_state["partidos_seleccionados"],
+        key="sidebar_partidos_combinados",
         max_selections=5,
+        help="Formato: Jornada - Partido"
     )
-
+    
     # --- Botón para limpiar filtros ---
     if st.button("🔄 Borrar filtros", use_container_width=True):
-        st.session_state["global_jornadas"] = ultimas_jornadas
-        st.session_state["global_partidos"] = default_partidos
-        st.session_state["sidebar_jornadas"] = ultimas_jornadas
-        st.session_state["sidebar_partidos"] = default_partidos
-        st.toast("Filtros restablecidos a las últimas 3 jornadas ✅", icon="🔁")
+        st.session_state["partidos_seleccionados"] = default_selection
+        st.session_state["sidebar_partidos_combinados"] = default_selection
+        st.toast("Filtros restablecidos a los últimos 3 partidos ✅", icon="🔁")
         st.rerun()
     
     # ===============================================
@@ -157,15 +171,16 @@ partidos_sel = st.session_state["global_partidos"]
 # ===============================================
 df_filtrado = df_cibao.copy()
 
-if jornadas_sel and "Jornada" in df_filtrado.columns:
-    df_filtrado = df_filtrado[df_filtrado["Jornada"].isin(jornadas_sel)]
+if partidos_seleccionados:
+    # Extraer nombres de partidos de las selecciones "J# - Partido"
+    partidos_nombres = [p.split(" - ", 1)[1] if " - " in p else p for p in partidos_seleccionados]
+    df_filtrado = df_filtrado[df_filtrado["Match"].isin(partidos_nombres)]
 
-if partidos_sel:
-    df_filtrado = df_filtrado[df_filtrado["Match"].isin(partidos_sel)]
-
-# Si no hay selección válida, usa últimas 3 por defecto
+# Si no hay selección válida, usa últimos 3 por defecto
 if df_filtrado.empty and not df_cibao.empty:
-    df_filtrado = df_cibao[df_cibao["Jornada"].isin(ultimas_jornadas)]
+    # Usar últimos 3 partidos
+    ultimos_partidos = df_cibao.sort_values("Date").tail(3)["Match"].unique().tolist()
+    df_filtrado = df_cibao[df_cibao["Match"].isin(ultimos_partidos)]
 
 # ===============================================
 # 🧠 HELPERS AUXILIARES
