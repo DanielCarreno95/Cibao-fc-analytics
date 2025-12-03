@@ -1,4 +1,4 @@
-# ===========================================
+ # ===========================================
 # 1_Rendimiento_Colectivo_-_Liga.py — Cibao FC Data Hub
 # ===========================================
 import streamlit as st
@@ -127,6 +127,47 @@ with st.sidebar:
         st.session_state["sidebar_partidos"] = default_partidos
         st.toast("Filtros restablecidos a las últimas 3 jornadas ✅", icon="🔁")
         st.rerun()
+    
+    # ===============================================
+    # 📊 COMPARACIÓN CON OTROS EQUIPOS
+    # ===============================================
+    st.markdown("<hr style='margin:20px 0; opacity:0.3;'>", unsafe_allow_html=True)
+    st.subheader("Comparación")
+    
+    # Checkbox para promedio de liga
+    mostrar_promedio_liga = st.checkbox(
+        "Mostrar Promedio Liga",
+        value=True,
+        key="mostrar_promedio_liga",
+        help="Compara Cibao con el promedio de todos los equipos de la liga"
+    )
+    
+    # Lista de equipos disponibles (excluyendo Cibao)
+    if not df_liga_mayor.empty:
+        equipos_disponibles = ["Ninguno"] + sorted([
+            str(t) for t in df_liga_mayor["Team"].dropna().unique()
+            if str(t).strip().lower() != "cibao"
+        ])
+    else:
+        equipos_disponibles = ["Ninguno"]
+    
+    # Selectbox para equipo 1
+    equipo_comparacion_1 = st.selectbox(
+        "Comparar con Equipo 1",
+        options=equipos_disponibles,
+        index=0,
+        key="equipo_comparacion_1",
+        help="Selecciona un equipo específico para comparar"
+    )
+    
+    # Selectbox para equipo 2 (opcional)
+    equipo_comparacion_2 = st.selectbox(
+        "Comparar con Equipo 2 (opcional)",
+        options=equipos_disponibles,
+        index=0,
+        key="equipo_comparacion_2",
+        help="Selecciona un segundo equipo para comparar (opcional)"
+    )
 
 # ===============================================
 # 🧮 SINCRONIZACIÓN entre sidebar y app
@@ -282,8 +323,10 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ==============================
 # 🎨 PALETA INSTITUCIONAL CIBAO FC
 # ==============================
-CIBAO_ORANGE = "#FF8C00"         # Naranja principal
-CIBAO_ORANGE_LIGHT = "#FFA64D"   # Naranja claro
+CIBAO_ORANGE = "#FF8C00"         # Naranja principal - Cibao FC
+CIBAO_ORANGE_LIGHT = "#FFC966"   # Naranja dorado claro - Promedio Liga
+CIBAO_WHITE = "#E8E8E8"          # Gris claro/blanco - Equipo 1
+CIBAO_GRAY_MED = "#808080"       # Gris medio - Equipo 2
 CIBAO_BLACK = "#111111"          # Fondo general
 CIBAO_GRAY = "#D3D3D3"           # Texto neutro
 CIBAO_DARKGRAY = "#1B1B1B"       # Contenedor gris oscuro
@@ -512,75 +555,6 @@ CIBAO_ORANGE = "#FF8C00"
 CIBAO_BLACK = "#111111"
 CIBAO_GRAY = "#D3D3D3"
 PALETTE_CIBAO = ["#FF8C00"]
-
-# ===========================
-# FUNCIÓN DE GRÁFICO + CONCLUSIONES
-# ===========================
-
-def plot_group(nombre_grupo, mapping):
-
-    df_plot = df_filtrado.copy()
-
-    columnas = [v for v in mapping.values() if v in df_plot.columns]
-    etiquetas = {v: k for k, v in mapping.items() if v in df_plot.columns}
-
-    if len(columnas) == 0:
-        st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
-        return
-
-    df_mean = (
-        df_plot[columnas]
-        .mean()
-        .reset_index()
-        .rename(columns={"index": "metric", 0: "valor"})
-    )
-    df_mean["label"] = df_mean["metric"].map(etiquetas)
-    df_mean = df_mean.sort_values("valor", ascending=True)
-
-    fig = px.bar(
-        df_mean,
-        x="valor",
-        y="label",
-        orientation="h",
-        text_auto=".2f",
-        color_discrete_sequence=PALETTE_CIBAO,
-    )
-
-    fig.update_layout(
-        height=300,
-        template="plotly_dark",
-        plot_bgcolor=CIBAO_BLACK,
-        paper_bgcolor=CIBAO_BLACK,
-        font=dict(color=CIBAO_GRAY, size=12),
-        title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
-        title_x=0.5,
-        margin=dict(l=20, r=20, t=50, b=20),
-        showlegend=False,
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    # -------- CONCLUSIONES TÁCTICAS --------
-    max_row = df_mean.iloc[-1]
-    min_row = df_mean.iloc[0]
-
-    conclusion = f"""
-    <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE}; margin-top:-8px; margin-bottom:25px;'>
-    <b>Conclusiones tácticas</b><br><br>
-
-    • <b>Punto fuerte:</b> El equipo muestra mayor impacto en <b>{max_row['label']}</b>,
-      acción que está contribuyendo directamente al modelo ofensivo.<br><br>
-
-    • <b>Área con menor incidencia:</b> El valor más bajo corresponde a <b>{min_row['label']}</b>,
-      indicador de un comportamiento aún mejorable dentro de la estructura ofensiva.<br><br>
-    </div>
-    """
-
-    st.markdown(conclusion, unsafe_allow_html=True)
-
-# ============================================================
-# 🔶 CREACIÓN DE LAS 5 PESTAÑAS
-# ============================================================
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Eficiencia y Ataque",
