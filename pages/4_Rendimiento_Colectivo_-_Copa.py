@@ -293,11 +293,19 @@ def plot_horizontal_group(group_title, mapping_pairs):
         df_block[col] = pd.to_numeric(df_block[col], errors="coerce").fillna(0)
 
     mean_vals = df_block[cols].mean()
+    
+    # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
+    df_liga = df_copa_rivales.copy()
+    for col in cols:
+        df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
+    liga_means = df_liga[cols].mean()
+    
     df_plot = (
         pd.DataFrame(
             {
                 "label": [label for label, col in mapping_pairs],
                 "valor": [mean_vals[col] for _, col in mapping_pairs],
+                "liga_avg": [liga_means[col] for _, col in mapping_pairs],
             }
         )
         .sort_values("valor", ascending=True)
@@ -313,6 +321,17 @@ def plot_horizontal_group(group_title, mapping_pairs):
         color_discrete_sequence=[CIBAO_ORANGE],
         height=300,
     )
+    
+    # Añadir líneas de referencia para cada métrica (promedio liga)
+    for idx, row in df_plot.iterrows():
+        fig.add_shape(
+            type="line",
+            x0=row["liga_avg"], x1=row["liga_avg"],
+            y0=idx - 0.4, y1=idx + 0.4,
+            line=dict(color="#00D9FF", width=2, dash="dash"),
+            yref="y"
+        )
+    
     fig.update_layout(
         template="plotly_dark",
         plot_bgcolor="#0B0B0B",
@@ -323,6 +342,35 @@ def plot_horizontal_group(group_title, mapping_pairs):
         font=dict(color=CIBAO_GRAY, size=12),
         showlegend=False,
     )
+    
+    # Añadir leyenda manual
+    fig.add_annotation(
+        text="<b>Cibao FC</b>",
+        xref="paper", yref="paper",
+        x=0.98, y=0.98,
+        showarrow=False,
+        font=dict(size=11, color=CIBAO_ORANGE),
+        bgcolor="rgba(0,0,0,0.6)",
+        bordercolor=CIBAO_ORANGE,
+        borderwidth=1,
+        borderpad=4,
+        xanchor="right",
+        yanchor="top"
+    )
+    fig.add_annotation(
+        text="--- Promedio Liga",
+        xref="paper", yref="paper",
+        x=0.98, y=0.88,
+        showarrow=False,
+        font=dict(size=11, color="#00D9FF"),
+        bgcolor="rgba(0,0,0,0.6)",
+        bordercolor="#00D9FF",
+        borderwidth=1,
+        borderpad=4,
+        xanchor="right",
+        yanchor="top"
+    )
+    
     st.plotly_chart(fig, use_container_width=True)
 
     max_row = df_plot.iloc[-1]
@@ -332,8 +380,8 @@ def plot_horizontal_group(group_title, mapping_pairs):
         <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                     margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
             <b>Conclusiones tácticas</b><br><br>
-            • <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
-            • <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+            • <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Liga: {max_row['liga_avg']:.2f}).<br>
+            • <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Liga: {min_row['liga_avg']:.2f}).<br>
         </div>
         """,
         unsafe_allow_html=True,
@@ -482,8 +530,19 @@ with tab_defensivo:
             df_d[col] = pd.to_numeric(df_d[col], errors="coerce").fillna(0)
 
         mean_vals = df_d[cols].mean()
+        
+        # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
+        df_liga = df_copa_rivales.copy()
+        for col in cols:
+            df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
+        liga_means = df_liga[cols].mean()
+        
         df_plot = (
-            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
+            pd.DataFrame({
+                "label": [label for label, _ in pares], 
+                "valor": [mean_vals[col] for _, col in pares],
+                "liga_avg": [liga_means[col] for _, col in pares]
+            })
             .sort_values("valor", ascending=True)
             .reset_index(drop=True)
         )
@@ -497,6 +556,17 @@ with tab_defensivo:
             color_discrete_sequence=[CIBAO_ORANGE],
             height=320,
         )
+        
+        # Añadir líneas de referencia
+        for idx, row in df_plot.iterrows():
+            fig.add_shape(
+                type="line",
+                x0=row["liga_avg"], x1=row["liga_avg"],
+                y0=idx - 0.4, y1=idx + 0.4,
+                line=dict(color="#00D9FF", width=2, dash="dash"),
+                yref="y"
+            )
+        
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -506,6 +576,34 @@ with tab_defensivo:
             title_x=0.5,
             font=dict(color=CIBAO_GRAY, size=12),
             showlegend=False,
+        )
+        
+        # Añadir leyenda
+        fig.add_annotation(
+            text="<b>Cibao FC</b>",
+            xref="paper", yref="paper",
+            x=0.98, y=0.98,
+            showarrow=False,
+            font=dict(size=11, color=CIBAO_ORANGE),
+            bgcolor="rgba(0,0,0,0.6)",
+            bordercolor=CIBAO_ORANGE,
+            borderwidth=1,
+            borderpad=4,
+            xanchor="right",
+            yanchor="top"
+        )
+        fig.add_annotation(
+            text="--- Promedio Liga",
+            xref="paper", yref="paper",
+            x=0.98, y=0.88,
+            showarrow=False,
+            font=dict(size=11, color="#00D9FF"),
+            bgcolor="rgba(0,0,0,0.6)",
+            bordercolor="#00D9FF",
+            borderwidth=1,
+            borderpad=4,
+            xanchor="right",
+            yanchor="top"
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -517,8 +615,8 @@ with tab_defensivo:
             <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                         margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
                 <b>Conclusiones tácticas</b><br><br>
-                • <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
-                • <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+                • <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Liga: {max_row['liga_avg']:.2f}).<br>
+                • <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Liga: {min_row['liga_avg']:.2f}).<br>
             </div>
             """,
             unsafe_allow_html=True,
@@ -564,8 +662,19 @@ with tab_set_pieces:
             df_sp[col] = pd.to_numeric(df_sp[col], errors="coerce").fillna(0)
 
         mean_vals = df_sp[cols].mean()
+        
+        # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
+        df_liga = df_copa_rivales.copy()
+        for col in cols:
+            df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
+        liga_means = df_liga[cols].mean()
+        
         df_plot = (
-            pd.DataFrame({"label": [label for label, _ in pares], "valor": [mean_vals[col] for _, col in pares]})
+            pd.DataFrame({
+                "label": [label for label, _ in pares], 
+                "valor": [mean_vals[col] for _, col in pares],
+                "liga_avg": [liga_means[col] for _, col in pares]
+            })
             .sort_values("valor", ascending=True)
             .reset_index(drop=True)
         )
@@ -579,6 +688,17 @@ with tab_set_pieces:
             color_discrete_sequence=[CIBAO_ORANGE],
             height=320,
         )
+        
+        # Añadir líneas de referencia
+        for idx, row in df_plot.iterrows():
+            fig.add_shape(
+                type="line",
+                x0=row["liga_avg"], x1=row["liga_avg"],
+                y0=idx - 0.4, y1=idx + 0.4,
+                line=dict(color="#00D9FF", width=2, dash="dash"),
+                yref="y"
+            )
+        
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="#0B0B0B",
@@ -588,6 +708,34 @@ with tab_set_pieces:
             title_x=0.5,
             font=dict(color=CIBAO_GRAY, size=12),
             showlegend=False,
+        )
+        
+        # Añadir leyenda
+        fig.add_annotation(
+            text="<b>Cibao FC</b>",
+            xref="paper", yref="paper",
+            x=0.98, y=0.98,
+            showarrow=False,
+            font=dict(size=11, color=CIBAO_ORANGE),
+            bgcolor="rgba(0,0,0,0.6)",
+            bordercolor=CIBAO_ORANGE,
+            borderwidth=1,
+            borderpad=4,
+            xanchor="right",
+            yanchor="top"
+        )
+        fig.add_annotation(
+            text="--- Promedio Liga",
+            xref="paper", yref="paper",
+            x=0.98, y=0.88,
+            showarrow=False,
+            font=dict(size=11, color="#00D9FF"),
+            bgcolor="rgba(0,0,0,0.6)",
+            bordercolor="#00D9FF",
+            borderwidth=1,
+            borderpad=4,
+            xanchor="right",
+            yanchor="top"
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -599,8 +747,8 @@ with tab_set_pieces:
             <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
                         margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
                 <b>Conclusiones tácticas</b><br><br>
-                • <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
-                • <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+                • <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Liga: {max_row['liga_avg']:.2f}).<br>
+                • <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Liga: {min_row['liga_avg']:.2f}).<br>
             </div>
             """,
             unsafe_allow_html=True,
