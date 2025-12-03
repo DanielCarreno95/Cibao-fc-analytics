@@ -295,9 +295,10 @@ def plot_horizontal_group(group_title, mapping_pairs):
     mean_vals = df_block[cols].mean()
     
     # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
-    df_liga = df_copa_rivales.copy()
+    df_liga = df_copa_merged[~df_copa_merged["team"].str.contains("Cibao", case=False, na=False)].copy()
     for col in cols:
-        df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
+        if col in df_liga.columns:
+            df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
     liga_means = df_liga[cols].mean()
     
     df_plot = (
@@ -532,9 +533,10 @@ with tab_defensivo:
         mean_vals = df_d[cols].mean()
         
         # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
-        df_liga = df_copa_rivales.copy()
+        df_liga = df_copa_merged[~df_copa_merged["team"].str.contains("Cibao", case=False, na=False)].copy()
         for col in cols:
-            df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
+            if col in df_liga.columns:
+                df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
         liga_means = df_liga[cols].mean()
         
         df_plot = (
@@ -664,9 +666,10 @@ with tab_set_pieces:
         mean_vals = df_sp[cols].mean()
         
         # Calcular promedio de la liga (EXCLUYENDO Cibao FC)
-        df_liga = df_copa_rivales.copy()
+        df_liga = df_copa_merged[~df_copa_merged["team"].str.contains("Cibao", case=False, na=False)].copy()
         for col in cols:
-            df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
+            if col in df_liga.columns:
+                df_liga[col] = pd.to_numeric(df_liga[col], errors="coerce").fillna(0)
         liga_means = df_liga[cols].mean()
         
         df_plot = (
