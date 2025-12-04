@@ -1626,8 +1626,8 @@ with tab5:
             y en cuáles existe margen para ajustar comportamientos.
         </div>
         """, unsafe_allow_html=True)
-     
-     # ===========================================
+
+        # ===========================================
 # SECCIÓN DE EXPORTACIÓN A PDF (SIMPLIFICADA)
 # ===========================================
 
@@ -1649,7 +1649,6 @@ class CibaoReportPDF(FPDF):
         self.set_auto_page_break(auto=True, margin=15)
         
     def header(self):
-        """Header institucional en cada página (excepto portada)."""
         if self.page_no() > 1:
             self.set_font('Arial', 'B', 10)
             self.set_text_color(255, 140, 0)
@@ -1659,20 +1658,13 @@ class CibaoReportPDF(FPDF):
             self.ln(5)
     
     def footer(self):
-        """Footer con número de página."""
         if self.page_no() > 1:
             self.set_y(-15)
             self.set_font('Arial', 'I', 8)
             self.set_text_color(180, 180, 180)
             self.cell(0, 10, f'Pagina {self.page_no()-1}', 0, 0, 'C')
 
-# ===========================================
-# FUNCIÓN: GENERAR CONCLUSIONES AUTOMÁTICAS
-# ===========================================
-
 def generar_conclusiones_automaticas(df_cibao, df_liga_mayor):
-    """Genera conclusiones automáticas comparando Cibao con promedio de liga."""
-    
     metricas_analisis = {
         "xg": "Goles Esperados (xG)",
         "possession_percent": "Posesion (%)",
@@ -1706,31 +1698,16 @@ def generar_conclusiones_automaticas(df_cibao, df_liga_mayor):
         porcentaje_dif = (diferencia / val_liga * 100) if val_liga != 0 else 0
         
         if porcentaje_dif >= 10:
-            fortalezas.append({
-                "metrica": nombre_metrica,
-                "cibao": val_cibao,
-                "liga": val_liga,
-                "diferencia": porcentaje_dif
-            })
+            fortalezas.append({"metrica": nombre_metrica, "cibao": val_cibao, "liga": val_liga, "diferencia": porcentaje_dif})
         elif porcentaje_dif <= -10:
-            debilidades.append({
-                "metrica": nombre_metrica,
-                "cibao": val_cibao,
-                "liga": val_liga,
-                "diferencia": porcentaje_dif
-            })
+            debilidades.append({"metrica": nombre_metrica, "cibao": val_cibao, "liga": val_liga, "diferencia": porcentaje_dif})
     
     fortalezas = sorted(fortalezas, key=lambda x: x['diferencia'], reverse=True)[:5]
     debilidades = sorted(debilidades, key=lambda x: x['diferencia'])[:5]
     
     return {"fortalezas": fortalezas, "debilidades": debilidades}
 
-# ===========================================
-# FUNCIÓN: DESCARGAR LOGO
-# ===========================================
-
 def descargar_logo():
-    """Descarga el logo de Cibao FC."""
     try:
         logo_url = "https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png"
         response = requests.get(logo_url, timeout=10)
@@ -1743,13 +1720,7 @@ def descargar_logo():
         pass
     return None
 
-# ===========================================
-# FUNCIÓN: EXTRAER MÉTRICAS CLAVE
-# ===========================================
-
 def extraer_metricas_clave(df_filtrado, df_liga_mayor):
-    """Extrae las métricas más importantes en formato tabla."""
-    
     metricas = {
         "Ofensivas": {
             "Goles por partido": "goals",
@@ -1785,26 +1756,15 @@ def extraer_metricas_clave(df_filtrado, df_liga_mayor):
                     df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
                     val_liga = pd.to_numeric(df_liga_sin_cibao[col], errors='coerce').mean()
                 
-                datos.append({
-                    "metrica": nombre,
-                    "cibao": val_cibao if not pd.isna(val_cibao) else 0,
-                    "liga": val_liga if val_liga and not pd.isna(val_liga) else 0
-                })
+                datos.append({"metrica": nombre, "cibao": val_cibao if not pd.isna(val_cibao) else 0, "liga": val_liga if val_liga and not pd.isna(val_liga) else 0})
         
         resultados[categoria] = datos
     
     return resultados
 
-# ===========================================
-# FUNCIÓN PRINCIPAL: GENERAR PDF
-# ===========================================
-
 def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
-    """Genera PDF con resumen ejecutivo y tablas de datos."""
-    
     pdf = CibaoReportPDF()
     
-    # PORTADA
     pdf.add_page()
     pdf.set_fill_color(17, 17, 17)
     pdf.rect(0, 0, 297, 210, 'F')
@@ -1848,7 +1808,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
     pdf.cell(0, 8, 'Analisis tactico y estadistico avanzado', 0, 1, 'C')
     pdf.cell(0, 6, 'Departamento de Analisis - Cibao FC', 0, 1, 'C')
     
-    # CONCLUSIONES EJECUTIVAS
     pdf.add_page()
     pdf.set_font('Arial', 'B', 20)
     pdf.set_text_color(255, 140, 0)
@@ -1857,7 +1816,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
     
     conclusiones = generar_conclusiones_automaticas(df_filtrado, df_liga_mayor)
     
-    # FORTALEZAS
     pdf.set_font('Arial', 'B', 16)
     pdf.set_text_color(100, 220, 100)
     pdf.cell(0, 10, 'FORTALEZAS PRINCIPALES', 0, 1, 'L')
@@ -1872,11 +1830,9 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
             pdf.set_font('Arial', 'B', 14)
             pdf.set_text_color(255, 140, 0)
             pdf.cell(5, 7, chr(149), 0, 0, 'L')
-            
             pdf.set_font('Arial', '', 11)
             pdf.set_text_color(220, 220, 220)
-            texto = f"{item['metrica']}: Cibao {item['cibao']:.2f} vs Liga {item['liga']:.2f} "
-            texto += f"(+{item['diferencia']:.1f}%)"
+            texto = f"{item['metrica']}: Cibao {item['cibao']:.2f} vs Liga {item['liga']:.2f} (+{item['diferencia']:.1f}%)"
             pdf.cell(0, 7, texto, 0, 1, 'L')
     else:
         pdf.set_x(15)
@@ -1884,7 +1840,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
     
     pdf.ln(8)
     
-    # DEBILIDADES
     pdf.set_font('Arial', 'B', 16)
     pdf.set_text_color(255, 100, 100)
     pdf.cell(0, 10, 'AREAS DE MEJORA', 0, 1, 'L')
@@ -1899,11 +1854,9 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
             pdf.set_font('Arial', 'B', 14)
             pdf.set_text_color(255, 140, 0)
             pdf.cell(5, 7, chr(149), 0, 0, 'L')
-            
             pdf.set_font('Arial', '', 11)
             pdf.set_text_color(220, 220, 220)
-            texto = f"{item['metrica']}: Cibao {item['cibao']:.2f} vs Liga {item['liga']:.2f} "
-            texto += f"({item['diferencia']:.1f}%)"
+            texto = f"{item['metrica']}: Cibao {item['cibao']:.2f} vs Liga {item['liga']:.2f} ({item['diferencia']:.1f}%)"
             pdf.cell(0, 7, texto, 0, 1, 'L')
     else:
         pdf.set_x(15)
@@ -1914,7 +1867,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
     pdf.set_line_width(0.5)
     pdf.rect(10, 30, 277, 150)
     
-    # TABLAS DE MÉTRICAS
     metricas_data = extraer_metricas_clave(df_filtrado, df_liga_mayor)
     
     for categoria, datos in metricas_data.items():
@@ -1927,7 +1879,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
         pdf.cell(0, 12, f'METRICAS {categoria.upper()}', 0, 1, 'C')
         pdf.ln(5)
         
-        # Encabezados de tabla
         pdf.set_font('Arial', 'B', 11)
         pdf.set_fill_color(50, 50, 50)
         pdf.set_text_color(255, 140, 0)
@@ -1935,7 +1886,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
         pdf.cell(60, 10, 'Cibao FC', 1, 0, 'C', True)
         pdf.cell(60, 10, 'Promedio Liga', 1, 1, 'C', True)
         
-        # Datos
         pdf.set_font('Arial', '', 10)
         pdf.set_text_color(220, 220, 220)
         
@@ -1943,7 +1893,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
             pdf.cell(140, 8, row['metrica'], 1, 0, 'L')
             pdf.cell(60, 8, f"{row['cibao']:.2f}", 1, 0, 'C')
             
-            # Color diferencial
             if row['liga'] > 0:
                 diff = ((row['cibao'] - row['liga']) / row['liga']) * 100
                 if diff >= 10:
@@ -1956,7 +1905,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
             pdf.cell(60, 8, f"{row['liga']:.2f}", 1, 1, 'C')
             pdf.set_text_color(220, 220, 220)
     
-    # PÁGINA FINAL
     pdf.add_page()
     pdf.set_y(70)
     pdf.set_font('Arial', 'B', 24)
@@ -1968,15 +1916,11 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
     pdf.cell(0, 10, 'Departamento de Analisis y Rendimiento', 0, 1, 'C')
     pdf.cell(0, 8, 'www.cibaofc.com', 0, 1, 'C')
     
-      pdf.ln(20)
+    pdf.ln(20)
     pdf.set_font('Arial', 'I', 11)
     pdf.cell(0, 8, 'Nota: Los graficos interactivos estan disponibles en el dashboard web', 0, 1, 'C')
     
-    return bytes(pdf.output())  # ← LÍNEA CORREGIDA
-
-# ===========================================
-# INTERFAZ EN STREAMLIT
-# ===========================================
+    return bytes(pdf.output())
 
 st.markdown("<hr style='margin:40px 0; border-color:#ff8c00;'>", unsafe_allow_html=True)
 
@@ -1995,31 +1939,13 @@ col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
 
 with col_btn2:
     if st.button("🚀 GENERAR REPORTE PDF", use_container_width=True, type="primary"):
-        
         with st.spinner("Generando reporte... ⏳"):
-            
             try:
-                pdf_bytes = generar_pdf_completo(
-                    df_filtrado,
-                    df_liga_mayor,
-                    partidos_seleccionados if 'partidos_seleccionados' in locals() else []
-                )
-                
+                pdf_bytes = generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados if 'partidos_seleccionados' in locals() else [])
                 fecha_archivo = datetime.now().strftime("%Y%m%d_%H%M")
                 nombre_archivo = f"Cibao_FC_Reporte_Ejecutivo_{fecha_archivo}.pdf"
-                
                 st.success("✅ ¡Reporte generado exitosamente!")
-                
-                st.download_button(
-                    label="📥 DESCARGAR PDF",
-                    data=pdf_bytes,
-                    file_name=nombre_archivo,
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="primary"
-                )
-                
+                st.download_button(label="📥 DESCARGAR PDF", data=pdf_bytes, file_name=nombre_archivo, mime="application/pdf", use_container_width=True, type="primary")
             except Exception as e:
-                st.error(f"❌ Error generando el reporte: {str(e)}")
-                st.exception(e)
-
+                st.error(f"❌ Error: {str(e)}")
+  
