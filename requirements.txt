@@ -5,6 +5,7 @@ plotly
 matplotlib
 openpyxl
 streamlit-aggrid
+kaleido
 statsmodels
 Kaggle
 scikit-learn
@@ -13,7 +14,6 @@ fastparquet
 Seaborn
 python-dotenv
 reportlab
-playwright==1.40.0
 fpdf2>=2.7.0
 Pillow>=10.0.0
 requests>=2.31.0
