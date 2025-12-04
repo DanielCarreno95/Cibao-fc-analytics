@@ -1968,11 +1968,11 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados):
     pdf.cell(0, 10, 'Departamento de Analisis y Rendimiento', 0, 1, 'C')
     pdf.cell(0, 8, 'www.cibaofc.com', 0, 1, 'C')
     
-    pdf.ln(20)
+      pdf.ln(20)
     pdf.set_font('Arial', 'I', 11)
     pdf.cell(0, 8, 'Nota: Los graficos interactivos estan disponibles en el dashboard web', 0, 1, 'C')
     
-    return pdf.output()
+    return bytes(pdf.output())  # ← LÍNEA CORREGIDA
 
 # ===========================================
 # INTERFAZ EN STREAMLIT
