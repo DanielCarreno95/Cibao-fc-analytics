@@ -1627,26 +1627,38 @@ with tab5:
         </div>
         """, unsafe_allow_html=True)
 
-   # ===========================================
-# EXPORTACIÓN DIRECTA A PDF CON WEASYPRINT
+  # ===========================================
+# EXPORTACIÓN DIRECTA A PDF - CON GRÁFICOS VISIBLES
 # ===========================================
 
 import io
 from datetime import datetime
 import base64
 import requests
-from weasyprint import HTML, CSS
+import plotly.io as pio
+import tempfile
 
 # ===========================================
-# GENERAR SECCIÓN HTML CON GRID 2 COLUMNAS
+# CAPTURAR GRÁFICO COMO BASE64
 # ===========================================
 
-def generar_seccion_html(titulo, grupos, df_filtrado, df_liga_mayor, mostrar_prom, orientacion):
-    """Genera HTML de una sección con layout de 2 columnas."""
+def grafico_a_base64(fig, width=1200, height=600):
+    """Captura gráfico de Plotly y lo convierte a base64."""
+    try:
+        img_bytes = pio.to_image(fig, format='png', width=width, height=height, scale=2, engine='kaleido')
+        return base64.b64encode(img_bytes).decode()
+    except Exception as e:
+        return None
+
+# ===========================================
+# GENERAR SECCIÓN CON GRÁFICOS COMO IMÁGENES
+# ===========================================
+
+def generar_seccion_html_con_imagenes(titulo, grupos, df_filtrado, df_liga_mayor, mostrar_prom, orientacion):
+    """Genera HTML con gráficos capturados como imágenes base64."""
     
     html = f'<div class="page"><h2 class="section-title">{titulo}</h2><div class="grid-2-cols">'
     
-    contador = 0
     for nombre_grupo, metricas in grupos.items():
         columnas = [v for v in metricas.values() if v in df_filtrado.columns]
         if not columnas:
@@ -1675,9 +1687,15 @@ def generar_seccion_html(titulo, grupos, df_filtrado, df_liga_mayor, mostrar_pro
             fig = px.bar(df_plot, x="label", y="valor", color="Equipo", text_auto=".2f", color_discrete_map=colors, barmode="group", title=nombre_grupo)
             fig.update_layout(xaxis=dict(tickangle=-35))
         
-        fig.update_layout(template="plotly_dark", plot_bgcolor="#111", paper_bgcolor="#111", font=dict(color="#DDD", size=10), title=dict(font=dict(size=14, color="#FF8C00")), showlegend=True, height=280, margin=dict(l=10, r=10, t=40, b=10))
+        fig.update_layout(template="plotly_dark", plot_bgcolor="#111", paper_bgcolor="#111", font=dict(color="#DDD", size=11), title=dict(font=dict(size=15, color="#FF8C00")), showlegend=True, height=320, margin=dict(l=20, r=20, t=50, b=20))
         
-        grafico_html = fig.to_html(include_plotlyjs=False, config={'displayModeBar': False}, div_id=f"grafico_{titulo.replace(' ', '_')}_{contador}")
+        # Capturar como imagen
+        img_base64 = grafico_a_base64(fig, width=1200, height=650)
+        
+        if img_base64:
+            grafico_img = f"<img src='data:image/png;base64,{img_base64}' style='width:100%; height:auto;'>"
+        else:
+            grafico_img = f"<div style='text-align:center; color:#888; padding:40px;'>[Gráfico: {nombre_grupo}]</div>"
         
         valores = {etiquetas[col]: cibao_means[col] for col in columnas}
         max_metrica = max(valores, key=valores.get)
@@ -1685,18 +1703,16 @@ def generar_seccion_html(titulo, grupos, df_filtrado, df_liga_mayor, mostrar_pro
         
         conclusion = f"<div class='conclusion-small'><strong>↑</strong> {max_metrica} ({valores[max_metrica]:.2f}) | <strong>↓</strong> {min_metrica} ({valores[min_metrica]:.2f})</div>"
         
-        html += f'<div class="grafico-grid-item">{grafico_html}{conclusion}</div>'
-        contador += 1
+        html += f'<div class="grafico-grid-item">{grafico_img}{conclusion}</div>'
     
     html += '</div></div>'
     return html
 
-def generar_seccion_heatmaps(titulo, grupos, df_filtrado):
-    """Genera HTML para heatmaps en 2 columnas."""
+def generar_seccion_heatmaps_con_imagenes(titulo, grupos, df_filtrado):
+    """Genera HTML para heatmaps como imágenes."""
     
     html = f'<div class="page"><h2 class="section-title">{titulo}</h2><div class="grid-2-cols">'
     
-    contador = 0
     for nombre_grupo, metricas in grupos.items():
         cols = [v for v in metricas.values() if v in df_filtrado.columns]
         if not cols:
@@ -1709,29 +1725,33 @@ def generar_seccion_heatmaps(titulo, grupos, df_filtrado):
         
         fig = go.Figure(data=go.Heatmap(z=z_vals, x=labels, y=[""], colorscale=[[0, "#2a2a2a"], [0.5, "#ff7b00"], [1, "#ffae42"]], showscale=True, colorbar=dict(tickvals=[0, 1, 2], ticktext=["Bajo", "Medio", "Alto"])))
         
-        annotations = [dict(x=labels[j], y="", text=f"{series.iloc[j]:.1f}", font=dict(color="white", size=12), showarrow=False) for j in range(len(labels))]
+        annotations = [dict(x=labels[j], y="", text=f"{series.iloc[j]:.1f}", font=dict(color="white", size=13), showarrow=False) for j in range(len(labels))]
         
-        fig.update_layout(annotations=annotations, template="plotly_dark", title=dict(text=nombre_grupo, font=dict(size=14, color="#FF8C00")), paper_bgcolor="#111", height=280, margin=dict(l=10, r=10, t=40, b=10))
+        fig.update_layout(annotations=annotations, template="plotly_dark", title=dict(text=nombre_grupo, font=dict(size=15, color="#FF8C00")), paper_bgcolor="#111", height=320, margin=dict(l=20, r=20, t=50, b=20))
         
-        grafico_html = fig.to_html(include_plotlyjs=False, config={'displayModeBar': False}, div_id=f"heatmap_{titulo.replace(' ', '_')}_{contador}")
+        img_base64 = grafico_a_base64(fig, width=1200, height=650)
+        
+        if img_base64:
+            grafico_img = f"<img src='data:image/png;base64,{img_base64}' style='width:100%; height:auto;'>"
+        else:
+            grafico_img = f"<div style='text-align:center; color:#888; padding:40px;'>[Heatmap: {nombre_grupo}]</div>"
         
         max_metrica = labels[series.argmax()]
         conclusion = f"<div class='conclusion-small'><strong>Mayor actividad:</strong> {max_metrica}</div>"
         
-        html += f'<div class="grafico-grid-item">{grafico_html}{conclusion}</div>'
-        contador += 1
+        html += f'<div class="grafico-grid-item">{grafico_img}{conclusion}</div>'
     
     html += '</div></div>'
     return html
 
 # ===========================================
-# GENERAR HTML Y CONVERTIR A PDF DIRECTO
+# GENERAR PDF DIRECTO
 # ===========================================
 
-def generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_sel, mostrar_prom):
-    """Genera HTML y lo convierte directamente a PDF usando weasyprint."""
+def generar_pdf_directo(df_filtrado, df_liga_mayor, partidos_sel, mostrar_prom):
+    """Genera PDF directo con todos los gráficos visibles."""
     
-    # Obtener logo
+    # Logo
     logo_base64 = ""
     try:
         logo_url = "https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png"
@@ -1766,19 +1786,20 @@ def generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_sel, mostrar_pro
         """
     
     # Gráfico comparativo
-    grafico_comparativo_html = ""
+    grafico_comp_img = ""
     if not df_liga_mayor.empty:
         try:
             if 'opponent_choice' in globals() and 'x_choice' in globals() and 'y_choice' in globals():
                 fig_comp, _, _ = make_team_scatter(df_liga_mayor, primary_team="Cibao", opponent=opponent_choice, x_metric=METRIC_OPTIONS.get(x_choice), y_metric=METRIC_OPTIONS.get(y_choice), x_label=x_choice, y_label=y_choice, title=f"Cibao FC vs {opponent_choice}", filters={"Competition": lambda s: s.str.contains("Liga", case=False, na=False)})
-                fig_comp.update_layout(height=480)
-                grafico_comparativo_html = fig_comp.to_html(include_plotlyjs='cdn', config={'displayModeBar': False}, div_id="grafico_comparativo")
+                fig_comp.update_layout(height=500, margin=dict(l=30, r=30, t=60, b=30))
+                
+                img_comp_base64 = grafico_a_base64(fig_comp, width=2400, height=1200)
+                if img_comp_base64:
+                    grafico_comp_img = f"<img src='data:image/png;base64,{img_comp_base64}' style='width:100%; height:auto;'>"
         except:
             pass
     
     # Tabs
-    tabs_html = ""
-    
     grupos_eficiencia = {
         "Producción ofensiva directa": {"Goles por partido": "goals", "Goles en contra": "conceded_goals", "xG": "xg"},
         "Eficiencia en el tiro": {"Disparos a puerta (%)": "shots_on_target_percent", "Disparos fuera área (%)": "shots_from_outside_penalty_area_on_target_percent"},
@@ -1787,7 +1808,7 @@ def generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_sel, mostrar_pro
         "Juego interior": {"Entradas área": "penalty_area_entries", "Toques área": "touches_in_penalty_area", "Centros": "penalty_area_entries_crosses"},
     }
     
-    tabs_html += generar_seccion_html("EFICIENCIA Y ATAQUE", grupos_eficiencia, df_filtrado, df_liga_mayor, mostrar_prom, 'h')
+    tab1 = generar_seccion_html_con_imagenes("EFICIENCIA Y ATAQUE", grupos_eficiencia, df_filtrado, df_liga_mayor, mostrar_prom, 'h')
     
     grupos_construccion = {
         "Control y circulación": {"Posesión (%)": "possession_percent", "Precisión pase (%)": "passes_accurate_percent"},
@@ -1796,7 +1817,7 @@ def generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_sel, mostrar_pro
         "Reinicios": {"Saques banda": "throw_ins", "Saques meta": "goal_kicks"},
     }
     
-    tabs_html += generar_seccion_html("CONSTRUCCIÓN Y PASES", grupos_construccion, df_filtrado, df_liga_mayor, mostrar_prom, 'v')
+    tab2 = generar_seccion_html_con_imagenes("CONSTRUCCIÓN Y PASES", grupos_construccion, df_filtrado, df_liga_mayor, mostrar_prom, 'v')
     
     grupos_defensa = {
         "Dominio en duelos": {"Duelos ofensivos (%)": "offensive_duels_won_percent", "Duelos generales (%)": "duels_won_percent"},
@@ -1805,48 +1826,49 @@ def generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_sel, mostrar_pro
         "Presión rival": {"Disparos contra": "shots_against", "Disparos contra puerta": "shots_against_on_target"},
     }
     
-    tabs_html += generar_seccion_html("DEFENSA Y EFICIENCIA", grupos_defensa, df_filtrado, df_liga_mayor, mostrar_prom, 'h')
+    tab3 = generar_seccion_html_con_imagenes("DEFENSA Y EFICIENCIA", grupos_defensa, df_filtrado, df_liga_mayor, mostrar_prom, 'h')
     
     grupos_tactica = {
         "Recuperaciones por altura": {"Altas": "recoveries_high", "Medias": "recoveries_medium", "Bajas": "recoveries_low"},
         "Presión por altura": {"Alta": "losses_high", "Media": "losses_medium", "Baja": "losses_low"},
     }
     
-    tabs_html += generar_seccion_heatmaps("DISTRIBUCIÓN TÁCTICA", grupos_tactica, df_filtrado)
+    tab4 = generar_seccion_heatmaps_con_imagenes("DISTRIBUCIÓN TÁCTICA", grupos_tactica, df_filtrado)
     
     # HTML completo
     html_completo = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
         @page {{ size: A4 landscape; margin: 8mm; }}
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: Arial, sans-serif; background-color: #111111; color: #DDDDDD; }}
-        .page {{ background-color: #111111; padding: 15px; min-height: 100vh; page-break-after: always; page-break-inside: avoid; }}
+        
+        .page {{ background-color: #111111; padding: 15px; min-height: 100vh; page-break-after: always; }}
         .page:last-child {{ page-break-after: auto; }}
         
-        .portada {{ display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }}
+        .portada {{ display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; height: 100vh; }}
         .portada img {{ width: 150px; margin-bottom: 40px; }}
-        .portada h1 {{ color: #FF8C00; font-size: 48px; font-weight: 900; margin-bottom: 10px; }}
+        .portada h1 {{ color: #FF8C00; font-size: 48px; font-weight: 900; margin: 10px 0; }}
         .portada h2 {{ color: #DDDDDD; font-size: 24px; margin-bottom: 60px; }}
         .portada .fecha {{ color: #999999; font-size: 14px; margin: 5px 0; }}
         
         .kpis-container {{ display: flex; justify-content: space-around; margin: 15px 0; gap: 8px; }}
-        .kpi-card {{ background: rgba(30,30,30,0.8); border: 2px solid rgba(255,140,0,0.4); border-radius: 10px; padding: 12px; text-align: center; flex: 1; min-width: 100px; }}
+        .kpi-card {{ background: rgba(30,30,30,0.8); border: 2px solid rgba(255,140,0,0.4); border-radius: 10px; padding: 12px; text-align: center; flex: 1; }}
         .kpi-value {{ color: #FF8C00; font-size: 20px; font-weight: 900; margin-bottom: 6px; }}
         .kpi-label {{ color: #CCCCCC; font-size: 11px; }}
         
-        .section-title {{ color: #FF8C00; font-size: 26px; font-weight: 900; text-align: center; margin: 15px 0; }}
+        .section-title {{ color: #FF8C00; font-size: 26px; font-weight: 900; text-align: center; margin: 15px 0 20px 0; }}
         
         .grid-2-cols {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; }}
         .grafico-grid-item {{ background: rgba(20,20,20,0.5); border-radius: 8px; padding: 10px; page-break-inside: avoid; }}
+        .grafico-grid-item img {{ width: 100%; height: auto; display: block; }}
         
-        .conclusion-small {{ background: rgba(30,30,30,0.9); border-left: 3px solid #FF8C00; padding: 8px; margin-top: 5px; font-size: 11px; color: #DDDDDD; }}
+        .conclusion-small {{ background: rgba(30,30,30,0.9); border-left: 3px solid #FF8C00; padding: 8px; margin-top: 8px; font-size: 11px; color: #DDDDDD; }}
         .conclusion-small strong {{ color: #FF8C00; }}
         
-        .final {{ display: flex; flex-direction: column; justify-content: center; align-items: center; }}
+        .final {{ display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; }}
         .final h1 {{ color: #FF8C00; font-size: 48px; margin-bottom: 20px; }}
         .final p {{ color: #AAAAAA; font-size: 18px; margin: 5px 0; }}
     </style>
@@ -1865,10 +1887,13 @@ def generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_sel, mostrar_pro
 <div class="page">
     <h2 class="section-title">INDICADORES DEL ÚLTIMO PARTIDO</h2>
     {kpis_html}
-    <div style="margin-top: 20px;">{grafico_comparativo_html}</div>
+    <div style="margin-top: 20px;">{grafico_comp_img}</div>
 </div>
 
-{tabs_html}
+{tab1}
+{tab2}
+{tab3}
+{tab4}
 
 <div class="page final">
     <h1>CIBAO FC</h1>
@@ -1879,7 +1904,8 @@ def generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_sel, mostrar_pro
 </body>
 </html>"""
     
-    # Convertir HTML a PDF con weasyprint
+    # Convertir a PDF con weasyprint
+    from weasyprint import HTML
     pdf_bytes = HTML(string=html_completo).write_pdf()
     
     return pdf_bytes
@@ -1895,7 +1921,7 @@ st.markdown("""
     📄 Descargar Reporte PDF Profesional
 </h2>
 <p style='text-align:center; color:#ccc; font-size:14px;'>
-    PDF directo con layout 2x2 optimizado - Sin pasos intermedios
+    PDF directo con todos los gráficos visibles - Layout 2x2
 </p>
 """, unsafe_allow_html=True)
 
@@ -1904,18 +1930,18 @@ st.markdown("<br>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 1, 1])
 
 with col2:
-    if st.button("🚀 GENERAR Y DESCARGAR PDF", use_container_width=True, type="primary"):
-        with st.spinner("Generando PDF profesional... 60-90 segundos ⏳"):
+    if st.button("🚀 GENERAR PDF DIRECTO", use_container_width=True, type="primary"):
+        with st.spinner("Generando PDF con todos los gráficos... 60-120 segundos ⏳"):
             try:
-                pdf_bytes = generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_seleccionados if 'partidos_seleccionados' in locals() else [], mostrar_promedio_liga)
+                pdf_bytes = generar_pdf_directo(df_filtrado, df_liga_mayor, partidos_seleccionados if 'partidos_seleccionados' in locals() else [], mostrar_promedio_liga)
                 
                 fecha_archivo = datetime.now().strftime("%Y%m%d_%H%M")
-                nombre_archivo = f"Cibao_FC_Reporte_Profesional_{fecha_archivo}.pdf"
+                nombre_archivo = f"Cibao_FC_Reporte_{fecha_archivo}.pdf"
                 
-                st.success("✅ PDF generado exitosamente!")
+                st.success("✅ PDF profesional generado con éxito!")
                 
                 st.download_button(
-                    label="📥 DESCARGAR PDF",
+                    label="📥 DESCARGAR PDF COMPLETO",
                     data=pdf_bytes,
                     file_name=nombre_archivo,
                     mime="application/pdf",
@@ -1924,5 +1950,5 @@ with col2:
                 )
                 
             except Exception as e:
-                st.error(f"❌ Error generando PDF: {str(e)}")
+                st.error(f"❌ Error: {str(e)}")
                 st.exception(e)
