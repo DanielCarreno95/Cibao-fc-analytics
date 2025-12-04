@@ -13,7 +13,6 @@ pyarrow
 fastparquet
 Seaborn
 python-dotenv
-reportlab
 fpdf2>=2.7.0
 Pillow>=10.0.0
 requests>=2.31.0
