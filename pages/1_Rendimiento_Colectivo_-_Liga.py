@@ -1627,21 +1627,20 @@ with tab5:
         </div>
         """, unsafe_allow_html=True)
 
-# ===========================================
+ # ===========================================
 # SECCIÓN DE EXPORTACIÓN A PDF
 # ===========================================
 
 import io
 import tempfile
+import os
 from fpdf import FPDF
-import plotly.io as pio
 from datetime import datetime
 import requests
 from PIL import Image
 
 # ===========================================
 # FUNCIONES AUXILIARES PARA RECREAR GRÁFICOS
-# (DEBEN IR PRIMERO)
 # ===========================================
 
 def crear_grafico_para_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, 
@@ -1806,7 +1805,7 @@ class CibaoReportPDF(FPDF):
         """Header institucional en cada página (excepto portada)."""
         if self.page_no() > 1:
             self.set_font('Arial', 'B', 10)
-            self.set_text_color(255, 140, 0)  # Naranja Cibao
+            self.set_text_color(255, 140, 0)
             self.cell(0, 10, 'Cibao FC - Rendimiento Colectivo (Liga)', 0, 1, 'L')
             self.set_draw_color(255, 140, 0)
             self.line(10, 20, 287, 20)
@@ -1818,19 +1817,72 @@ class CibaoReportPDF(FPDF):
             self.set_y(-15)
             self.set_font('Arial', 'I', 8)
             self.set_text_color(180, 180, 180)
-            self.cell(0, 10, f'Página {self.page_no()-1}', 0, 0, 'C')
+            self.cell(0, 10, f'Pagina {self.page_no()-1}', 0, 0, 'C')
 
 # ===========================================
-# FUNCIÓN: CAPTURAR GRÁFICO PLOTLY COMO IMAGEN
+# FUNCIÓN: CAPTURAR GRÁFICO (STREAMLIT CLOUD OPTIMIZADO)
 # ===========================================
 
 def plotly_to_image_bytes(fig, width=1400, height=800):
-    """Convierte figura de Plotly a bytes de imagen PNG."""
+    """
+    Convierte figura de Plotly a bytes de imagen PNG.
+    Optimizado para Streamlit Cloud usando Playwright.
+    """
     try:
-        img_bytes = pio.to_image(fig, format='png', width=width, height=height, scale=2)
-        return img_bytes
+        from playwright.sync_api import sync_playwright
+        
+        # Crear HTML con el gráfico
+        html_str = fig.to_html(
+            include_plotlyjs='cdn',
+            include_mathjax=False,
+            config={'displayModeBar': False}
+        )
+        
+        # HTML completo con estilos
+        html_completo = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 20px;
+                    background-color: #111111;
+                }}
+            </style>
+        </head>
+        <body>
+            {html_str}
+        </body>
+        </html>
+        """
+        
+        # Usar Playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer'
+                ]
+            )
+            
+            page = browser.new_page(viewport={'width': width, 'height': height})
+            page.set_content(html_completo)
+            page.wait_for_load_state('networkidle', timeout=10000)
+            page.wait_for_timeout(1000)
+            
+            screenshot = page.screenshot(type='png')
+            browser.close()
+            
+            return screenshot
+            
     except Exception as e:
-        st.warning(f"Error capturando gráfico: {e}")
+        # Fallar silenciosamente
         return None
 
 # ===========================================
@@ -1838,16 +1890,12 @@ def plotly_to_image_bytes(fig, width=1400, height=800):
 # ===========================================
 
 def generar_conclusiones_automaticas(df_cibao, df_liga_mayor):
-    """
-    Genera conclusiones automáticas comparando Cibao con promedio de liga.
-    Retorna dict con fortalezas y debilidades.
-    """
+    """Genera conclusiones automáticas comparando Cibao con promedio de liga."""
     
-    # Métricas clave para analizar
     metricas_analisis = {
         "xg": "Goles Esperados (xG)",
-        "possession_percent": "Posesión (%)",
-        "passes_accurate_percent": "Precisión de Pase (%)",
+        "possession_percent": "Posesion (%)",
+        "passes_accurate_percent": "Precision de Pase (%)",
         "shots_on_target_percent": "Disparos a Puerta (%)",
         "duels_won_percent": "Duelos Ganados (%)",
         "interceptions": "Intercepciones p90",
@@ -1857,9 +1905,8 @@ def generar_conclusiones_automaticas(df_cibao, df_liga_mayor):
     debilidades = []
     
     if df_liga_mayor.empty:
-        return {"fortalezas": ["Datos de liga no disponibles"], "debilidades": []}
+        return {"fortalezas": [], "debilidades": []}
     
-    # Calcular promedios
     df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
     
     for col_key, nombre_metrica in metricas_analisis.items():
@@ -1875,7 +1922,6 @@ def generar_conclusiones_automaticas(df_cibao, df_liga_mayor):
         diferencia = val_cibao - val_liga
         porcentaje_dif = (diferencia / val_liga * 100) if val_liga != 0 else 0
         
-        # Si está 10% o más por encima = fortaleza
         if porcentaje_dif >= 10:
             fortalezas.append({
                 "metrica": nombre_metrica,
@@ -1883,7 +1929,6 @@ def generar_conclusiones_automaticas(df_cibao, df_liga_mayor):
                 "liga": val_liga,
                 "diferencia": porcentaje_dif
             })
-        # Si está 10% o más por debajo = debilidad
         elif porcentaje_dif <= -10:
             debilidades.append({
                 "metrica": nombre_metrica,
@@ -1892,7 +1937,6 @@ def generar_conclusiones_automaticas(df_cibao, df_liga_mayor):
                 "diferencia": porcentaje_dif
             })
     
-    # Ordenar por diferencia
     fortalezas = sorted(fortalezas, key=lambda x: x['diferencia'], reverse=True)[:3]
     debilidades = sorted(debilidades, key=lambda x: x['diferencia'])[:3]
     
@@ -1922,19 +1966,7 @@ def descargar_logo():
 
 def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados, 
                          fig_comparativa, figs_tabs):
-    """
-    Genera PDF completo con todas las secciones del análisis.
-    
-    Args:
-        df_filtrado: DataFrame con datos de Cibao filtrados
-        df_liga_mayor: DataFrame con datos de toda la liga
-        partidos_seleccionados: Lista de partidos incluidos en el análisis
-        fig_comparativa: Figura de la comparativa Cibao vs Rival
-        figs_tabs: Dict con las figuras de cada tab organizadas por sección
-    
-    Returns:
-        bytes del PDF generado
-    """
+    """Genera PDF completo con todas las secciones del análisis."""
     
     pdf = CibaoReportPDF()
     
@@ -1943,8 +1975,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
     # ===========================================
     
     pdf.add_page()
-    
-    # Fondo de color
     pdf.set_fill_color(17, 17, 17)
     pdf.rect(0, 0, 297, 210, 'F')
     
@@ -1966,13 +1996,11 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
     pdf.set_font('Arial', 'B', 18)
     pdf.set_text_color(220, 220, 220)
     pdf.cell(0, 10, 'Liga Dominicana - Temporada 2024/2025', 0, 1, 'C')
-    
     pdf.ln(15)
     
     # Información del reporte
     pdf.set_font('Arial', '', 12)
     pdf.set_text_color(180, 180, 180)
-    
     fecha_generacion = datetime.now().strftime("%d/%m/%Y - %H:%M")
     pdf.cell(0, 8, f'Fecha de generacion: {fecha_generacion}', 0, 1, 'C')
     
@@ -2012,7 +2040,7 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
     
     # FORTALEZAS
     pdf.set_font('Arial', 'B', 16)
-    pdf.set_text_color(100, 220, 100)  # Verde
+    pdf.set_text_color(100, 220, 100)
     pdf.cell(0, 10, 'FORTALEZAS PRINCIPALES', 0, 1, 'L')
     pdf.ln(3)
     
@@ -2021,13 +2049,11 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
     
     if conclusiones["fortalezas"]:
         for item in conclusiones["fortalezas"]:
-            # Bullet point
             pdf.set_x(15)
             pdf.set_font('Arial', 'B', 14)
             pdf.set_text_color(255, 140, 0)
-            pdf.cell(5, 7, chr(149), 0, 0, 'L')  # Bullet
+            pdf.cell(5, 7, chr(149), 0, 0, 'L')
             
-            # Texto
             pdf.set_font('Arial', '', 11)
             pdf.set_text_color(220, 220, 220)
             texto = f"{item['metrica']}: Cibao {item['cibao']:.2f} vs Liga {item['liga']:.2f} "
@@ -2041,7 +2067,7 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
     
     # ÁREAS DE MEJORA
     pdf.set_font('Arial', 'B', 16)
-    pdf.set_text_color(255, 100, 100)  # Rojo suave
+    pdf.set_text_color(255, 100, 100)
     pdf.cell(0, 10, 'AREAS DE MEJORA', 0, 1, 'L')
     pdf.ln(3)
     
@@ -2065,8 +2091,6 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
         pdf.cell(0, 7, 'No se identificaron areas significativas de mejora', 0, 1, 'L')
     
     pdf.ln(10)
-    
-    # Marco decorativo
     pdf.set_draw_color(255, 140, 0)
     pdf.set_line_width(0.5)
     pdf.rect(10, 30, 277, 150)
@@ -2090,7 +2114,13 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
             try:
                 pdf.image(temp_img.name, x=15, y=45, w=265)
             except:
-                pass
+                pdf.set_font('Arial', 'I', 10)
+                pdf.set_text_color(150, 150, 150)
+                pdf.cell(0, 10, '[Grafico disponible en dashboard interactivo]', 0, 1, 'C')
+        else:
+            pdf.set_font('Arial', 'I', 10)
+            pdf.set_text_color(150, 150, 150)
+            pdf.cell(0, 10, '[Grafico disponible en dashboard interactivo]', 0, 1, 'C')
     
     # ===========================================
     # SECCIONES DE ANÁLISIS (TABS)
@@ -2109,14 +2139,14 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
         
         figuras = figs_tabs[key_seccion]
         
-        # Título de sección en nueva página
+        # Título de sección
         pdf.add_page()
         pdf.set_font('Arial', 'B', 20)
         pdf.set_text_color(255, 140, 0)
         pdf.cell(0, 12, titulo_seccion, 0, 1, 'C')
         pdf.ln(3)
         
-        # Agregar cada gráfico de la sección
+        # Agregar gráficos
         y_position = 40
         graficos_por_pagina = 2
         contador = 0
@@ -2138,7 +2168,9 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
                     pdf.image(temp_img.name, x=15, y=y_position, w=265, h=75)
                     y_position += 85
                 except:
-                    pass
+                    y_position += 10
+            else:
+                y_position += 10
             
             contador += 1
     
@@ -2157,8 +2189,8 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
     pdf.cell(0, 8, 'Departamento de Analisis y Rendimiento', 0, 1, 'C')
     pdf.cell(0, 8, 'www.cibaofc.com', 0, 1, 'C')
     
-    # Generar PDF
-    return pdf.output(dest='S').encode('latin-1')
+    # Generar y retornar PDF
+    return pdf.output()
 
 # ===========================================
 # INTERFAZ EN STREAMLIT
@@ -2190,21 +2222,23 @@ with col_btn2:
                 
                 # 1. Figura comparativa (si existe)
                 fig_comparativa_pdf = None
-                if not df_liga_mayor.empty and 'opponent_choice' in locals():
+                if not df_liga_mayor.empty:
                     try:
-                        fig_comparativa_pdf, _, _ = make_team_scatter(
-                            df_liga_mayor,
-                            primary_team="Cibao",
-                            opponent=opponent_choice,
-                            x_metric=METRIC_OPTIONS.get(x_choice),
-                            y_metric=METRIC_OPTIONS.get(y_choice),
-                            x_label=x_choice,
-                            y_label=y_choice,
-                            title=f"Liga Mayor — {x_choice} vs {y_choice}",
-                            filters={"Competition": lambda s: s.str.contains("Liga", case=False, na=False)},
-                        )
-                    except:
-                        pass
+                        # Verificar que las variables existen
+                        if 'opponent_choice' in locals() and 'x_choice' in locals() and 'y_choice' in locals():
+                            fig_comparativa_pdf, _, _ = make_team_scatter(
+                                df_liga_mayor,
+                                primary_team="Cibao",
+                                opponent=opponent_choice,
+                                x_metric=METRIC_OPTIONS.get(x_choice),
+                                y_metric=METRIC_OPTIONS.get(y_choice),
+                                x_label=x_choice,
+                                y_label=y_choice,
+                                title=f"Liga Mayor — {x_choice} vs {y_choice}",
+                                filters={"Competition": lambda s: s.str.contains("Liga", case=False, na=False)},
+                            )
+                    except Exception as e:
+                        st.warning(f"No se pudo capturar gráfico comparativo: {str(e)[:50]}")
                 
                 # 2. Figuras de las tabs
                 figs_dict = {
@@ -2215,43 +2249,47 @@ with col_btn2:
                 }
                 
                 # TAB 1: Eficiencia y Ataque
-                for nombre_grupo, mapping in grupos.items():
-                    fig = crear_grafico_para_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, 
-                                                   mostrar_promedio_liga, tipo='horizontal')
-                    if fig:
-                        figs_dict["eficiencia_ataque"].append(fig)
+                if 'grupos' in locals():
+                    for nombre_grupo, mapping in grupos.items():
+                        fig = crear_grafico_para_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, 
+                                                       mostrar_promedio_liga, tipo='horizontal')
+                        if fig:
+                            figs_dict["eficiencia_ataque"].append(fig)
                 
                 # TAB 2: Construcción y Pases
-                for nombre_grupo, mapping in grupos_pases.items():
-                    if nombre_grupo == "Longitud media de pase":
-                        fig = crear_gauge_para_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga)
-                    else:
-                        fig = crear_grafico_para_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor,
-                                                       mostrar_promedio_liga, tipo='vertical')
-                    if fig:
-                        figs_dict["construccion_pases"].append(fig)
+                if 'grupos_pases' in locals():
+                    for nombre_grupo, mapping in grupos_pases.items():
+                        if nombre_grupo == "Longitud media de pase":
+                            fig = crear_gauge_para_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga)
+                        else:
+                            fig = crear_grafico_para_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor,
+                                                           mostrar_promedio_liga, tipo='vertical')
+                        if fig:
+                            figs_dict["construccion_pases"].append(fig)
                 
                 # TAB 3: Defensa
-                for nombre_grupo, mapping in grupos_def.items():
-                    if nombre_grupo == "Distancia media de disparo":
-                        fig = crear_gauge_para_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga)
-                    else:
-                        fig = crear_grafico_para_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor,
-                                                       mostrar_promedio_liga, tipo='horizontal')
-                    if fig:
-                        figs_dict["defensa"].append(fig)
+                if 'grupos_def' in locals():
+                    for nombre_grupo, mapping in grupos_def.items():
+                        if nombre_grupo == "Distancia media de disparo":
+                            fig = crear_gauge_para_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga)
+                        else:
+                            fig = crear_grafico_para_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor,
+                                                           mostrar_promedio_liga, tipo='horizontal')
+                        if fig:
+                            figs_dict["defensa"].append(fig)
                 
                 # TAB 4: Táctica
-                for nombre_grupo, mapping in grupos_tacticos.items():
-                    fig = crear_heatmap_para_pdf(nombre_grupo, mapping, df_filtrado)
-                    if fig:
-                        figs_dict["tactica"].append(fig)
+                if 'grupos_tacticos' in locals():
+                    for nombre_grupo, mapping in grupos_tacticos.items():
+                        fig = crear_heatmap_para_pdf(nombre_grupo, mapping, df_filtrado)
+                        if fig:
+                            figs_dict["tactica"].append(fig)
                 
                 # ===== GENERAR PDF =====
                 pdf_bytes = generar_pdf_completo(
                     df_filtrado,
                     df_liga_mayor,
-                    partidos_seleccionados,
+                    partidos_seleccionados if 'partidos_seleccionados' in locals() else [],
                     fig_comparativa_pdf,
                     figs_dict
                 )
@@ -2274,156 +2312,3 @@ with col_btn2:
             except Exception as e:
                 st.error(f"❌ Error generando el reporte: {str(e)}")
                 st.exception(e)
-             
-            # ===========================================
-# FUNCIONES AUXILIARES PARA RECREAR GRÁFICOS
-# ===========================================
-
-def crear_grafico_para_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, 
-                            mostrar_promedio, tipo='horizontal'):
-    """Recrea un gráfico de barras para el PDF."""
-    
-    columnas = [v for v in mapping.values() if v in df_filtrado.columns]
-    etiquetas = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
-    
-    if not columnas:
-        return None
-    
-    cibao_means = df_filtrado[columnas].mean()
-    comparison_data = []
-    
-    for col in columnas:
-        comparison_data.append({
-            "label": etiquetas[col],
-            "Equipo": "Cibao FC",
-            "valor": cibao_means[col]
-        })
-    
-    if mostrar_promedio and not df_liga_mayor.empty:
-        df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
-        for col in columnas:
-            if col in df_liga_sin_cibao.columns:
-                liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
-                comparison_data.append({
-                    "label": etiquetas[col],
-                    "Equipo": "Promedio Liga",
-                    "valor": liga_val if not pd.isna(liga_val) else 0
-                })
-    
-    df_plot = pd.DataFrame(comparison_data)
-    color_map = {
-        "Cibao FC": "#FF8C00",
-        "Promedio Liga": "#FFC966",
-    }
-    
-    if tipo == 'horizontal':
-        fig = px.bar(df_plot, x="valor", y="label", color="Equipo",
-                     orientation="h", text_auto=".2f", color_discrete_map=color_map,
-                     barmode="group", title=nombre_grupo)
-    else:
-        fig = px.bar(df_plot, x="label", y="valor", color="Equipo",
-                     text_auto=".2f", color_discrete_map=color_map,
-                     barmode="group", title=nombre_grupo)
-    
-    fig.update_layout(
-        template="plotly_dark",
-        plot_bgcolor="#111",
-        paper_bgcolor="#111",
-        font=dict(color="#D3D3D3", size=14),
-        title=dict(font=dict(size=20, color="#FF8C00")),
-        showlegend=True
-    )
-    
-    return fig
-
-def crear_gauge_para_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio):
-    """Recrea un gráfico de gauge para el PDF."""
-    
-    col = list(mapping.values())[0]
-    label = list(mapping.keys())[0]
-    
-    if col not in df_filtrado.columns:
-        return None
-    
-    value_cibao = df_filtrado[col].mean()
-    value_liga = None
-    
-    if mostrar_promedio and not df_liga_mayor.empty and col in df_liga_mayor.columns:
-        df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
-        value_liga = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
-    
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=value_cibao,
-        title={'text': f"<b>{label}</b>", 'font': {'color': '#FF8C00', 'size': 20}},
-        number={'font': {'color': '#FF8C00', 'size': 48}},
-        gauge={
-            'axis': {'range': [0, max(40, value_cibao * 1.5)]},
-            'bar': {'color': "#FF8C00", 'thickness': 0.7},
-            'bgcolor': "#333",
-            'threshold': {
-                'line': {'color': "#FFC966", 'width': 3},
-                'thickness': 0.8,
-                'value': value_liga if value_liga and not pd.isna(value_liga) else 0
-            } if value_liga and not pd.isna(value_liga) else None
-        },
-    ))
-    
-    fig.update_layout(
-        paper_bgcolor="#111",
-        font=dict(color="#D3D3D3")
-    )
-    
-    return fig
-
-def crear_heatmap_para_pdf(nombre_grupo, mapping, df_filtrado):
-    """Recrea un heatmap para el PDF."""
-    
-    cols = [v for v in mapping.values() if v in df_filtrado.columns]
-    labels = [k for k, v in mapping.items() if v in df_filtrado.columns]
-    
-    if not cols:
-        return None
-    
-    series_real = df_filtrado[cols].mean().fillna(0)
-    rank = series_real.rank(method="dense") - 1
-    z_vals = rank.astype(int).to_numpy().reshape(1, -1)
-    
-    HEATMAP_COLORSCALE = [
-        [0.0, "#2a2a2a"],
-        [0.5, "#ff7b00"],
-        [1.0, "#ffae42"]
-    ]
-    
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=z_vals,
-            x=labels,
-            y=[""],
-            colorscale=HEATMAP_COLORSCALE,
-            showscale=True,
-            colorbar=dict(
-                tickvals=[0, 1, 2],
-                ticktext=["Bajo", "Medio", "Alto"],
-            )
-        )
-    )
-    
-    annotations = []
-    for j, label in enumerate(labels):
-        annotations.append(
-            dict(x=label, y="", text=f"{series_real.iloc[j]:.2f}",
-                 font=dict(color="white", size=16), showarrow=False)
-        )
-    
-    fig.update_layout(
-        annotations=annotations,
-        template="plotly_dark",
-        title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=20, color="#FF8C00")),
-        paper_bgcolor="#111",
-        plot_bgcolor="#111",
-    )
-    
-    return fig
-
-
