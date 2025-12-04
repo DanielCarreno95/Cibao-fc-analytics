@@ -1627,14 +1627,15 @@ with tab5:
         </div>
         """, unsafe_allow_html=True)
 
-    # ===========================================
-# EXPORTACIÓN A HTML - VERSIÓN CON LAYOUT 2 COLUMNAS
+   # ===========================================
+# EXPORTACIÓN DIRECTA A PDF CON WEASYPRINT
 # ===========================================
 
 import io
 from datetime import datetime
 import base64
 import requests
+from weasyprint import HTML, CSS
 
 # ===========================================
 # GENERAR SECCIÓN HTML CON GRID 2 COLUMNAS
@@ -1724,12 +1725,13 @@ def generar_seccion_heatmaps(titulo, grupos, df_filtrado):
     return html
 
 # ===========================================
-# GENERAR HTML COMPLETO
+# GENERAR HTML Y CONVERTIR A PDF DIRECTO
 # ===========================================
 
-def generar_html_profesional(df_filtrado, df_liga_mayor, partidos_sel, mostrar_prom):
-    """Genera HTML completo con layout de 2 columnas."""
+def generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_sel, mostrar_prom):
+    """Genera HTML y lo convierte directamente a PDF usando weasyprint."""
     
+    # Obtener logo
     logo_base64 = ""
     try:
         logo_url = "https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png"
@@ -1741,6 +1743,7 @@ def generar_html_profesional(df_filtrado, df_liga_mayor, partidos_sel, mostrar_p
     
     fecha_gen = datetime.now().strftime("%d/%m/%Y - %H:%M")
     
+    # KPIs
     kpis_html = ""
     if not df_filtrado.empty:
         ultimo = df_filtrado.sort_values("Date", ascending=False).iloc[0]
@@ -1757,21 +1760,23 @@ def generar_html_profesional(df_filtrado, df_liga_mayor, partidos_sel, mostrar_p
         <div class="kpis-container">
             <div class="kpi-card"><div class="kpi-value">{ultimo.get('xg', 0):.2f}</div><div class="kpi-label">xG</div></div>
             <div class="kpi-card"><div class="kpi-value">{ultimo.get('possession_percent', 0):.1f}%</div><div class="kpi-label">Posesión</div></div>
-            <div class="kpi-card"><div class="kpi-value">{int(ultimo.get('yellow_cards', 0))}</div><div class="kpi-label">Tarjetas Amarillas</div></div>
-            <div class="kpi-card"><div class="kpi-value">{int(ultimo.get('red_cards', 0))}</div><div class="kpi-label">Tarjetas Rojas</div></div>
+            <div class="kpi-card"><div class="kpi-value">{int(ultimo.get('yellow_cards', 0))}</div><div class="kpi-label">T. Amarillas</div></div>
+            <div class="kpi-card"><div class="kpi-value">{int(ultimo.get('red_cards', 0))}</div><div class="kpi-label">T. Rojas</div></div>
         </div>
         """
     
+    # Gráfico comparativo
     grafico_comparativo_html = ""
     if not df_liga_mayor.empty:
         try:
             if 'opponent_choice' in globals() and 'x_choice' in globals() and 'y_choice' in globals():
                 fig_comp, _, _ = make_team_scatter(df_liga_mayor, primary_team="Cibao", opponent=opponent_choice, x_metric=METRIC_OPTIONS.get(x_choice), y_metric=METRIC_OPTIONS.get(y_choice), x_label=x_choice, y_label=y_choice, title=f"Cibao FC vs {opponent_choice}", filters={"Competition": lambda s: s.str.contains("Liga", case=False, na=False)})
-                fig_comp.update_layout(height=500)
+                fig_comp.update_layout(height=480)
                 grafico_comparativo_html = fig_comp.to_html(include_plotlyjs='cdn', config={'displayModeBar': False}, div_id="grafico_comparativo")
         except:
             pass
     
+    # Tabs
     tabs_html = ""
     
     grupos_eficiencia = {
@@ -1809,133 +1814,47 @@ def generar_html_profesional(df_filtrado, df_liga_mayor, partidos_sel, mostrar_p
     
     tabs_html += generar_seccion_heatmaps("DISTRIBUCIÓN TÁCTICA", grupos_tactica, df_filtrado)
     
-    html_final = f"""<!DOCTYPE html>
+    # HTML completo
+    html_completo = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte Cibao FC - Rendimiento Colectivo</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
-        @page {{
-            size: A4 landscape;
-            margin: 8mm;
-        }}
-        
+        @page {{ size: A4 landscape; margin: 8mm; }}
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        
-        body {{
-            font-family: Arial, sans-serif;
-            background-color: #111111;
-            color: #DDDDDD;
-        }}
-        
-        .page {{
-            background-color: #111111;
-            padding: 15px;
-            min-height: 100vh;
-            page-break-after: always;
-        }}
-        
+        body {{ font-family: Arial, sans-serif; background-color: #111111; color: #DDDDDD; }}
+        .page {{ background-color: #111111; padding: 15px; min-height: 100vh; page-break-after: always; page-break-inside: avoid; }}
         .page:last-child {{ page-break-after: auto; }}
         
-        /* PORTADA */
-        .portada {{
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-        }}
-        
+        .portada {{ display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }}
         .portada img {{ width: 150px; margin-bottom: 40px; }}
         .portada h1 {{ color: #FF8C00; font-size: 48px; font-weight: 900; margin-bottom: 10px; }}
         .portada h2 {{ color: #DDDDDD; font-size: 24px; margin-bottom: 60px; }}
         .portada .fecha {{ color: #999999; font-size: 14px; margin: 5px 0; }}
         
-        /* KPIs */
-        .kpis-container {{
-            display: flex;
-            justify-content: space-around;
-            margin: 15px 0;
-            gap: 8px;
-        }}
-        
-        .kpi-card {{
-            background: rgba(30,30,30,0.8);
-            border: 2px solid rgba(255,140,0,0.4);
-            border-radius: 10px;
-            padding: 12px;
-            text-align: center;
-            flex: 1;
-            min-width: 100px;
-        }}
-        
+        .kpis-container {{ display: flex; justify-content: space-around; margin: 15px 0; gap: 8px; }}
+        .kpi-card {{ background: rgba(30,30,30,0.8); border: 2px solid rgba(255,140,0,0.4); border-radius: 10px; padding: 12px; text-align: center; flex: 1; min-width: 100px; }}
         .kpi-value {{ color: #FF8C00; font-size: 20px; font-weight: 900; margin-bottom: 6px; }}
         .kpi-label {{ color: #CCCCCC; font-size: 11px; }}
         
-        /* TÍTULOS */
-        .section-title {{
-            color: #FF8C00;
-            font-size: 26px;
-            font-weight: 900;
-            text-align: center;
-            margin: 15px 0;
-        }}
+        .section-title {{ color: #FF8C00; font-size: 26px; font-weight: 900; text-align: center; margin: 15px 0; }}
         
-        /* GRID 2 COLUMNAS */
-        .grid-2-cols {{
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 10px;
-        }}
+        .grid-2-cols {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; }}
+        .grafico-grid-item {{ background: rgba(20,20,20,0.5); border-radius: 8px; padding: 10px; page-break-inside: avoid; }}
         
-        .grafico-grid-item {{
-            background: rgba(20,20,20,0.5);
-            border-radius: 8px;
-            padding: 10px;
-        }}
-        
-        .conclusion-small {{
-            background: rgba(30,30,30,0.9);
-            border-left: 3px solid #FF8C00;
-            padding: 8px;
-            margin-top: 5px;
-            font-size: 11px;
-            color: #DDDDDD;
-        }}
-        
+        .conclusion-small {{ background: rgba(30,30,30,0.9); border-left: 3px solid #FF8C00; padding: 8px; margin-top: 5px; font-size: 11px; color: #DDDDDD; }}
         .conclusion-small strong {{ color: #FF8C00; }}
         
-        /* PÁGINA FINAL */
-        .final {{
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }}
-        
+        .final {{ display: flex; flex-direction: column; justify-content: center; align-items: center; }}
         .final h1 {{ color: #FF8C00; font-size: 48px; margin-bottom: 20px; }}
         .final p {{ color: #AAAAAA; font-size: 18px; margin: 5px 0; }}
-        
-        @media print {{
-            body {{
-                print-color-adjust: exact;
-                -webkit-print-color-adjust: exact;
-            }}
-            
-            .page {{ 
-                page-break-inside: avoid;
-            }}
-        }}
     </style>
 </head>
 <body>
 
-<!-- PÁGINA 1: PORTADA -->
 <div class="page portada">
-    {"<img src='data:image/png;base64," + logo_base64 + "' alt='Logo Cibao FC'>" if logo_base64 else ""}
+    {"<img src='data:image/png;base64," + logo_base64 + "' alt='Logo'>" if logo_base64 else ""}
     <h1>REPORTE DE RENDIMIENTO</h1>
     <h1>COLECTIVO</h1>
     <h2>Liga Dominicana - Temporada 2024/2025</h2>
@@ -1943,19 +1862,14 @@ def generar_html_profesional(df_filtrado, df_liga_mayor, partidos_sel, mostrar_p
     {f"<p class='fecha'>Partidos: {', '.join(partidos_sel[:3])}</p>" if partidos_sel else ""}
 </div>
 
-<!-- PÁGINA 2: KPIs + COMPARATIVA -->
 <div class="page">
     <h2 class="section-title">INDICADORES DEL ÚLTIMO PARTIDO</h2>
     {kpis_html}
-    <div style="margin-top: 20px;">
-        {grafico_comparativo_html}
-    </div>
+    <div style="margin-top: 20px;">{grafico_comparativo_html}</div>
 </div>
 
-<!-- PÁGINAS 3-6: TABS -->
 {tabs_html}
 
-<!-- PÁGINA FINAL -->
 <div class="page final">
     <h1>CIBAO FC</h1>
     <p>Departamento de Análisis y Rendimiento</p>
@@ -1963,10 +1877,12 @@ def generar_html_profesional(df_filtrado, df_liga_mayor, partidos_sel, mostrar_p
 </div>
 
 </body>
-</html>
-"""
+</html>"""
     
-    return html_final
+    # Convertir HTML a PDF con weasyprint
+    pdf_bytes = HTML(string=html_completo).write_pdf()
+    
+    return pdf_bytes
 
 # ===========================================
 # INTERFAZ STREAMLIT
@@ -1976,10 +1892,10 @@ st.markdown("<hr style='margin:40px 0; border-color:#ff8c00;'>", unsafe_allow_ht
 
 st.markdown("""
 <h2 style='color:#ff8c00; text-align:center;'>
-    📄 Exportar Reporte Profesional HTML → PDF
+    📄 Descargar Reporte PDF Profesional
 </h2>
 <p style='text-align:center; color:#ccc; font-size:14px;'>
-    Layout 2x2 optimizado | Descarga HTML → Abre → Ctrl+P → Guardar PDF
+    PDF directo con layout 2x2 optimizado - Sin pasos intermedios
 </p>
 """, unsafe_allow_html=True)
 
@@ -1988,20 +1904,25 @@ st.markdown("<br>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 1, 1])
 
 with col2:
-    if st.button("🚀 GENERAR REPORTE HTML", use_container_width=True, type="primary"):
-        with st.spinner("Generando HTML optimizado... ⏳"):
+    if st.button("🚀 GENERAR Y DESCARGAR PDF", use_container_width=True, type="primary"):
+        with st.spinner("Generando PDF profesional... 60-90 segundos ⏳"):
             try:
-                html_content = generar_html_profesional(df_filtrado, df_liga_mayor, partidos_seleccionados if 'partidos_seleccionados' in locals() else [], mostrar_promedio_liga)
+                pdf_bytes = generar_pdf_desde_html(df_filtrado, df_liga_mayor, partidos_seleccionados if 'partidos_seleccionados' in locals() else [], mostrar_promedio_liga)
                 
                 fecha_archivo = datetime.now().strftime("%Y%m%d_%H%M")
-                nombre_archivo = f"Cibao_FC_Reporte_{fecha_archivo}.html"
+                nombre_archivo = f"Cibao_FC_Reporte_Profesional_{fecha_archivo}.pdf"
                 
-                st.success("✅ HTML generado! Abre → Ctrl+P → Guardar como PDF")
+                st.success("✅ PDF generado exitosamente!")
                 
-                st.download_button(label="📥 DESCARGAR HTML", data=html_content, file_name=nombre_archivo, mime="text/html", use_container_width=True, type="primary")
-                
-                st.info("💡 Tip: En Chrome, usa 'Guardar como PDF' con opciones: Márgenes=Mínimos, Fondo=Activado")
+                st.download_button(
+                    label="📥 DESCARGAR PDF",
+                    data=pdf_bytes,
+                    file_name=nombre_archivo,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
                 
             except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
+                st.error(f"❌ Error generando PDF: {str(e)}")
                 st.exception(e)
