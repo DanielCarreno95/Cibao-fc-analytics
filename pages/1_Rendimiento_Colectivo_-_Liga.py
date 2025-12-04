@@ -865,39 +865,72 @@ with tab2:
             st.warning("No hay datos para Longitud media de pase.")
             return
 
-        value = df_filtrado[col].mean()
+        # Valor de Cibao
+        value_cibao = df_filtrado[col].mean()
+        
+        # Valor promedio de liga (si está activado)
+        value_liga = None
+        if mostrar_promedio_liga and not df_liga_mayor.empty and col in df_liga_mayor.columns:
+            df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
+            value_liga = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
 
         fig = go.Figure()
 
+        # Gauge principal con valor de Cibao
         fig.add_trace(go.Indicator(
             mode="gauge+number",
-            value=value,
-            title={'text': f"<b>{label}</b>", 'font': {'color': '#FF8C00', 'size': 18}},
+            value=value_cibao,
+            title={'text': f"<b>{label}</b><br><span style='font-size:12px; color:#FFC966'>Cibao FC</span>", 
+                   'font': {'color': '#FF8C00', 'size': 18}},
+            number={'font': {'color': '#FF8C00', 'size': 40}},
             gauge={
-                'axis': {'range': [0, max(40, value * 1.5)]},
-                'bar': {'color': "#FF8C00"},
+                'axis': {'range': [0, max(40, value_cibao * 1.5)]},
+                'bar': {'color': "#FF8C00", 'thickness': 0.7},
                 'bgcolor': "#333",
                 'borderwidth': 1,
                 'bordercolor': "#555",
+                'steps': [
+                    {'range': [0, max(40, value_cibao * 1.5)], 'color': "#1a1a1a"}
+                ],
+                # Agregar threshold para promedio liga si existe
+                'threshold': {
+                    'line': {'color': "#FFC966", 'width': 3},
+                    'thickness': 0.8,
+                    'value': value_liga if value_liga and not pd.isna(value_liga) else 0
+                } if value_liga and not pd.isna(value_liga) else None
             },
         ))
 
         fig.update_layout(
-            height=220,
-            margin=dict(l=20, r=20, t=60, b=20),
+            height=280,
+            margin=dict(l=20, r=20, t=80, b=20),
             paper_bgcolor="#111",
             font=dict(color="#D3D3D3")
         )
 
         st.plotly_chart(fig, use_container_width=True)
-
-        st.markdown(f"""
-        <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
-        <b>Conclusión táctica</b><br><br>
-        • La <b>longitud media de pase ({value:.2f} m)</b> describe el perfil del equipo en cuanto a riesgo y distancia de circulación. 
-          Este valor sirve como referencia para calibrar la intención de progresar por combinación o por envío largo.
-        </div>
-        """, unsafe_allow_html=True)
+        
+        # Conclusión con comparación
+        if value_liga and not pd.isna(value_liga):
+            diferencia = value_cibao - value_liga
+            comparacion_text = f"superior en {abs(diferencia):.2f}m" if diferencia > 0 else f"inferior en {abs(diferencia):.2f}m"
+            
+            st.markdown(f"""
+            <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
+            <b>Conclusión táctica</b><br><br>
+            • La <b>longitud media de pase de Cibao ({value_cibao:.2f} m)</b> es {comparacion_text} al promedio de la liga ({value_liga:.2f} m).<br><br>
+            • Este valor describe el perfil del equipo en cuanto a riesgo y distancia de circulación, 
+              sirviendo como referencia para calibrar la intención de progresar por combinación o por envío largo.
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
+            <b>Conclusión táctica</b><br><br>
+            • La <b>longitud media de pase ({value_cibao:.2f} m)</b> describe el perfil del equipo en cuanto a riesgo y distancia de circulación. 
+              Este valor sirve como referencia para calibrar la intención de progresar por combinación o por envío largo.
+            </div>
+            """, unsafe_allow_html=True)
 
 
 
