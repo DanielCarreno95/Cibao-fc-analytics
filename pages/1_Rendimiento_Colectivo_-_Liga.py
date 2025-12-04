@@ -1640,6 +1640,158 @@ import requests
 from PIL import Image
 
 # ===========================================
+# FUNCIONES AUXILIARES PARA RECREAR GRÁFICOS
+# (DEBEN IR PRIMERO)
+# ===========================================
+
+def crear_grafico_para_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, 
+                            mostrar_promedio, tipo='horizontal'):
+    """Recrea un gráfico de barras para el PDF."""
+    
+    columnas = [v for v in mapping.values() if v in df_filtrado.columns]
+    etiquetas = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
+    
+    if not columnas:
+        return None
+    
+    cibao_means = df_filtrado[columnas].mean()
+    comparison_data = []
+    
+    for col in columnas:
+        comparison_data.append({
+            "label": etiquetas[col],
+            "Equipo": "Cibao FC",
+            "valor": cibao_means[col]
+        })
+    
+    if mostrar_promedio and not df_liga_mayor.empty:
+        df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
+        for col in columnas:
+            if col in df_liga_sin_cibao.columns:
+                liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
+                comparison_data.append({
+                    "label": etiquetas[col],
+                    "Equipo": "Promedio Liga",
+                    "valor": liga_val if not pd.isna(liga_val) else 0
+                })
+    
+    df_plot = pd.DataFrame(comparison_data)
+    color_map = {
+        "Cibao FC": "#FF8C00",
+        "Promedio Liga": "#FFC966",
+    }
+    
+    if tipo == 'horizontal':
+        fig = px.bar(df_plot, x="valor", y="label", color="Equipo",
+                     orientation="h", text_auto=".2f", color_discrete_map=color_map,
+                     barmode="group", title=nombre_grupo)
+    else:
+        fig = px.bar(df_plot, x="label", y="valor", color="Equipo",
+                     text_auto=".2f", color_discrete_map=color_map,
+                     barmode="group", title=nombre_grupo)
+    
+    fig.update_layout(
+        template="plotly_dark",
+        plot_bgcolor="#111",
+        paper_bgcolor="#111",
+        font=dict(color="#D3D3D3", size=14),
+        title=dict(font=dict(size=20, color="#FF8C00")),
+        showlegend=True
+    )
+    
+    return fig
+
+def crear_gauge_para_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio):
+    """Recrea un gráfico de gauge para el PDF."""
+    
+    col = list(mapping.values())[0]
+    label = list(mapping.keys())[0]
+    
+    if col not in df_filtrado.columns:
+        return None
+    
+    value_cibao = df_filtrado[col].mean()
+    value_liga = None
+    
+    if mostrar_promedio and not df_liga_mayor.empty and col in df_liga_mayor.columns:
+        df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
+        value_liga = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
+    
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value_cibao,
+        title={'text': f"<b>{label}</b>", 'font': {'color': '#FF8C00', 'size': 20}},
+        number={'font': {'color': '#FF8C00', 'size': 48}},
+        gauge={
+            'axis': {'range': [0, max(40, value_cibao * 1.5)]},
+            'bar': {'color': "#FF8C00", 'thickness': 0.7},
+            'bgcolor': "#333",
+            'threshold': {
+                'line': {'color': "#FFC966", 'width': 3},
+                'thickness': 0.8,
+                'value': value_liga if value_liga and not pd.isna(value_liga) else 0
+            } if value_liga and not pd.isna(value_liga) else None
+        },
+    ))
+    
+    fig.update_layout(
+        paper_bgcolor="#111",
+        font=dict(color="#D3D3D3")
+    )
+    
+    return fig
+
+def crear_heatmap_para_pdf(nombre_grupo, mapping, df_filtrado):
+    """Recrea un heatmap para el PDF."""
+    
+    cols = [v for v in mapping.values() if v in df_filtrado.columns]
+    labels = [k for k, v in mapping.items() if v in df_filtrado.columns]
+    
+    if not cols:
+        return None
+    
+    series_real = df_filtrado[cols].mean().fillna(0)
+    rank = series_real.rank(method="dense") - 1
+    z_vals = rank.astype(int).to_numpy().reshape(1, -1)
+    
+    HEATMAP_COLORSCALE = [
+        [0.0, "#2a2a2a"],
+        [0.5, "#ff7b00"],
+        [1.0, "#ffae42"]
+    ]
+    
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=z_vals,
+            x=labels,
+            y=[""],
+            colorscale=HEATMAP_COLORSCALE,
+            showscale=True,
+            colorbar=dict(
+                tickvals=[0, 1, 2],
+                ticktext=["Bajo", "Medio", "Alto"],
+            )
+        )
+    )
+    
+    annotations = []
+    for j, label in enumerate(labels):
+        annotations.append(
+            dict(x=label, y="", text=f"{series_real.iloc[j]:.2f}",
+                 font=dict(color="white", size=16), showarrow=False)
+        )
+    
+    fig.update_layout(
+        annotations=annotations,
+        template="plotly_dark",
+        title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=20, color="#FF8C00")),
+        paper_bgcolor="#111",
+        plot_bgcolor="#111",
+    )
+    
+    return fig
+
+# ===========================================
 # CLASE PDF PERSONALIZADA CIBAO FC
 # ===========================================
 
@@ -1822,7 +1974,7 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
     pdf.set_text_color(180, 180, 180)
     
     fecha_generacion = datetime.now().strftime("%d/%m/%Y - %H:%M")
-    pdf.cell(0, 8, f'Fecha de generación: {fecha_generacion}', 0, 1, 'C')
+    pdf.cell(0, 8, f'Fecha de generacion: {fecha_generacion}', 0, 1, 'C')
     
     if partidos_seleccionados:
         partidos_texto = ", ".join(partidos_seleccionados[:3])
@@ -1840,8 +1992,8 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
     pdf.set_y(180)
     pdf.set_font('Arial', 'I', 10)
     pdf.set_text_color(150, 150, 150)
-    pdf.cell(0, 8, 'Análisis táctico y estadístico avanzado', 0, 1, 'C')
-    pdf.cell(0, 6, 'Departamento de Análisis - Cibao FC', 0, 1, 'C')
+    pdf.cell(0, 8, 'Analisis tactico y estadistico avanzado', 0, 1, 'C')
+    pdf.cell(0, 6, 'Departamento de Analisis - Cibao FC', 0, 1, 'C')
     
     # ===========================================
     # PÁGINA 2: CONCLUSIONES EJECUTIVAS
@@ -1974,7 +2126,7 @@ def generar_pdf_completo(df_filtrado, df_liga_mayor, partidos_seleccionados,
                 pdf.add_page()
                 pdf.set_font('Arial', 'B', 16)
                 pdf.set_text_color(255, 140, 0)
-                pdf.cell(0, 10, f'{titulo_seccion} (continuación)', 0, 1, 'C')
+                pdf.cell(0, 10, f'{titulo_seccion} (continuacion)', 0, 1, 'C')
                 y_position = 40
             
             img_bytes = plotly_to_image_bytes(fig, width=2400, height=1200)
@@ -2038,7 +2190,7 @@ with col_btn2:
                 
                 # 1. Figura comparativa (si existe)
                 fig_comparativa_pdf = None
-                if not df_liga_mayor.empty and opponent_choice:
+                if not df_liga_mayor.empty and 'opponent_choice' in locals():
                     try:
                         fig_comparativa_pdf, _, _ = make_team_scatter(
                             df_liga_mayor,
@@ -2122,8 +2274,8 @@ with col_btn2:
             except Exception as e:
                 st.error(f"❌ Error generando el reporte: {str(e)}")
                 st.exception(e)
-
-# ===========================================
+             
+            # ===========================================
 # FUNCIONES AUXILIARES PARA RECREAR GRÁFICOS
 # ===========================================
 
@@ -2273,3 +2425,5 @@ def crear_heatmap_para_pdf(nombre_grupo, mapping, df_filtrado):
     )
     
     return fig
+
+
