@@ -1016,79 +1016,164 @@ with tab3:
     # --- BARRAS HORIZONTALES ---
     def plot_horizontal(nombre, mapping):
 
-        dfp = df_filtrado.copy()
-        cols = [v for v in mapping.values() if v in dfp.columns]
-        labels = {v: k for k, v in mapping.items() if v in dfp.columns}
+        cols = [v for v in mapping.values() if v in df_filtrado.columns]
+        labels = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
 
         if not cols:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        df_mean = dfp[cols].mean().reset_index()
-        df_mean.columns = ["metric", "valor"]
-        df_mean["label"] = df_mean["metric"].map(labels)
-        df_mean = df_mean.sort_values("valor", ascending=True)
+        # Calcular promedio de Cibao
+        cibao_means = df_filtrado[cols].mean()
+        
+        # Preparar datos para comparación
+        comparison_data = []
+        
+        # Agregar Cibao
+        for col in cols:
+            comparison_data.append({
+                "label": labels[col],
+                "Equipo": "Cibao FC",
+                "valor": cibao_means[col]
+            })
+        
+        # Promedio Liga (si está activado)
+        if mostrar_promedio_liga and not df_liga_mayor.empty:
+            df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
+            
+            for col in cols:
+                if col in df_liga_sin_cibao.columns:
+                    liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
+                    comparison_data.append({
+                        "label": labels[col],
+                        "Equipo": "Promedio Liga",
+                        "valor": liga_val if not pd.isna(liga_val) else 0
+                    })
+        
+        # Crear dataframe
+        df_plot = pd.DataFrame(comparison_data)
+        
+        # Ordenar por valor de Cibao
+        cibao_order = df_plot[df_plot["Equipo"] == "Cibao FC"].sort_values("valor", ascending=True)["label"].tolist()
+        df_plot["label"] = pd.Categorical(df_plot["label"], categories=cibao_order, ordered=True)
+        df_plot = df_plot.sort_values("label")
+        
+        # Mapa de colores
+        color_map = {
+            "Cibao FC": CIBAO_ORANGE,
+            "Promedio Liga": CIBAO_ORANGE_LIGHT,
+        }
 
         fig = px.bar(
-            df_mean,
+            df_plot,
             x="valor",
             y="label",
+            color="Equipo",
             orientation="h",
             text_auto=".2f",
-            color_discrete_sequence=[CIBAO_ORANGE],
+            color_discrete_map=color_map,
+            barmode="group",
         )
 
         fig.update_layout(
-            height=320,
+            height=350,
             template="plotly_dark",
             plot_bgcolor=CIBAO_BLACK,
             paper_bgcolor=CIBAO_BLACK,
             title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
             margin=dict(l=30, r=20, t=50, b=20),
             font=dict(color=CIBAO_GRAY),
-            showlegend=False
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                bgcolor="rgba(0,0,0,0.5)",
+                font=dict(size=10)
+            ),
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
-        max_row = df_mean.iloc[-1]
-        min_row = df_mean.iloc[0]
+        # Conclusiones
+        cibao_data = df_plot[df_plot["Equipo"] == "Cibao FC"].copy()
+        if not cibao_data.empty:
+            max_row = cibao_data.loc[cibao_data["valor"].idxmax()]
+            min_row = cibao_data.loc[cibao_data["valor"].idxmin()]
 
-        st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
-                    margin-top:-8px;margin-bottom:25px;'>
-        <b>Conclusiones tácticas</b><br><br>
-        • <b>Comportamiento destacado:</b> Mayor solvencia en <b>{max_row['label']}</b>.<br><br>
-        • <b>Aspecto mejorable:</b> Valor más bajo en <b>{min_row['label']}</b>.
-        </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px;margin-bottom:25px;'>
+            <b>Conclusiones tácticas</b><br><br>
+            • <b>Comportamiento destacado:</b> Mayor solvencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br><br>
+            • <b>Aspecto mejorable:</b> Valor más bajo en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).
+            </div>
+            """, unsafe_allow_html=True)
 
     # --- BARRAS VERTICALES ---
     def plot_vertical(nombre, mapping):
 
-        dfp = df_filtrado.copy()
-        cols = [v for v in mapping.values() if v in dfp.columns]
-        labels = {v: k for k, v in mapping.items() if v in dfp.columns}
+        cols = [v for v in mapping.values() if v in df_filtrado.columns]
+        labels = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
 
         if not cols:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        df_mean = dfp[cols].mean().reset_index()
-        df_mean.columns = ["metric", "valor"]
-        df_mean["label"] = df_mean["metric"].map(labels)
-        df_mean = df_mean.sort_values("valor", ascending=False)
+        # Calcular promedio de Cibao
+        cibao_means = df_filtrado[cols].mean()
+        
+        # Preparar datos para comparación
+        comparison_data = []
+        
+        # Agregar Cibao
+        for col in cols:
+            comparison_data.append({
+                "label": labels[col],
+                "Equipo": "Cibao FC",
+                "valor": cibao_means[col]
+            })
+        
+        # Promedio Liga (si está activado)
+        if mostrar_promedio_liga and not df_liga_mayor.empty:
+            df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
+            
+            for col in cols:
+                if col in df_liga_sin_cibao.columns:
+                    liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
+                    comparison_data.append({
+                        "label": labels[col],
+                        "Equipo": "Promedio Liga",
+                        "valor": liga_val if not pd.isna(liga_val) else 0
+                    })
+        
+        # Crear dataframe
+        df_plot = pd.DataFrame(comparison_data)
+        
+        # Ordenar por valor de Cibao
+        cibao_order = df_plot[df_plot["Equipo"] == "Cibao FC"].sort_values("valor", ascending=False)["label"].tolist()
+        df_plot["label"] = pd.Categorical(df_plot["label"], categories=cibao_order, ordered=True)
+        df_plot = df_plot.sort_values("label")
+        
+        # Mapa de colores
+        color_map = {
+            "Cibao FC": CIBAO_ORANGE,
+            "Promedio Liga": CIBAO_ORANGE_LIGHT,
+        }
 
         fig = px.bar(
-            df_mean,
+            df_plot,
             x="label",
             y="valor",
+            color="Equipo",
             text_auto=".2f",
-            color_discrete_sequence=[CIBAO_ORANGE],
+            color_discrete_map=color_map,
+            barmode="group",
         )
 
         fig.update_layout(
-            height=360,
+            height=400,
             template="plotly_dark",
             plot_bgcolor=CIBAO_BLACK,
             paper_bgcolor=CIBAO_BLACK,
@@ -1096,22 +1181,33 @@ with tab3:
             margin=dict(l=20, r=20, t=50, b=20),
             font=dict(color=CIBAO_GRAY),
             xaxis=dict(tickangle=-30),
-            showlegend=False
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                bgcolor="rgba(0,0,0,0.5)",
+                font=dict(size=10)
+            ),
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
-        max_row = df_mean.iloc[0]
-        min_row = df_mean.iloc[-1]
+        # Conclusiones
+        cibao_data = df_plot[df_plot["Equipo"] == "Cibao FC"].copy()
+        if not cibao_data.empty:
+            max_row = cibao_data.loc[cibao_data["valor"].idxmax()]
+            min_row = cibao_data.loc[cibao_data["valor"].idxmin()]
 
-        st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
-                    margin-top:-8px;margin-bottom:25px;'>
-        <b>Conclusiones tácticas</b><br><br>
-        • <b>Mayor influencia:</b> <b>{max_row['label']}</b>.<br><br>
-        • <b>Zona con margen de mejora:</b> <b>{min_row['label']}</b>.
-        </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px;margin-bottom:25px;'>
+            <b>Conclusiones tácticas</b><br><br>
+            • <b>Mayor influencia:</b> <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br><br>
+            • <b>Zona con margen de mejora:</b> <b>{min_row['label']}</b> ({min_row['valor']:.2f}).
+            </div>
+            """, unsafe_allow_html=True)
 
     # --- GAUGE LINEAL (UNIFICADO) ---
     def plot_gauge(mapping):
