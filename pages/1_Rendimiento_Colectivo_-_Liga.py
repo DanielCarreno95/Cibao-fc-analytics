@@ -1628,7 +1628,7 @@ with tab5:
         """, unsafe_allow_html=True)
 
  # ===========================================
-# EXPORTACIÓN PDF DEFINITIVO - SIN ERRORES
+# PDF DEFINITIVO - SIN ERRORES
 # ===========================================
 
 import io
@@ -1645,10 +1645,9 @@ def grafico_a_base64(fig, width=900, height=500):
         return None
 
 def crear_grafico_fig(nombre, metricas, df_filtrado, df_liga_mayor, mostrar_prom, orientacion):
-    """Crea figura de Plotly."""
     columnas = [v for v in metricas.values() if v in df_filtrado.columns]
     if not columnas:
-        return None
+        return None, None
     
     etiquetas = {v: k for k, v in metricas.items() if v in df_filtrado.columns}
     cibao_means = df_filtrado[columnas].mean()
@@ -1673,19 +1672,12 @@ def crear_grafico_fig(nombre, metricas, df_filtrado, df_liga_mayor, mostrar_prom
         fig = px.bar(df_plot, x="label", y="valor", color="Equipo", text_auto=".2f", color_discrete_map=colors, barmode="group")
         fig.update_layout(xaxis=dict(tickangle=-28))
     
-    fig.update_layout(
-        template="plotly_dark", plot_bgcolor="#111", paper_bgcolor="#111",
-        font=dict(color="#EEE", size=14), title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color="#FF8C00"), x=0.5),
-        showlegend=True, legend=dict(orientation="h", y=1.18, x=0.5, font=dict(size=13), bgcolor="rgba(20,20,20,0.9)"),
-        height=260, margin=dict(l=25, r=25, t=75, b=25), bargap=0.3,
-        xaxis=dict(tickfont=dict(size=13)), yaxis=dict(tickfont=dict(size=13))
-    )
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#111", paper_bgcolor="#111", font=dict(color="#EEE", size=14), title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color="#FF8C00"), x=0.5), showlegend=True, legend=dict(orientation="h", y=1.18, x=0.5, font=dict(size=13), bgcolor="rgba(20,20,20,0.9)"), height=260, margin=dict(l=25, r=25, t=75, b=25), bargap=0.3)
     fig.update_traces(textfont=dict(size=14, color='white'), textposition='outside')
     
     return fig, {etiquetas[col]: cibao_means[col] for col in columnas}
 
 def crear_gauge_fig(nombre, col, df_filtrado, df_liga_mayor, mostrar_prom):
-    """Crea gauge."""
     if col not in df_filtrado.columns:
         return None, None
     
@@ -1696,291 +1688,191 @@ def crear_gauge_fig(nombre, col, df_filtrado, df_liga_mayor, mostrar_prom):
         df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
         value_liga = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
     
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number", value=value_cibao,
-        title={'text': f"<b>{nombre}</b><br><span style='font-size:13px'>Cibao FC</span>", 'font': {'color': '#FF8C00', 'size': 18}},
-        number={'font': {'color': '#FF8C00', 'size': 42}},
-        gauge={'axis': {'range': [0, max(40, value_cibao * 1.5)]}, 'bar': {'color': "#FF8C00", 'thickness': 0.7}, 'bgcolor': "#333",
-               'threshold': {'line': {'color': "#FFC966", 'width': 3}, 'value': value_liga if value_liga and not pd.isna(value_liga) else 0} if value_liga and not pd.isna(value_liga) else None}
-    ))
-    
-    fig.update_layout(paper_bgcolor="#111", height=260, margin=dict(l=25, r=25, t=75, b=25), font=dict(color="#DDD"))
+    fig = go.Figure(go.Indicator(mode="gauge+number", value=value_cibao, title={'text': f"<b>{nombre}</b>", 'font': {'color': '#FF8C00', 'size': 18}}, number={'font': {'color': '#FF8C00', 'size': 42}}, gauge={'axis': {'range': [0, max(40, value_cibao * 1.5)]}, 'bar': {'color': "#FF8C00", 'thickness': 0.7}, 'bgcolor': "#333", 'threshold': {'line': {'color': "#FFC966", 'width': 3}, 'value': value_liga if value_liga and not pd.isna(value_liga) else 0} if value_liga and not pd.isna(value_liga) else None}))
+    fig.update_layout(paper_bgcolor="#111", height=260, margin=dict(l=25, r=25, t=75, b=25))
     
     return fig, {"cibao": value_cibao, "liga": value_liga}
 
 def generar_seccion_completa(titulo, grupos_list, df_filtrado, df_liga_mayor, mostrar_prom, orientacion):
-    """Layout 2x2 + 1."""
     html = f'<div class="page"><h2 class="section-title">{titulo}</h2><div class="grid-2x2">'
+    graficos = []
     
-    graficos_generados = []
     for nombre, metricas in grupos_list:
         fig, valores = crear_grafico_fig(nombre, metricas, df_filtrado, df_liga_mayor, mostrar_prom, orientacion)
         if fig and valores:
-            img_base64 = grafico_a_base64(fig, width=900, height=550)
-            if img_base64:
+            img = grafico_a_base64(fig, width=900, height=550)
+            if img:
                 max_m = max(valores, key=valores.get)
                 min_m = min(valores, key=valores.get)
-                conclusion = f"<div class='conclusion'><strong>Fortaleza:</strong> {max_m} ({valores[max_m]:.2f}) | <strong>Mejora:</strong> {min_m} ({valores[min_m]:.2f})</div>"
-                graficos_generados.append(f"<div class='grafico-item'><img src='data:image/png;base64,{img_base64}'>{conclusion}</div>")
+                conc = f"<div class='conclusion'><strong>Fortaleza:</strong> {max_m} ({valores[max_m]:.2f}) | <strong>Mejora:</strong> {min_m} ({valores[min_m]:.2f})</div>"
+                graficos.append(f"<div class='grafico-item'><img src='data:image/png;base64,{img}'>{conc}</div>")
     
-    for i in range(min(4, len(graficos_generados))):
-        html += graficos_generados[i]
-    
+    for i in range(min(4, len(graficos))):
+        html += graficos[i]
     html += '</div>'
     
-    if len(graficos_generados) > 4:
+    if len(graficos) > 4:
         html += '<div class="grid-1-centered">'
-        for i in range(4, len(graficos_generados)):
-            html += graficos_generados[i]
+        for i in range(4, len(graficos)):
+            html += graficos[i]
         html += '</div>'
     
     html += '</div>'
     return html
 
 def generar_pdf_final(df_filtrado, df_liga_mayor, partidos_sel, mostrar_prom):
-    logo_base64 = ""
+    logo_b64 = ""
     try:
-        response = requests.get("https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png", timeout=10)
-        if response.status_code == 200:
-            logo_base64 = base64.b64encode(response.content).decode()
+        r = requests.get("https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png", timeout=10)
+        if r.status_code == 200:
+            logo_b64 = base64.b64encode(r.content).decode()
     except:
         pass
     
-    fecha_gen = datetime.now().strftime("%d/%m/%Y - %H:%M")
+    fecha = datetime.now().strftime("%d/%m/%Y - %H:%M")
     
-    kpis_html = ""
+    kpis = ""
     if not df_filtrado.empty:
-        ultimo = df_filtrado.sort_values("Date", ascending=False).iloc[0]
-        fecha_p = pd.to_datetime(ultimo.get("Date")).strftime("%d-%m-%Y") if pd.notna(ultimo.get("Date")) else "-"
-        kpis_html = f"""<div class="kpis-grid">
-            <div class="kpi-card"><div class="kpi-value">{fecha_p}</div><div class="kpi-label">Fecha</div></div>
-            <div class="kpi-card"><div class="kpi-value">{ultimo.get('Jornada', '-')}</div><div class="kpi-label">Jornada</div></div>
-            <div class="kpi-card"><div class="kpi-value">{ultimo.get('Match', '-')}</div><div class="kpi-label">Partido</div></div>
-            <div class="kpi-card"><div class="kpi-value">{ultimo.get('Final Result', '-')}</div><div class="kpi-label">Resultado</div></div>
-            <div class="kpi-card"><div class="kpi-value">{ultimo.get('Alineacion', '-')}</div><div class="kpi-label">Formación</div></div>
-            <div class="kpi-card"><div class="kpi-value">{ultimo.get('xg', 0):.2f}</div><div class="kpi-label">xG</div></div>
-            <div class="kpi-card"><div class="kpi-value">{ultimo.get('possession_percent', 0):.1f}%</div><div class="kpi-label">Posesión</div></div>
-            <div class="kpi-card"><div class="kpi-value">{int(ultimo.get('yellow_cards', 0))}</div><div class="kpi-label">T. Amarillas</div></div>
-            <div class="kpi-card"><div class="kpi-value">{int(ultimo.get('red_cards', 0))}</div><div class="kpi-label">T. Rojas</div></div>
-        </div>"""
+        ult = df_filtrado.sort_values("Date", ascending=False).iloc[0]
+        fp = pd.to_datetime(ult.get("Date")).strftime("%d-%m-%Y") if pd.notna(ult.get("Date")) else "-"
+        kpis = f"""<div class="kpis-grid">
+<div class="kpi-card"><div class="kpi-value">{fp}</div><div class="kpi-label">Fecha</div></div>
+<div class="kpi-card"><div class="kpi-value">{ult.get('Jornada', '-')}</div><div class="kpi-label">Jornada</div></div>
+<div class="kpi-card"><div class="kpi-value">{ult.get('Match', '-')}</div><div class="kpi-label">Partido</div></div>
+<div class="kpi-card"><div class="kpi-value">{ult.get('Final Result', '-')}</div><div class="kpi-label">Resultado</div></div>
+<div class="kpi-card"><div class="kpi-value">{ult.get('Alineacion', '-')}</div><div class="kpi-label">Formación</div></div>
+<div class="kpi-card"><div class="kpi-value">{ult.get('xg', 0):.2f}</div><div class="kpi-label">xG</div></div>
+<div class="kpi-card"><div class="kpi-value">{ult.get('possession_percent', 0):.1f}%</div><div class="kpi-label">Posesión</div></div>
+<div class="kpi-card"><div class="kpi-value">{int(ult.get('yellow_cards', 0))}</div><div class="kpi-label">T. Amarillas</div></div>
+<div class="kpi-card"><div class="kpi-value">{int(ult.get('red_cards', 0))}</div><div class="kpi-label">T. Rojas</div></div>
+</div>"""
     
-    grafico_comp = ""
+    graf_comp = ""
     if not df_liga_mayor.empty:
         try:
             if 'opponent_choice' in globals():
-                fig_c, _, _ = make_team_scatter(df_liga_mayor, primary_team="Cibao", opponent=opponent_choice, x_metric=METRIC_OPTIONS.get(x_choice), y_metric=METRIC_OPTIONS.get(y_choice), x_label=x_choice, y_label=y_choice, title=f"Cibao FC vs {opponent_choice}", filters={"Competition": lambda s: s.str.contains("Liga", case=False, na=False)})
-                fig_c.update_layout(height=380, margin=dict(l=40, r=40, t=70, b=40), font=dict(size=13))
-                img_c = grafico_a_base64(fig_c, width=2000, height=850)
-                if img_c:
-                    grafico_comp = f"<img src='data:image/png;base64,{img_c}' style='width:100%;'>"
+                fc, _, _ = make_team_scatter(df_liga_mayor, primary_team="Cibao", opponent=opponent_choice, x_metric=METRIC_OPTIONS.get(x_choice), y_metric=METRIC_OPTIONS.get(y_choice), x_label=x_choice, y_label=y_choice, title=f"Cibao FC vs {opponent_choice}", filters={"Competition": lambda s: s.str.contains("Liga", case=False, na=False)})
+                fc.update_layout(height=380, margin=dict(l=40, r=40, t=70, b=40))
+                ic = grafico_a_base64(fc, 2000, 850)
+                if ic:
+                    graf_comp = f"<img src='data:image/png;base64,{ic}' style='width:100%;'>"
         except:
             pass
     
-    # TABS
-    grupos_eficiencia = [
-        ("Producción ofensiva", {"Goles": "goals", "Goles contra": "conceded_goals", "xG": "xg"}),
-        ("Eficiencia tiro", {"Disparos puerta (%)": "shots_on_target_percent", "Fuera área (%)": "shots_from_outside_penalty_area_on_target_percent"}),
-        ("Patrones", {"Posicionales (%)": "positional_attacks_with_shots_percent", "Contraataques (%)": "counter_attacks_with_shots_percent"}),
-        ("Balón parado", {"Set pieces (%)": "set_pieces_with_shots_percent", "Corners (%)": "corners_with_shots_percent", "Penaltis (%)": "penalties_converted_percent"}),
-        ("Juego interior", {"Entradas área": "penalty_area_entries", "Toques área": "touches_in_penalty_area", "Centros": "penalty_area_entries_crosses"}),
-    ]
+    t1 = generar_seccion_completa("EFICIENCIA Y ATAQUE", [("Producción ofensiva", {"Goles": "goals", "Goles contra": "conceded_goals", "xG": "xg"}), ("Eficiencia tiro", {"Disparos puerta (%)": "shots_on_target_percent", "Fuera área (%)": "shots_from_outside_penalty_area_on_target_percent"}), ("Patrones", {"Posicionales (%)": "positional_attacks_with_shots_percent", "Contraataques (%)": "counter_attacks_with_shots_percent"}), ("Balón parado", {"Set pieces (%)": "set_pieces_with_shots_percent", "Corners (%)": "corners_with_shots_percent"}), ("Juego interior", {"Entradas área": "penalty_area_entries", "Toques área": "touches_in_penalty_area"})], df_filtrado, df_liga_mayor, mostrar_prom, 'h')
     
-    tab1 = generar_seccion_completa("EFICIENCIA Y ATAQUE", grupos_eficiencia, df_filtrado, df_liga_mayor, mostrar_prom, 'h')
+    t2 = generar_seccion_completa("CONSTRUCCIÓN Y PASES", [("Control", {"Posesión (%)": "possession_percent", "Precisión (%)": "passes_accurate_percent"}), ("Progresión", {"Progresivos (%)": "progressive_passes_accurate_percent", "Atrás (%)": "back_passes_accurate_percent"}), ("Conexiones", {"Último tercio (%)": "passes_to_final_third_accurate_percent", "Inteligentes (%)": "smart_passes_accurate_percent"}), ("Reinicios", {"Saques banda": "throw_ins", "Saques meta": "goal_kicks"})], df_filtrado, df_liga_mayor, mostrar_prom, 'v')
     
-    grupos_construccion = [
-        ("Control", {"Posesión (%)": "possession_percent", "Precisión (%)": "passes_accurate_percent"}),
-        ("Progresión", {"Progresivos (%)": "progressive_passes_accurate_percent", "Atrás (%)": "back_passes_accurate_percent"}),
-        ("Conexiones", {"Último tercio (%)": "passes_to_final_third_accurate_percent", "Inteligentes (%)": "smart_passes_accurate_percent"}),
-        ("Reinicios", {"Saques banda": "throw_ins", "Saques meta": "goal_kicks"}),
-    ]
-    
-    tab2_base = generar_seccion_completa("CONSTRUCCIÓN Y PASES", grupos_construccion, df_filtrado, df_liga_mayor, mostrar_prom, 'v')
-    
-    gauge_pase = ""
+    g_pase = ""
     if "average_pass_length" in df_filtrado.columns:
-        fig_g, vals_g = crear_gauge_fig("Longitud media de pase", "average_pass_length", df_filtrado, df_liga_mayor, mostrar_prom)
-        if fig_g:
-            img_g = grafico_a_base64(fig_g, width=900, height=550)
-            if img_g:
-                conc = f"<div class='conclusion'><strong>Cibao:</strong> {vals_g['cibao']:.2f} | <strong>Liga:</strong> {vals_g['liga']:.2f if vals_g['liga'] else 'N/A'}</div>"
-                gauge_pase = f"<div class='grid-1-centered'><div class='grafico-item'><img src='data:image/png;base64,{img_g}'>{conc}</div></div>"
+        fg, vg = crear_gauge_fig("Longitud media de pase", "average_pass_length", df_filtrado, df_liga_mayor, mostrar_prom)
+        if fg:
+            ig = grafico_a_base64(fg, 900, 550)
+            if ig:
+                v_liga_texto = f"{vg['liga']:.2f}" if vg['liga'] and not pd.isna(vg['liga']) else "N/A"
+                g_pase = f"<div class='grid-1-centered'><div class='grafico-item'><img src='data:image/png;base64,{ig}'><div class='conclusion'><strong>Cibao:</strong> {vg['cibao']:.2f} | <strong>Liga:</strong> {v_liga_texto}</div></div></div>"
     
-    tab2 = tab2_base.replace('</div>', gauge_pase + '</div>', 1)
+    t2 = t2.replace('</div>', g_pase + '</div>', 1)
     
-    grupos_defensa = [
-        ("Duelos", {"Ofensivos (%)": "offensive_duels_won_percent", "Generales (%)": "duels_won_percent"}),
-        ("Solidez", {"Defensivos (%)": "defensive_duels_won_percent", "Aéreos (%)": "aerial_duels_won_percent"}),
-        ("Acciones", {"Intercepciones": "interceptions", "Despejes": "clearances", "Pérdidas": "losses"}),
-        ("Presión rival", {"Disparos contra": "shots_against", "A puerta": "shots_against_on_target"}),
-    ]
+    t3 = generar_seccion_completa("DEFENSA Y EFICIENCIA", [("Duelos", {"Ofensivos (%)": "offensive_duels_won_percent", "Generales (%)": "duels_won_percent"}), ("Solidez", {"Defensivos (%)": "defensive_duels_won_percent", "Aéreos (%)": "aerial_duels_won_percent"}), ("Acciones", {"Intercepciones": "interceptions", "Despejes": "clearances"}), ("Presión rival", {"Disparos contra": "shots_against", "A puerta": "shots_against_on_target"})], df_filtrado, df_liga_mayor, mostrar_prom, 'h')
     
-    tab3_base = generar_seccion_completa("DEFENSA Y EFICIENCIA", grupos_defensa, df_filtrado, df_liga_mayor, mostrar_prom, 'h')
-    
-    gauge_disparo = ""
+    g_disp = ""
     if "average_shot_distance" in df_filtrado.columns:
-        fig_d, vals_d = crear_gauge_fig("Distancia media de disparo", "average_shot_distance", df_filtrado, df_liga_mayor, mostrar_prom)
-        if fig_d:
-            img_d = grafico_a_base64(fig_d, width=900, height=550)
-            if img_d:
-                conc_d = f"<div class='conclusion'><strong>Cibao:</strong> {vals_d['cibao']:.2f}m | <strong>Liga:</strong> {vals_d['liga']:.2f if vals_d['liga'] else 'N/A'}m</div>"
-                gauge_disparo = f"<div class='grid-1-centered'><div class='grafico-item'><img src='data:image/png;base64,{img_d}'>{conc_d}</div></div>"
+        fd, vd = crear_gauge_fig("Distancia media disparo", "average_shot_distance", df_filtrado, df_liga_mayor, mostrar_prom)
+        if fd:
+            idd = grafico_a_base64(fd, 900, 550)
+            if idd:
+                v_liga_d = f"{vd['liga']:.2f}" if vd['liga'] and not pd.isna(vd['liga']) else "N/A"
+                g_disp = f"<div class='grid-1-centered'><div class='grafico-item'><img src='data:image/png;base64,{idd}'><div class='conclusion'><strong>Cibao:</strong> {vd['cibao']:.2f}m | <strong>Liga:</strong> {v_liga_d}m</div></div></div>"
     
-    tab3 = tab3_base.replace('</div>', gauge_disparo + '</div>', 1)
+    t3 = t3.replace('</div>', g_disp + '</div>', 1)
     
-    tab4_html = f'<div class="page"><h2 class="section-title">DISTRIBUCIÓN TÁCTICA</h2><div class="grid-2-centered">'
+    t4 = '<div class="page"><h2 class="section-title">DISTRIBUCIÓN TÁCTICA</h2><div class="grid-2-centered">'
+    for nm, mt in [("Recuperaciones", {"Altas": "recoveries_high", "Medias": "recoveries_medium", "Bajas": "recoveries_low"}), ("Presión", {"Alta": "losses_high", "Media": "losses_medium", "Baja": "losses_low"})]:
+        cls = [v for v in mt.values() if v in df_filtrado.columns]
+        if cls:
+            lbs = [k for k, v in mt.items() if v in df_filtrado.columns]
+            sr = df_filtrado[cls].mean().fillna(0)
+            rk = sr.rank(method="dense") - 1
+            zv = rk.astype(int).to_numpy().reshape(1, -1)
+            fh = go.Figure(data=go.Heatmap(z=zv, x=lbs, y=[""], colorscale=[[0, "#2a2a2a"], [0.5, "#ff7b00"], [1, "#ffae42"]], showscale=True))
+            ans = [dict(x=lbs[j], y="", text=f"{sr.iloc[j]:.1f}", font=dict(color="white", size=16), showarrow=False) for j in range(len(lbs))]
+            fh.update_layout(annotations=ans, template="plotly_dark", title=dict(text=f"<b>{nm}</b>", font=dict(size=19, color="#FF8C00"), x=0.5), paper_bgcolor="#111", height=300, margin=dict(l=25, r=25, t=75, b=25))
+            ih = grafico_a_base64(fh, 1100, 650)
+            if ih:
+                t4 += f"<div class='grafico-item'><img src='data:image/png;base64,{ih}'><div class='conclusion'><strong>Mayor actividad:</strong> {lbs[sr.argmax()]}</div></div>"
+    t4 += '</div></div>'
     
-    grupos_tactica = {
-        "Recuperaciones": {"Altas": "recoveries_high", "Medias": "recoveries_medium", "Bajas": "recoveries_low"},
-        "Presión": {"Alta": "losses_high", "Media": "losses_medium", "Baja": "losses_low"},
-    }
+    t5 = '<div class="page"><h2 class="section-title">ANÁLISIS COMPARATIVO</h2>'
+    for cat, mts in [("Ofensivas", {"Goles": "goals", "xG": "xg", "Disparos": "shots", "Disparos puerta": "shots_on_target", "Conversión (%)": "shot_conversion_percent", "Acciones": "attacking_actions", "Centros": "crosses", "Pases clave": "key_passes", "Corners": "corners"}), ("Construcción", {"Posesión (%)": "possession_percent", "Pases": "passes", "Precisión (%)": "passes_accurate_percent", "Progresivos": "progressive_passes", "Último tercio (%)": "passes_to_final_third_accurate_percent", "Largos (%)": "long_passes_accurate_percent", "Al área": "passes_to_penalty_area"}), ("Defensivas", {"Intercepciones": "interceptions", "Despejes": "clearances", "Duelos (%)": "duels_won_percent", "Duelos defens. (%)": "defensive_duels_won_percent", "Pérdidas": "losses", "Disparos contra": "shots_against", "PPDA": "ppda"})]:
+        t5 += f'<h3 class="tabla-titulo">{cat}</h3><table class="tabla-metricas"><tr><th>Métrica</th><th>Cibao</th><th>Liga</th><th>Dif.</th></tr>'
+        for nm, cl in mts.items():
+            if cl in df_filtrado.columns:
+                vc = pd.to_numeric(df_filtrado[cl], errors='coerce').mean()
+                vl = 0
+                if not df_liga_mayor.empty and cl in df_liga_mayor.columns:
+                    vl = pd.to_numeric(df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"][cl], errors='coerce').mean()
+                if pd.isna(vc): vc = 0
+                if pd.isna(vl): vl = 0
+                df = vc - vl
+                cl_color = "positivo" if df > 0.5 else "negativo" if df < -0.5 else "neutro"
+                t5 += f'<tr><td class="metrica-nombre">{nm}</td><td>{vc:.2f}</td><td>{vl:.2f}</td><td class="{cl_color}">{df:+.2f}</td></tr>'
+        t5 += '</table>'
+    t5 += '</div>'
     
-    for nombre, metricas in grupos_tactica.items():
-        cols = [v for v in metricas.values() if v in df_filtrado.columns]
-        if not cols:
-            continue
-        
-        labels = [k for k, v in metricas.items() if v in df_filtrado.columns]
-        series = df_filtrado[cols].mean().fillna(0)
-        rank = series.rank(method="dense") - 1
-        z_vals = rank.astype(int).to_numpy().reshape(1, -1)
-        
-        fig = go.Figure(data=go.Heatmap(z=z_vals, x=labels, y=[""], colorscale=[[0, "#2a2a2a"], [0.5, "#ff7b00"], [1, "#ffae42"]], showscale=True))
-        annotations = [dict(x=labels[j], y="", text=f"{series.iloc[j]:.1f}", font=dict(color="white", size=16), showarrow=False) for j in range(len(labels))]
-        fig.update_layout(annotations=annotations, template="plotly_dark", title=dict(text=f"<b>{nombre}</b>", font=dict(size=19, color="#FF8C00"), x=0.5), paper_bgcolor="#111", height=300, margin=dict(l=25, r=25, t=75, b=25))
-        
-        img = grafico_a_base64(fig, width=1100, height=650)
-        if img:
-            max_m = labels[series.argmax()]
-            tab4_html += f"<div class='grafico-item'><img src='data:image/png;base64,{img}'><div class='conclusion'><strong>Mayor actividad:</strong> {max_m}</div></div>"
-    
-    tab4_html += '</div></div>'
-    
-    # TAB 5: TABLAS
-    metrics_blocks = {
-        "Métricas Ofensivas": {"Goles": "goals", "xG": "xg", "Disparos": "shots", "Disparos puerta": "shots_on_target", "xG/disparo": "xg_per_shot", "Conversión (%)": "shot_conversion_percent", "Acciones ataque": "attacking_actions", "Contraataques": "counter_attacks", "Centros": "crosses", "Precisión centros (%)": "crosses_accurate_percent", "Pases clave": "key_passes", "xA": "xa", "Corners": "corners"},
-        "Construcción y Pase": {"Posesión (%)": "possession_percent", "Pases": "passes", "Precisión (%)": "passes_accurate_percent", "Adelante (%)": "forward_passes_accurate_percent", "Atrás (%)": "back_passes_accurate_percent", "Lateral (%)": "lateral_passes_accurate_percent", "Progresivos": "progressive_passes", "Progresivos precisos (%)": "progressive_passes_accurate_percent", "Último tercio (%)": "passes_to_final_third_accurate_percent", "Largos (%)": "long_passes_accurate_percent", "Inteligentes (%)": "smart_passes_accurate_percent", "Al área": "passes_to_penalty_area", "Longitud media": "average_pass_length"},
-        "Métricas Defensivas": {"Intercepciones": "interceptions", "Despejes": "clearances", "Entradas": "sliding_tackles", "Éxito entradas (%)": "sliding_tackles_successful_percent", "Duelos (%)": "duels_won_percent", "Duelos ofens. (%)": "offensive_duels_won_percent", "Duelos defens. (%)": "defensive_duels_won_percent", "Duelos aéreos (%)": "aerial_duels_won_percent", "Pérdidas": "losses", "Disparos contra": "shots_against", "Contra puerta": "shots_against_on_target", "Eficiencia rival (%)": "shots_against_on_target_percent", "PPDA": "ppda"}
-    }
-    
-    tab5 = f'<div class="page"><h2 class="section-title">ANÁLISIS COMPARATIVO</h2>'
-    
-    for categoria, metricas in metrics_blocks.items():
-        tab5 += f'<h3 class="tabla-titulo">{categoria}</h3><table class="tabla-metricas"><tr><th>Métrica</th><th>Cibao</th><th>Liga</th><th>Diferencia</th></tr>'
-        
-        for nombre, col in metricas.items():
-            if col not in df_filtrado.columns:
-                continue
-            
-            v_c = pd.to_numeric(df_filtrado[col], errors='coerce').mean()
-            v_l = 0
-            
-            if not df_liga_mayor.empty and col in df_liga_mayor.columns:
-                df_l = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
-                v_l = pd.to_numeric(df_l[col], errors='coerce').mean()
-            
-            if pd.isna(v_c): v_c = 0
-            if pd.isna(v_l): v_l = 0
-            
-            diff = v_c - v_l
-            color = "positivo" if diff > 0.5 else "negativo" if diff < -0.5 else "neutro"
-            
-            tab5 += f'<tr><td class="metrica-nombre">{nombre}</td><td>{v_c:.2f}</td><td>{v_l:.2f}</td><td class="{color}">{diff:+.2f}</td></tr>'
-        
-        tab5 += '</table>'
-    
-    tab5 += '</div>'
-    
-    html_completo = f"""<!DOCTYPE html>
-<html lang="es">
-<head><meta charset="UTF-8">
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
 <style>
-@page {{ size: 420mm 297mm; margin: 5mm; }}
-* {{ margin: 0; padding: 0; box-sizing: border-box; }}
-body {{ font-family: Arial; background: #111; color: #DDD; }}
-.page {{ background: #111; padding: 18px; min-height: 287mm; page-break-after: always; }}
-.page:last-child {{ page-break-after: auto; }}
-.portada {{ display: flex; flex-direction: column; justify-content: center; align-items: center; height: 287mm; }}
-.portada img {{ width: 160px; margin-bottom: 40px; }}
-.portada h1 {{ color: #FF8C00; font-size: 54px; font-weight: 900; margin: 10px 0; }}
-.portada h2 {{ color: #DDD; font-size: 28px; margin-bottom: 60px; }}
-.portada .fecha {{ color: #999; font-size: 16px; margin: 6px 0; }}
-.kpis-grid {{ display: grid; grid-template-columns: repeat(9, 1fr); gap: 10px; margin: 20px auto 35px; max-width: 98%; }}
-.kpi-card {{ background: rgba(30,30,30,0.9); border: 2px solid rgba(255,140,0,0.5); border-radius: 10px; padding: 14px 10px; text-align: center; }}
-.kpi-value {{ color: #FF8C00; font-size: 22px; font-weight: 900; margin-bottom: 7px; }}
-.kpi-label {{ color: #CCC; font-size: 11px; }}
-.section-title {{ color: #FF8C00; font-size: 30px; font-weight: 900; text-align: center; margin: 15px 0 22px; }}
-.grid-2x2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }}
-.grid-1-centered {{ display: grid; grid-template-columns: 1fr; max-width: 50%; margin: 0 auto; }}
-.grid-2-centered {{ display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 90%; margin: 0 auto; }}
-.grafico-item {{ background: rgba(20,20,20,0.6); border-radius: 8px; padding: 12px; page-break-inside: avoid; }}
-.grafico-item img {{ width: 100%; height: auto; display: block; }}
-.conclusion {{ background: rgba(30,30,30,0.95); border-left: 3px solid #FF8C00; padding: 8px 10px; margin-top: 8px; font-size: 12px; }}
-.conclusion strong {{ color: #FF8C00; }}
-.tabla-titulo {{ color: #FF8C00; font-size: 19px; font-weight: 700; margin: 18px 0 10px; }}
-.tabla-metricas {{ width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px; }}
-.tabla-metricas th {{ background: #1a1a1a; color: #FF8C00; padding: 10px 8px; border: 1px solid #333; font-weight: 700; font-size: 13px; }}
-.tabla-metricas td {{ background: #111; color: #DDD; padding: 8px; border: 1px solid #2a2a2a; text-align: center; }}
-.tabla-metricas .metrica-nombre {{ text-align: left; padding-left: 12px; }}
-.tabla-metricas .positivo {{ color: #66DD66; font-weight: 700; }}
-.tabla-metricas .negativo {{ color: #FF6666; }}
-.tabla-metricas .neutro {{ color: #999; }}
-.final {{ display: flex; flex-direction: column; justify-content: center; align-items: center; height: 287mm; }}
-.final h1 {{ color: #FF8C00; font-size: 54px; margin-bottom: 22px; }}
-.final p {{ color: #AAA; font-size: 19px; margin: 6px 0; }}
-</style>
-</head>
-<body>
-
+@page{{size:420mm 297mm;margin:5mm}}*{{margin:0;padding:0;box-sizing:border-box}}body{{font-family:Arial;background:#111;color:#DDD}}
+.page{{background:#111;padding:18px;min-height:287mm;page-break-after:always}}.page:last-child{{page-break-after:auto}}
+.portada{{display:flex;flex-direction:column;justify-content:center;align-items:center;height:287mm}}.portada img{{width:160px;margin-bottom:40px}}
+.portada h1{{color:#FF8C00;font-size:54px;font-weight:900;margin:10px 0}}.portada h2{{color:#DDD;font-size:28px;margin-bottom:60px}}
+.portada .fecha{{color:#999;font-size:16px;margin:6px 0}}
+.kpis-grid{{display:grid;grid-template-columns:repeat(9,1fr);gap:10px;margin:20px auto 35px;max-width:98%}}
+.kpi-card{{background:rgba(30,30,30,0.9);border:2px solid rgba(255,140,0,0.5);border-radius:10px;padding:14px 10px;text-align:center}}
+.kpi-value{{color:#FF8C00;font-size:22px;font-weight:900;margin-bottom:7px}}.kpi-label{{color:#CCC;font-size:11px}}
+.section-title{{color:#FF8C00;font-size:30px;font-weight:900;text-align:center;margin:15px 0 22px}}
+.grid-2x2{{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}}
+.grid-1-centered{{display:grid;grid-template-columns:1fr;max-width:50%;margin:0 auto}}
+.grid-2-centered{{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:90%;margin:0 auto}}
+.grafico-item{{background:rgba(20,20,20,0.6);border-radius:8px;padding:12px;page-break-inside:avoid}}
+.grafico-item img{{width:100%;height:auto;display:block}}
+.conclusion{{background:rgba(30,30,30,0.95);border-left:3px solid #FF8C00;padding:8px 10px;margin-top:8px;font-size:12px}}
+.conclusion strong{{color:#FF8C00}}
+.tabla-titulo{{color:#FF8C00;font-size:19px;font-weight:700;margin:18px 0 10px}}
+.tabla-metricas{{width:100%;border-collapse:collapse;margin-bottom:18px;font-size:12px}}
+.tabla-metricas th{{background:#1a1a1a;color:#FF8C00;padding:10px 8px;border:1px solid #333;font-size:13px}}
+.tabla-metricas td{{background:#111;color:#DDD;padding:8px;border:1px solid #2a2a2a;text-align:center}}
+.tabla-metricas .metrica-nombre{{text-align:left;padding-left:12px}}
+.tabla-metricas .positivo{{color:#66DD66;font-weight:700}}.tabla-metricas .negativo{{color:#FF6666}}.tabla-metricas .neutro{{color:#999}}
+.final{{display:flex;flex-direction:column;justify-content:center;align-items:center;height:287mm}}
+.final h1{{color:#FF8C00;font-size:54px;margin-bottom:22px}}.final p{{color:#AAA;font-size:19px;margin:6px 0}}
+</style></head><body>
 <div class="page portada">
-{"<img src='data:image/png;base64," + logo_base64 + "'>" if logo_base64 else ""}
-<h1>REPORTE DE RENDIMIENTO</h1>
-<h1>COLECTIVO</h1>
-<h2>Liga Dominicana - Temporada 2024/2025</h2>
-<p class="fecha">Generado: {fecha_gen}</p>
+{"<img src='data:image/png;base64," + logo_b64 + "'>" if logo_b64 else ""}
+<h1>REPORTE DE RENDIMIENTO</h1><h1>COLECTIVO</h1><h2>Liga Dominicana - Temporada 2024/2025</h2>
+<p class="fecha">Generado: {fecha}</p>
 {f"<p class='fecha'>Partidos: {', '.join(partidos_sel[:3])}</p>" if partidos_sel else ""}
 </div>
-
-<div class="page">
-<h2 class="section-title">INDICADORES Y COMPARATIVA</h2>
-{kpis_html}
-{grafico_comp}
-</div>
-
-{tab1}
-{tab2}
-{tab3}
-{tab4_html}
-{tab5}
-
-<div class="page final">
-<h1>CIBAO FC</h1>
-<p>Departamento de Análisis y Rendimiento</p>
-<p>www.cibaofc.com</p>
-</div>
-
-</body>
-</html>"""
+<div class="page"><h2 class="section-title">INDICADORES Y COMPARATIVA</h2>{kpis}{graf_comp}</div>
+{t1}{t2}{t3}{t4}{t5}
+<div class="page final"><h1>CIBAO FC</h1><p>Departamento de Análisis y Rendimiento</p><p>www.cibaofc.com</p></div>
+</body></html>"""
     
     from weasyprint import HTML
-    return HTML(string=html_completo).write_pdf()
+    return HTML(string=html).write_pdf()
 
 st.markdown("<hr style='margin:40px 0; border-color:#ff8c00;'>", unsafe_allow_html=True)
-
-st.markdown("""
-<h2 style='color:#ff8c00; text-align:center;'>📄 Exportar Reporte PDF Definitivo</h2>
-<p style='text-align:center; color:#ccc; font-size:14px;'>PDF completo - 8 páginas profesionales</p>
-""", unsafe_allow_html=True)
-
+st.markdown("<h2 style='color:#ff8c00; text-align:center;'>📄 Exportar PDF Definitivo</h2><p style='text-align:center; color:#ccc; font-size:14px;'>PDF completo - 8 páginas</p>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([1, 1, 1])
-
 with col2:
-    if st.button("🚀 GENERAR PDF COMPLETO", use_container_width=True, type="primary"):
-        with st.spinner("Generando PDF... 90-120 seg ⏳"):
+    if st.button("🚀 GENERAR PDF", use_container_width=True, type="primary"):
+        with st.spinner("Generando... 90-120 seg ⏳"):
             try:
                 pdf_bytes = generar_pdf_final(df_filtrado, df_liga_mayor, partidos_seleccionados if 'partidos_seleccionados' in locals() else [], mostrar_promedio_liga)
-                st.success("✅ PDF generado!")
+                st.success("✅ Listo!")
                 st.download_button(label="📥 DESCARGAR", data=pdf_bytes, file_name=f"Cibao_FC_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf", use_container_width=True, type="primary")
             except Exception as e:
                 st.error(f"❌ {str(e)}")
