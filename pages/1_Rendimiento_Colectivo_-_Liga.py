@@ -1628,7 +1628,7 @@ with tab5:
         """, unsafe_allow_html=True)
 
 # ===========================================
-# EXPORTACIÓN PDF PROFESIONAL - VERSIÓN FINAL OPTIMIZADA
+# EXPORTACIÓN PDF PROFESIONAL - CÓDIGO DEFINITIVO
 # ===========================================
 
 import io
@@ -1637,27 +1637,18 @@ import base64
 import requests
 import plotly.io as pio
 
-# ===========================================
-# CAPTURAR GRÁFICO
-# ===========================================
-
 def grafico_a_base64(fig, width=900, height=500):
-    """Captura gráfico optimizado para PDF."""
+    """Captura gráfico optimizado."""
     try:
         img_bytes = pio.to_image(fig, format='png', width=width, height=height, scale=2.5, engine='kaleido')
         return base64.b64encode(img_bytes).decode()
     except:
         return None
 
-# ===========================================
-# GENERAR SECCIÓN 3+2 LAYOUT
-# ===========================================
-
 def generar_seccion_completa(titulo, grupos, df_filtrado, df_liga_mayor, mostrar_prom, orientacion):
-    """Genera sección completa: 3 gráficos arriba, 2 abajo centrados."""
+    """Layout 2x2 + 1 centrado abajo."""
     
     html = f'<div class="page"><h2 class="section-title">{titulo}</h2>'
-    
     graficos_html = []
     
     for nombre_grupo, metricas in grupos.items():
@@ -1686,54 +1677,92 @@ def generar_seccion_completa(titulo, grupos, df_filtrado, df_liga_mayor, mostrar
             fig = px.bar(df_plot, x="valor", y="label", color="Equipo", orientation="h", text_auto=".2f", color_discrete_map=colors, barmode="group")
         else:
             fig = px.bar(df_plot, x="label", y="valor", color="Equipo", text_auto=".2f", color_discrete_map=colors, barmode="group")
-            fig.update_layout(xaxis=dict(tickangle=-30))
+            fig.update_layout(xaxis=dict(tickangle=-28))
         
         fig.update_layout(
-            template="plotly_dark",
-            plot_bgcolor="#111",
-            paper_bgcolor="#111",
-            font=dict(color="#EEEEEE", size=13, family="Arial"),
-            title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=17, color="#FF8C00"), x=0.5, xanchor='center'),
+            template="plotly_dark", plot_bgcolor="#111", paper_bgcolor="#111",
+            font=dict(color="#EEEEEE", size=14, family="Arial"),
+            title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color="#FF8C00"), x=0.5),
             showlegend=True,
-            legend=dict(orientation="h", yanchor="top", y=1.15, xanchor="center", x=0.5, font=dict(size=12), bgcolor="rgba(20,20,20,0.8)"),
-            height=220,
-            margin=dict(l=20, r=20, t=70, b=20),
-            bargap=0.25,
-            xaxis=dict(tickfont=dict(size=12)),
-            yaxis=dict(tickfont=dict(size=12))
+            legend=dict(orientation="h", yanchor="top", y=1.18, xanchor="center", x=0.5, font=dict(size=13), bgcolor="rgba(20,20,20,0.9)"),
+            height=260, margin=dict(l=25, r=25, t=75, b=25), bargap=0.3,
+            xaxis=dict(tickfont=dict(size=13)), yaxis=dict(tickfont=dict(size=13))
         )
         
-        fig.update_traces(textfont=dict(size=13, color='white'), textposition='outside')
+        fig.update_traces(textfont=dict(size=14, color='white'), textposition='outside')
         
-        img_base64 = grafico_a_base64(fig, width=850, height=480)
+        img_base64 = grafico_a_base64(fig, width=900, height=550)
         
         if img_base64:
             valores = {etiquetas[col]: cibao_means[col] for col in columnas}
             max_metrica = max(valores, key=valores.get)
             min_metrica = min(valores, key=valores.get)
             conclusion = f"<div class='conclusion'><strong>Fortaleza:</strong> {max_metrica} ({valores[max_metrica]:.2f}) | <strong>Mejora:</strong> {min_metrica} ({valores[min_metrica]:.2f})</div>"
-            
             graficos_html.append(f"<div class='grafico-item'><img src='data:image/png;base64,{img_base64}'>{conclusion}</div>")
     
-    # Layout: 3 arriba + 2 abajo
-    html += '<div class="grid-3-cols">'
-    for i in range(min(3, len(graficos_html))):
+    html += '<div class="grid-2x2">'
+    for i in range(min(4, len(graficos_html))):
         html += graficos_html[i]
     html += '</div>'
     
-    if len(graficos_html) > 3:
-        html += '<div class="grid-2-cols-centered">'
-        for i in range(3, len(graficos_html)):
+    if len(graficos_html) > 4:
+        html += '<div class="grid-1-centered">'
+        for i in range(4, len(graficos_html)):
             html += graficos_html[i]
         html += '</div>'
     
     html += '</div>'
     return html
 
-def generar_seccion_heatmaps(titulo, grupos, df_filtrado):
-    """Genera sección de heatmaps centrados."""
+def generar_gauge_html(nombre, col, df_filtrado, df_liga_mayor, mostrar_prom):
+    """Genera gauge individual."""
+    if col not in df_filtrado.columns:
+        return ""
     
-    html = f'<div class="page"><h2 class="section-title">{titulo}</h2><div class="grid-2-cols-centered">'
+    value_cibao = df_filtrado[col].mean()
+    value_liga = None
+    
+    if mostrar_prom and not df_liga_mayor.empty and col in df_liga_mayor.columns:
+        df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
+        value_liga = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
+    
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value_cibao,
+        title={'text': f"<b>{nombre}</b><br><span style='font-size:13px; color:#FFC966'>Cibao FC</span>", 'font': {'color': '#FF8C00', 'size': 18}},
+        number={'font': {'color': '#FF8C00', 'size': 42}},
+        gauge={
+            'axis': {'range': [0, max(40, value_cibao * 1.5)]},
+            'bar': {'color': "#FF8C00", 'thickness': 0.7},
+            'bgcolor': "#333",
+            'threshold': {
+                'line': {'color': "#FFC966", 'width': 3},
+                'thickness': 0.8,
+                'value': value_liga if value_liga and not pd.isna(value_liga) else 0
+            } if value_liga and not pd.isna(value_liga) else None
+        },
+    ))
+    
+    fig.update_layout(paper_bgcolor="#111", height=260, margin=dict(l=25, r=25, t=75, b=25), font=dict(color="#DDD"))
+    
+    img_base64 = grafico_a_base64(fig, width=900, height=550)
+    
+    if img_base64:
+        if value_liga and not pd.isna(value_liga):
+            diferencia = value_cibao - value_liga
+            comp_text = f"superior en {abs(diferencia):.2f}" if diferencia > 0 else f"inferior en {abs(diferencia):.2f}"
+            conclusion = f"<div class='conclusion'><strong>Valor Cibao:</strong> {value_cibao:.2f} | <strong>Promedio Liga:</strong> {value_liga:.2f} ({comp_text})</div>"
+        else:
+            conclusion = f"<div class='conclusion'><strong>Valor Cibao:</strong> {value_cibao:.2f}</div>"
+        
+        return f"<div class='grafico-item'><img src='data:image/png;base64,{img_base64}'>{conclusion}</div>"
+    
+    return ""
+
+def generar_seccion_heatmaps(titulo, grupos, df_filtrado):
+    """Heatmaps centrados."""
+    
+    html = f'<div class="page"><h2 class="section-title">{titulo}</h2><div class="grid-2-centered">'
     
     for nombre_grupo, metricas in grupos.items():
         cols = [v for v in metricas.values() if v in df_filtrado.columns]
@@ -1745,22 +1774,18 @@ def generar_seccion_heatmaps(titulo, grupos, df_filtrado):
         rank = series.rank(method="dense") - 1
         z_vals = rank.astype(int).to_numpy().reshape(1, -1)
         
-        fig = go.Figure(data=go.Heatmap(z=z_vals, x=labels, y=[""], colorscale=[[0, "#2a2a2a"], [0.5, "#ff7b00"], [1, "#ffae42"]], showscale=True, colorbar=dict(tickvals=[0, 1, 2], ticktext=["Bajo", "Medio", "Alto"], tickfont=dict(size=13))))
+        fig = go.Figure(data=go.Heatmap(z=z_vals, x=labels, y=[""], colorscale=[[0, "#2a2a2a"], [0.5, "#ff7b00"], [1, "#ffae42"]], showscale=True, colorbar=dict(tickvals=[0, 1, 2], ticktext=["Bajo", "Medio", "Alto"], tickfont=dict(size=14))))
         
-        annotations = [dict(x=labels[j], y="", text=f"{series.iloc[j]:.1f}", font=dict(color="white", size=15, family="Arial"), showarrow=False) for j in range(len(labels))]
+        annotations = [dict(x=labels[j], y="", text=f"{series.iloc[j]:.1f}", font=dict(color="white", size=16, family="Arial", weight="bold"), showarrow=False) for j in range(len(labels))]
         
         fig.update_layout(
-            annotations=annotations,
-            template="plotly_dark",
-            title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color="#FF8C00"), x=0.5),
-            paper_bgcolor="#111",
-            height=280,
-            margin=dict(l=20, r=20, t=70, b=20),
-            xaxis=dict(tickfont=dict(size=13)),
-            yaxis=dict(tickfont=dict(size=13))
+            annotations=annotations, template="plotly_dark",
+            title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=19, color="#FF8C00"), x=0.5),
+            paper_bgcolor="#111", height=300, margin=dict(l=25, r=25, t=75, b=25),
+            xaxis=dict(tickfont=dict(size=14)), yaxis=dict(tickfont=dict(size=14))
         )
         
-        img_base64 = grafico_a_base64(fig, width=1000, height=600)
+        img_base64 = grafico_a_base64(fig, width=1100, height=650)
         
         if img_base64:
             max_metrica = labels[series.argmax()]
@@ -1771,37 +1796,38 @@ def generar_seccion_heatmaps(titulo, grupos, df_filtrado):
     return html
 
 def generar_seccion_tablas(titulo, df_filtrado, df_liga_mayor):
-    """Genera sección con las 3 tablas del Tab 5."""
+    """Tablas completas con diferencia en puntos."""
     
     metrics_blocks = {
-        "Ofensivas": {
-            "Goles por partido": "goals",
-            "xG": "xg",
-            "Disparos a puerta": "shots_on_target",
-            "Conversión (%)": "shot_conversion_percent",
-            "Acciones ataque": "attacking_actions",
-            "Centros": "crosses",
+        "Métricas Ofensivas": {
+            "Goles": "goals", "xG": "xg", "Disparos": "shots", "Disparos puerta": "shots_on_target",
+            "xG/disparo": "xg_per_shot", "Conversión (%)": "shot_conversion_percent",
+            "Acciones ataque": "attacking_actions", "Contraataques": "counter_attacks",
+            "Centros": "crosses", "Precisión centros (%)": "crosses_accurate_percent",
+            "Pases clave": "key_passes", "xA": "xa", "Corners": "corners"
         },
         "Construcción y Pase": {
-            "Posesión (%)": "possession_percent",
-            "Precisión pase (%)": "passes_accurate_percent",
-            "Pases progresivos": "progressive_passes",
-            "Precisión último tercio (%)": "passes_to_final_third_accurate_percent",
-            "Pases al área": "passes_to_penalty_area",
+            "Posesión (%)": "possession_percent", "Pases": "passes", "Precisión (%)": "passes_accurate_percent",
+            "Precisión adelante (%)": "forward_passes_accurate_percent", "Precisión atrás (%)": "back_passes_accurate_percent",
+            "Precisión lateral (%)": "lateral_passes_accurate_percent", "Pases progresivos": "progressive_passes",
+            "Precisión progresivos (%)": "progressive_passes_accurate_percent", "Precisión último tercio (%)": "passes_to_final_third_accurate_percent",
+            "Pases largos precisos (%)": "long_passes_accurate_percent", "Pases inteligentes (%)": "smart_passes_accurate_percent",
+            "Pases al área": "passes_to_penalty_area", "Longitud media pase": "average_pass_length"
         },
-        "Defensivas": {
-            "Intercepciones": "interceptions",
-            "Duelos ganados (%)": "duels_won_percent",
-            "Despejes": "clearances",
-            "Disparos en contra": "shots_against",
-            "PPDA": "ppda",
+        "Métricas Defensivas": {
+            "Intercepciones": "interceptions", "Despejes": "clearances", "Entradas": "sliding_tackles",
+            "Éxito entradas (%)": "sliding_tackles_successful_percent", "Duelos ganados (%)": "duels_won_percent",
+            "Duelos ofensivos (%)": "offensive_duels_won_percent", "Duelos defensivos (%)": "defensive_duels_won_percent",
+            "Duelos aéreos (%)": "aerial_duels_won_percent", "Pérdidas": "losses",
+            "Disparos contra": "shots_against", "Disparos contra puerta": "shots_against_on_target",
+            "Eficiencia rival (%)": "shots_against_on_target_percent", "PPDA": "ppda"
         }
     }
     
     html = f'<div class="page"><h2 class="section-title">{titulo}</h2>'
     
     for categoria, metricas in metrics_blocks.items():
-        html += f'<h3 class="tabla-titulo">⬤ {categoria}</h3><table class="tabla-metricas"><tr><th>Métrica</th><th>Cibao FC</th><th>Promedio Liga</th><th>Diferencia</th></tr>'
+        html += f'<h3 class="tabla-titulo">{categoria}</h3><table class="tabla-metricas"><tr><th>Métrica</th><th>Cibao FC</th><th>Liga</th><th>Dif.</th></tr>'
         
         for nombre, col in metricas.items():
             if col not in df_filtrado.columns:
@@ -1820,23 +1846,17 @@ def generar_seccion_tablas(titulo, df_filtrado, df_liga_mayor):
                 val_liga = 0
             
             diff = val_cibao - val_liga
-            diff_percent = (diff / val_liga * 100) if val_liga != 0 else 0
+            color_class = "positivo" if diff > 0.5 else "negativo" if diff < -0.5 else "neutro"
             
-            color_class = "positivo" if diff > 0 else "negativo" if diff < 0 else "neutro"
-            
-            html += f'<tr><td>{nombre}</td><td>{val_cibao:.2f}</td><td>{val_liga:.2f}</td><td class="{color_class}">{diff_percent:+.1f}%</td></tr>'
+            html += f'<tr><td class="metrica-nombre">{nombre}</td><td>{val_cibao:.2f}</td><td>{val_liga:.2f}</td><td class="{color_class}">{diff:+.2f}</td></tr>'
         
-        html += '</table><br>'
+        html += '</table>'
     
     html += '</div>'
     return html
 
-# ===========================================
-# GENERAR PDF COMPLETO
-# ===========================================
-
-def generar_pdf_final_optimizado(df_filtrado, df_liga_mayor, partidos_sel, mostrar_prom):
-    """Genera PDF completo con formato panorámico y layout 3+2."""
+def generar_pdf_final(df_filtrado, df_liga_mayor, partidos_sel, mostrar_prom):
+    """PDF final optimizado."""
     
     logo_base64 = ""
     try:
@@ -1849,14 +1869,13 @@ def generar_pdf_final_optimizado(df_filtrado, df_liga_mayor, partidos_sel, mostr
     
     fecha_gen = datetime.now().strftime("%d/%m/%Y - %H:%M")
     
-    # KPIs
     kpis_html = ""
     if not df_filtrado.empty:
         ultimo = df_filtrado.sort_values("Date", ascending=False).iloc[0]
         fecha_partido = pd.to_datetime(ultimo.get("Date")).strftime("%d-%m-%Y") if pd.notna(ultimo.get("Date")) else "-"
         
         kpis_html = f"""
-        <div class="kpis-container">
+        <div class="kpis-grid">
             <div class="kpi-card"><div class="kpi-value">{fecha_partido}</div><div class="kpi-label">Fecha</div></div>
             <div class="kpi-card"><div class="kpi-value">{ultimo.get('Jornada', '-')}</div><div class="kpi-label">Jornada</div></div>
             <div class="kpi-card"><div class="kpi-value">{ultimo.get('Match', '-')}</div><div class="kpi-label">Partido</div></div>
@@ -1869,42 +1888,62 @@ def generar_pdf_final_optimizado(df_filtrado, df_liga_mayor, partidos_sel, mostr
         </div>
         """
     
-    # Gráfico comparativo
     grafico_comp_img = ""
     if not df_liga_mayor.empty:
         try:
             if 'opponent_choice' in globals() and 'x_choice' in globals() and 'y_choice' in globals():
                 fig_comp, _, _ = make_team_scatter(df_liga_mayor, primary_team="Cibao", opponent=opponent_choice, x_metric=METRIC_OPTIONS.get(x_choice), y_metric=METRIC_OPTIONS.get(y_choice), x_label=x_choice, y_label=y_choice, title=f"Comparativa: Cibao FC vs {opponent_choice}", filters={"Competition": lambda s: s.str.contains("Liga", case=False, na=False)})
-                fig_comp.update_layout(height=400, margin=dict(l=40, r=40, t=70, b=40), font=dict(size=13))
+                fig_comp.update_layout(height=380, margin=dict(l=40, r=40, t=70, b=40), font=dict(size=13))
                 
-                img_comp_base64 = grafico_a_base64(fig_comp, width=2000, height=900)
+                img_comp_base64 = grafico_a_base64(fig_comp, width=2000, height=850)
                 if img_comp_base64:
-                    grafico_comp_img = f"<img src='data:image/png;base64,{img_comp_base64}' style='width:100%; max-width:100%;'>"
+                    grafico_comp_img = f"<img src='data:image/png;base64,{img_comp_base64}' style='width:100%;'>"
         except:
             pass
     
-    # Tabs
+    # TAB 1: EFICIENCIA (con gauge si existe)
     grupos_eficiencia = {
-        "Producción ofensiva directa": {"Goles": "goals", "Goles contra": "conceded_goals", "xG": "xg"},
-        "Eficiencia en tiro": {"Disparos puerta (%)": "shots_on_target_percent", "Fuera área (%)": "shots_from_outside_penalty_area_on_target_percent"},
-        "Patrones ataque": {"Posicionales (%)": "positional_attacks_with_shots_percent", "Contraataques (%)": "counter_attacks_with_shots_percent"},
+        "Producción ofensiva": {"Goles": "goals", "Goles contra": "conceded_goals", "xG": "xg"},
+        "Eficiencia tiro": {"Disparos puerta (%)": "shots_on_target_percent", "Fuera área (%)": "shots_from_outside_penalty_area_on_target_percent"},
+        "Patrones": {"Posicionales (%)": "positional_attacks_with_shots_percent", "Contraataques (%)": "counter_attacks_with_shots_percent"},
         "Balón parado": {"Set pieces (%)": "set_pieces_with_shots_percent", "Corners (%)": "corners_with_shots_percent", "Penaltis (%)": "penalties_converted_percent"},
-        "Juego interior": {"Entradas área": "penalty_area_entries", "Toques área": "touches_in_penalty_area", "Centros": "penalty_area_entries_crosses"},
     }
     
     tab1 = generar_seccion_completa("EFICIENCIA Y ATAQUE", grupos_eficiencia, df_filtrado, df_liga_mayor, mostrar_prom, 'h')
     
+    # Agregar 5to gráfico (Juego interior) en tab1
+    tab1 = tab1.replace('</div>', '')  # Quitar cierre
+    gauge_juego = ""
+    if "penalty_area_entries" in df_filtrado.columns:
+        grupos_interior = {"Juego interior": {"Entradas área": "penalty_area_entries", "Toques área": "touches_in_penalty_area", "Centros": "penalty_area_entries_crosses"}}
+        for nombre, metricas in grupos_interior.items():
+            fig = crear_grafico_barras_simple(nombre, metricas, df_filtrado, df_liga_mayor, mostrar_prom, 'h')
+            if fig:
+                img_base64 = grafico_a_base64(fig, width=900, height=550)
+                if img_base64:
+                    tab1 += f'<div class="grid-1-centered"><div class="grafico-item"><img src="data:image/png;base64,{img_base64}"><div class="conclusion">Métricas de penetración y profundidad ofensiva</div></div></div>'
+    tab1 += '</div>'
+    
+    # TAB 2: CONSTRUCCIÓN (4 gráficos + gauge)
     grupos_construccion = {
-        "Control y circulación": {"Posesión (%)": "possession_percent", "Precisión (%)": "passes_accurate_percent"},
-        "Progresión": {"Prog. (%)": "progressive_passes_accurate_percent", "Atrás (%)": "back_passes_accurate_percent"},
+        "Control": {"Posesión (%)": "possession_percent", "Precisión (%)": "passes_accurate_percent"},
+        "Progresión": {"Progresivos (%)": "progressive_passes_accurate_percent", "Atrás (%)": "back_passes_accurate_percent"},
         "Conexiones": {"Último tercio (%)": "passes_to_final_third_accurate_percent", "Inteligentes (%)": "smart_passes_accurate_percent"},
         "Reinicios": {"Saques banda": "throw_ins", "Saques meta": "goal_kicks"},
     }
     
     tab2 = generar_seccion_completa("CONSTRUCCIÓN Y PASES", grupos_construccion, df_filtrado, df_liga_mayor, mostrar_prom, 'v')
     
+    # Agregar gauge longitud pase
+    tab2 = tab2.replace('</div>', '')
+    gauge_pase = generar_gauge_html("Longitud media de pase", "average_pass_length", df_filtrado, df_liga_mayor, mostrar_prom)
+    if gauge_pase:
+        tab2 += f'<div class="grid-1-centered">{gauge_pase}</div>'
+    tab2 += '</div>'
+    
+    # TAB 3: DEFENSA (4 gráficos + gauge)
     grupos_defensa = {
-        "Dominio duelos": {"Ofensivos (%)": "offensive_duels_won_percent", "Generales (%)": "duels_won_percent"},
+        "Duelos": {"Ofensivos (%)": "offensive_duels_won_percent", "Generales (%)": "duels_won_percent"},
         "Solidez": {"Defensivos (%)": "defensive_duels_won_percent", "Aéreos (%)": "aerial_duels_won_percent"},
         "Acciones": {"Intercepciones": "interceptions", "Despejes": "clearances", "Pérdidas": "losses"},
         "Presión rival": {"Disparos contra": "shots_against", "A puerta": "shots_against_on_target"},
@@ -1912,6 +1951,14 @@ def generar_pdf_final_optimizado(df_filtrado, df_liga_mayor, partidos_sel, mostr
     
     tab3 = generar_seccion_completa("DEFENSA Y EFICIENCIA", grupos_defensa, df_filtrado, df_liga_mayor, mostrar_prom, 'h')
     
+    # Agregar gauge distancia disparo
+    tab3 = tab3.replace('</div>', '')
+    gauge_disparo = generar_gauge_html("Distancia media de disparo", "average_shot_distance", df_filtrado, df_liga_mayor, mostrar_prom)
+    if gauge_disparo:
+        tab3 += f'<div class="grid-1-centered">{gauge_disparo}</div>'
+    tab3 += '</div>'
+    
+    # TAB 4: TÁCTICA
     grupos_tactica = {
         "Recuperaciones": {"Altas": "recoveries_high", "Medias": "recoveries_medium", "Bajas": "recoveries_low"},
         "Presión": {"Alta": "losses_high", "Media": "losses_medium", "Baja": "losses_low"},
@@ -1919,9 +1966,9 @@ def generar_pdf_final_optimizado(df_filtrado, df_liga_mayor, partidos_sel, mostr
     
     tab4 = generar_seccion_heatmaps("DISTRIBUCIÓN TÁCTICA", grupos_tactica, df_filtrado)
     
-    tab5 = generar_seccion_tablas("ANÁLISIS COMPARATIVO (TABLAS)", df_filtrado, df_liga_mayor)
+    # TAB 5: TABLAS
+    tab5 = generar_seccion_tablas("ANÁLISIS COMPARATIVO", df_filtrado, df_liga_mayor)
     
-    # HTML completo
     html_completo = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1931,47 +1978,44 @@ def generar_pdf_final_optimizado(df_filtrado, df_liga_mayor, partidos_sel, mostr
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: Arial, sans-serif; background-color: #111111; color: #DDDDDD; }}
         
-        .page {{ 
-            background-color: #111111; 
-            padding: 15px; 
-            min-height: 287mm; 
-            page-break-after: always;
-        }}
+        .page {{ background-color: #111111; padding: 18px; min-height: 287mm; page-break-after: always; }}
         .page:last-child {{ page-break-after: auto; }}
         
         .portada {{ display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; height: 287mm; }}
-        .portada img {{ width: 150px; margin-bottom: 35px; }}
-        .portada h1 {{ color: #FF8C00; font-size: 50px; font-weight: 900; margin: 10px 0; line-height: 1.1; }}
-        .portada h2 {{ color: #DDDDDD; font-size: 26px; margin-bottom: 55px; }}
-        .portada .fecha {{ color: #999999; font-size: 15px; margin: 5px 0; }}
+        .portada img {{ width: 160px; margin-bottom: 40px; }}
+        .portada h1 {{ color: #FF8C00; font-size: 54px; font-weight: 900; margin: 10px 0; }}
+        .portada h2 {{ color: #DDDDDD; font-size: 28px; margin-bottom: 60px; }}
+        .portada .fecha {{ color: #999999; font-size: 16px; margin: 6px 0; }}
         
-        .kpis-container {{ display: flex; justify-content: center; margin: 15px auto; gap: 8px; max-width: 95%; }}
-        .kpi-card {{ background: rgba(30,30,30,0.9); border: 2px solid rgba(255,140,0,0.5); border-radius: 10px; padding: 12px 10px; text-align: center; flex: 1; max-width: 110px; }}
-        .kpi-value {{ color: #FF8C00; font-size: 20px; font-weight: 900; margin-bottom: 6px; }}
+        .kpis-grid {{ display: grid; grid-template-columns: repeat(9, 1fr); gap: 10px; margin: 20px auto 30px auto; max-width: 98%; }}
+        .kpi-card {{ background: rgba(30,30,30,0.9); border: 2px solid rgba(255,140,0,0.5); border-radius: 10px; padding: 14px 10px; text-align: center; }}
+        .kpi-value {{ color: #FF8C00; font-size: 22px; font-weight: 900; margin-bottom: 7px; }}
         .kpi-label {{ color: #CCCCCC; font-size: 11px; }}
         
-        .section-title {{ color: #FF8C00; font-size: 28px; font-weight: 900; text-align: center; margin: 12px 0 18px 0; }}
+        .section-title {{ color: #FF8C00; font-size: 30px; font-weight: 900; text-align: center; margin: 15px 0 22px 0; }}
         
-        .grid-3-cols {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }}
-        .grid-2-cols-centered {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 66%; margin: 0 auto; }}
+        .grid-2x2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }}
+        .grid-1-centered {{ display: grid; grid-template-columns: 1fr; max-width: 50%; margin: 0 auto; }}
+        .grid-2-centered {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 90%; margin: 0 auto; }}
         
-        .grafico-item {{ background: rgba(20,20,20,0.6); border-radius: 6px; padding: 8px; page-break-inside: avoid; }}
+        .grafico-item {{ background: rgba(20,20,20,0.6); border-radius: 8px; padding: 10px; page-break-inside: avoid; }}
         .grafico-item img {{ width: 100%; height: auto; display: block; border-radius: 4px; }}
         
-        .conclusion {{ background: rgba(30,30,30,0.95); border-left: 3px solid #FF8C00; padding: 6px 8px; margin-top: 6px; font-size: 11px; color: #DDDDDD; }}
+        .conclusion {{ background: rgba(30,30,30,0.95); border-left: 3px solid #FF8C00; padding: 7px 10px; margin-top: 7px; font-size: 12px; color: #DDDDDD; }}
         .conclusion strong {{ color: #FF8C00; }}
         
-        .tabla-titulo {{ color: #FF8C00; font-size: 18px; font-weight: 700; margin: 15px 0 8px 0; }}
-        .tabla-metricas {{ width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px; }}
-        .tabla-metricas th {{ background: #222; color: #FF8C00; padding: 10px; text-align: center; border: 1px solid #333; font-weight: 700; }}
-        .tabla-metricas td {{ background: #1a1a1a; color: #DDD; padding: 8px; text-align: center; border: 1px solid #333; }}
+        .tabla-titulo {{ color: #FF8C00; font-size: 19px; font-weight: 700; margin: 18px 0 10px 0; }}
+        .tabla-metricas {{ width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px; }}
+        .tabla-metricas th {{ background: #1a1a1a; color: #FF8C00; padding: 10px 8px; text-align: center; border: 1px solid #333; font-weight: 700; font-size: 13px; }}
+        .tabla-metricas td {{ background: #111; color: #DDD; padding: 8px; text-align: center; border: 1px solid #2a2a2a; }}
+        .tabla-metricas .metrica-nombre {{ text-align: left; padding-left: 12px; }}
         .tabla-metricas .positivo {{ color: #66DD66; font-weight: 700; }}
         .tabla-metricas .negativo {{ color: #FF6666; }}
         .tabla-metricas .neutro {{ color: #999; }}
         
         .final {{ display: flex; flex-direction: column; justify-content: center; align-items: center; height: 287mm; }}
-        .final h1 {{ color: #FF8C00; font-size: 52px; margin-bottom: 20px; }}
-        .final p {{ color: #AAAAAA; font-size: 18px; margin: 5px 0; }}
+        .final h1 {{ color: #FF8C00; font-size: 54px; margin-bottom: 22px; }}
+        .final p {{ color: #AAAAAA; font-size: 19px; margin: 6px 0; }}
     </style>
 </head>
 <body>
@@ -1988,7 +2032,7 @@ def generar_pdf_final_optimizado(df_filtrado, df_liga_mayor, partidos_sel, mostr
 <div class="page">
     <h2 class="section-title">INDICADORES Y COMPARATIVA</h2>
     {kpis_html}
-    <div style="margin-top: 20px;">{grafico_comp_img}</div>
+    {grafico_comp_img}
 </div>
 
 {tab1}
@@ -2007,22 +2051,45 @@ def generar_pdf_final_optimizado(df_filtrado, df_liga_mayor, partidos_sel, mostr
 </html>"""
     
     from weasyprint import HTML
-    pdf_bytes = HTML(string=html_completo).write_pdf()
-    
-    return pdf_bytes
+    return HTML(string=html_completo).write_pdf()
 
-# ===========================================
-# INTERFAZ STREAMLIT
-# ===========================================
+def crear_grafico_barras_simple(nombre, metricas, df_filtrado, df_liga_mayor, mostrar_prom, orientacion):
+    """Helper para crear gráfico simple."""
+    columnas = [v for v in metricas.values() if v in df_filtrado.columns]
+    if not columnas:
+        return None
+    
+    etiquetas = {v: k for k, v in metricas.items() if v in df_filtrado.columns}
+    cibao_means = df_filtrado[columnas].mean()
+    
+    data = []
+    for col in columnas:
+        data.append({"label": etiquetas[col], "Equipo": "Cibao FC", "valor": cibao_means[col]})
+    
+    if mostrar_prom and not df_liga_mayor.empty:
+        df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
+        for col in columnas:
+            if col in df_liga_sin_cibao.columns:
+                liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
+                data.append({"label": etiquetas[col], "Equipo": "Promedio Liga", "valor": liga_val if not pd.isna(liga_val) else 0})
+    
+    df_plot = pd.DataFrame(data)
+    colors = {"Cibao FC": "#FF8C00", "Promedio Liga": "#FFC966"}
+    
+    fig = px.bar(df_plot, x="valor", y="label", color="Equipo", orientation="h", text_auto=".2f", color_discrete_map=colors, barmode="group")
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#111", paper_bgcolor="#111", font=dict(color="#EEE", size=14), title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color="#FF8C00"), x=0.5), showlegend=True, legend=dict(orientation="h", y=1.18, x=0.5, font=dict(size=13)), height=260, margin=dict(l=25, r=25, t=75, b=25))
+    fig.update_traces(textfont=dict(size=14, color='white'), textposition='outside')
+    
+    return fig
 
 st.markdown("<hr style='margin:40px 0; border-color:#ff8c00;'>", unsafe_allow_html=True)
 
 st.markdown("""
 <h2 style='color:#ff8c00; text-align:center;'>
-    📄 Exportar Reporte PDF Profesional Completo
+    📄 Exportar Reporte PDF Definitivo
 </h2>
 <p style='text-align:center; color:#ccc; font-size:14px;'>
-    PDF panorámico optimizado - Todas las tabs completas en páginas separadas
+    PDF completo optimizado - 8 páginas profesionales
 </p>
 """, unsafe_allow_html=True)
 
@@ -2031,28 +2098,17 @@ st.markdown("<br>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1, 1, 1])
 
 with col2:
-    if st.button("🚀 GENERAR PDF COMPLETO", use_container_width=True, type="primary"):
-        with st.spinner("Generando PDF profesional completo... 90-120 segundos ⏳"):
+    if st.button("🚀 GENERAR PDF DEFINITIVO", use_container_width=True, type="primary"):
+        with st.spinner("Generando PDF profesional... 90-120 segundos ⏳"):
             try:
-                pdf_bytes = generar_pdf_final_optimizado(df_filtrado, df_liga_mayor, partidos_seleccionados if 'partidos_seleccionados' in locals() else [], mostrar_promedio_liga)
+                pdf_bytes = generar_pdf_final(df_filtrado, df_liga_mayor, partidos_seleccionados if 'partidos_seleccionados' in locals() else [], mostrar_promedio_liga)
                 
                 fecha_archivo = datetime.now().strftime("%Y%m%d_%H%M")
-                nombre_archivo = f"Cibao_FC_Reporte_Completo_{fecha_archivo}.pdf"
+                nombre_archivo = f"Cibao_FC_Reporte_{fecha_archivo}.pdf"
                 
-                st.success("✅ ¡PDF profesional completo generado!")
-                
-                st.download_button(
-                    label="📥 DESCARGAR PDF DEFINITIVO",
-                    data=pdf_bytes,
-                    file_name=nombre_archivo,
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="primary"
-                )
-                
-                st.info("📊 El PDF incluye: Portada + KPIs/Comparativa + 4 Tabs con gráficos + Tab Tablas + Página final")
+                st.success("✅ PDF profesional generado!")
+                st.download_button(label="📥 DESCARGAR PDF", data=pdf_bytes, file_name=nombre_archivo, mime="application/pdf", use_container_width=True, type="primary")
                 
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
                 st.exception(e)
-
