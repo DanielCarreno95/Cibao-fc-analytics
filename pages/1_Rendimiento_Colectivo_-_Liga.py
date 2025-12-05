@@ -507,33 +507,33 @@ Evaluación del comportamiento ofensivo del Cibao FC: producción, eficacia en t
 
 grupos = {
     "Producción ofensiva directa": {
-        "Goles por partido": "Goals",
-        "Goles en contra por partido": "Conceded goals",
-        "xG (Goles esperados)": "xG",
+        "Goles por partido": "goals",
+        "Goles en contra por partido": "conceded_goals",
+        "xG (Goles esperados)": "xg",
     },
 
     "Eficiencia en el tiro": {
-        "Porcentaje de disparos a puerta (%)": "Shot Accuracy %",
-        "Disparos desde fuera del área a puerta (%)": "Shots Outside PA Accuracy %",
+        "Porcentaje de disparos a puerta (%)": "shots_on_target_percent",
+        "Disparos desde fuera del área a puerta (%)": "shots_from_outside_penalty_area_on_target_percent",
     },
 
     "Patrones de ataque": {
-        "Ataques posicionales con disparo (%)": "Positional Attacks With Shot %",
-        "Contraataques con disparo (%)": "Counterattacks With Shot %",
+        "Ataques posicionales con disparo (%)": "positional_attacks_with_shots_percent",
+        "Contraataques con disparo (%)": "counter_attacks_with_shots_percent",
     },
 
     "Balón parado y definición": {
-        "Balones parados con disparo (%)": "Set Pieces With Shot %",
-        "Corners con disparo (%)": "Corners With Shot %",
-        "Faltas directas con disparo (%)": "Free Kicks With Shot %",
-        "Conversión de penaltis (%)": "Penalties Conversion %",
+        "Balones parados con disparo (%)": "set_pieces_with_shots_percent",
+        "Corners con disparo (%)": "corners_with_shots_percent",
+        "Faltas directas con disparo (%)": "free_kicks_with_shots_percent",
+        "Conversión de penaltis (%)": "penalties_converted_percent",
     },
 
     "Juego interior y profundidad": {
-        "Entradas al área por 90": "Penalty Area Entries",
-        "Entradas al área con conducción": "Penalty Area Runs",
-        "Entradas al área con centros": "Penalty Area Crosses",
-        "Toques en el área por 90": "Touches in Penalty Area",
+        "Entradas al área por 90": "Penpenalty_area_entries",
+        "Entradas al área con conducción": penalty_area_entries_runs",
+        "Entradas al área con centros": "penalty_area_entries_crosses",
+        "Toques en el área por 90": "touches_in_penalty_area",
     },
 }
 
