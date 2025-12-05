@@ -22,6 +22,9 @@ pio.templates.default = "plotly_dark"
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
 
+# === IMPORTA GENERADOR DE PDF ===
+from src.utils.pdf_generator import generate_pdf_report
+
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Rendimiento Colectivo - Liga", layout="wide")
 
@@ -1647,6 +1650,15 @@ with col_pdf1:
 with col_pdf2:
     if st.button("📄 Generar PDF Completo", use_container_width=True, type="primary"):
         try:
+            # Verificar que el import funcione
+            try:
+                from src.utils.pdf_generator import generate_pdf_report
+            except ImportError as import_err:
+                st.error(f"❌ Error importando generate_pdf_report: {import_err}")
+                import traceback
+                st.code(traceback.format_exc())
+                st.stop()
+            
             with st.spinner("🔄 Generando PDF... Esto puede tomar 30-60 segundos."):
                 # Obtener valores del scatter si están disponibles
                 opponent_choice = st.session_state.get("opponent_choice", None)
@@ -1660,7 +1672,7 @@ with col_pdf2:
                     st.error("❌ Error: Los grupos de métricas no están definidos. Por favor, recarga la página.")
                     st.stop()
                 
-                # Importar make_team_scatter si no está importado
+                # Importar make_team_scatter (ya está importado arriba, pero por si acaso)
                 try:
                     from graficos_de_navaja_suiza import make_team_scatter
                 except ImportError:
@@ -1706,4 +1718,3 @@ if st.session_state.get("pdf_generated", False) and "pdf_bytes" in st.session_st
         use_container_width=True,
         help="Descarga el PDF profesional con todos los gráficos y análisis"
     )
-
