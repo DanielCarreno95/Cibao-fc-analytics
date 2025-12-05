@@ -3967,8 +3967,33 @@ def lighten_color(hex_color: str, factor: float = 0.5) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def get_text_color(hex_color):
-    """Determine if text should be black or white based on color brightness."""
+def get_text_color(hex_color, team_name=None):
+    """Determine if text should be black or white based on color brightness or team-specific rules."""
+    # Team-specific text color rules (for Análisis Táctico y Fases tab)
+    team_text_color_rules = {
+        "Moca": "black",
+        "Atlántico": "white",
+        "Atlético Pantoja": "black",
+        "Delfines Del Este": "white",
+        "Don Bosco Jarabacoa": "black",
+        "Salcedo": "white",
+        "Universidad O&M": "white",
+        "Vega Real": "white",
+        "Cibao": "black"
+    }
+    
+    # If team name is provided and has a specific rule, use it
+    if team_name:
+        team_name_normalized = team_name.strip()
+        # Check exact match first
+        if team_name_normalized in team_text_color_rules:
+            return team_text_color_rules[team_name_normalized]
+        # Check case-insensitive match
+        for team, color in team_text_color_rules.items():
+            if team_name_normalized.lower() == team.lower():
+                return color
+    
+    # Default: calculate based on color brightness
     hex_color = hex_color.lstrip('#')
     r = int(hex_color[0:2], 16)
     g = int(hex_color[2:4], 16)
@@ -3978,7 +4003,7 @@ def get_text_color(hex_color):
     # If brightness is above 128, use black text; otherwise white
     return 'black' if brightness > 128 else 'white'
 
-def create_phase_chart(phase_stats: Dict, team_color: str, metric_config: Dict = None):
+def create_phase_chart(phase_stats: Dict, team_color: str, metric_config: Dict = None, team_name: str = None):
     """Crea gráfico de fases del partido."""
     phases = ["0-15'", "16-30'", "31-45'", "46-60'", "61-75'", "76-90'", "90+'"]
     phase_keys = ["first_15", "16_30", "31_45", "46_60", "61_75", "76_90", "90_plus"]
@@ -4033,8 +4058,8 @@ def create_phase_chart(phase_stats: Dict, team_color: str, metric_config: Dict =
     
     fig = go.Figure()
     
-    # Determine text colors based on bar color brightness
-    goals_for_text_color = get_text_color(goals_for_color)
+    # Determine text colors based on bar color brightness or team-specific rules
+    goals_for_text_color = get_text_color(goals_for_color, team_name=team_name)
     
     # Format text based on metric type
     if metric_config["for_key"] == "goal_difference":
@@ -4057,7 +4082,7 @@ def create_phase_chart(phase_stats: Dict, team_color: str, metric_config: Dict =
     
     # Add second trace only if against_key is provided
     if values_against is not None:
-        goals_against_text_color = get_text_color(goals_against_color)
+        goals_against_text_color = get_text_color(goals_against_color, team_name=team_name)
         if "avg" in metric_config["against_key"]:
             text_format_against = [f"{v:.2f}" for v in values_against]
         else:
@@ -7878,7 +7903,8 @@ def main():
                                 return True
                         return False
                     
-                    team_text_color = 'white' if is_grey_or_black(base_color) else 'black'
+                    # Use get_text_color with team name for team-specific rules
+                    team_text_color = get_text_color(base_color, team_name=selected_opponent)
                     
                     fig = go.Figure()
                     
@@ -7898,7 +7924,9 @@ def main():
                     # Labels outside bars (small bars) are always white
                     # Labels inside bars: white for dark bars, black for light bars
                     team_text_positions = ['outside' if (v < threshold or v < absolute_threshold) else 'inside' for v in team_values]
-                    team_text_colors = ['white' if (v < threshold or v < absolute_threshold) else ('white' if is_grey_or_black(base_color) else 'black') for v in team_values]
+                    # Use get_text_color with team name for team-specific rules
+                    base_text_color = get_text_color(base_color, team_name=selected_opponent)
+                    team_text_colors = ['white' if (v < threshold or v < absolute_threshold) else base_text_color for v in team_values]
                     comp_text_positions = ['outside' if (v < threshold or v < absolute_threshold) else 'inside' for v in comp_values]
                     comp_text_colors = ['#FFFFFF' for v in comp_values]  # League average bars are always dark gray, so always white text
                     
@@ -8039,7 +8067,8 @@ def main():
                                 return True
                         return False
                     
-                    team_text_color = 'white' if is_grey_or_black(base_color) else 'black'
+                    # Use get_text_color with team name for team-specific rules
+                    team_text_color = get_text_color(base_color, team_name=selected_opponent)
                     
                     fig = go.Figure()
                     
@@ -8059,7 +8088,9 @@ def main():
                     # Labels outside bars (small bars) are always white
                     # Labels inside bars: white for dark bars, black for light bars
                     team_text_positions = ['outside' if (v < threshold or v < absolute_threshold) else 'inside' for v in team_values]
-                    team_text_colors = ['white' if (v < threshold or v < absolute_threshold) else ('white' if is_grey_or_black(base_color) else 'black') for v in team_values]
+                    # Use get_text_color with team name for team-specific rules
+                    base_text_color = get_text_color(base_color, team_name=selected_opponent)
+                    team_text_colors = ['white' if (v < threshold or v < absolute_threshold) else base_text_color for v in team_values]
                     comp_text_positions = ['outside' if (v < threshold or v < absolute_threshold) else 'inside' for v in comp_values]
                     comp_text_colors = ['#FFFFFF' for v in comp_values]  # League average bars are always dark gray, so always white text
                     
@@ -8233,7 +8264,8 @@ def main():
                                 return True
                         return False
                     
-                    team_text_color = 'white' if is_grey_or_black(base_color) else 'black'
+                    # Use get_text_color with team name for team-specific rules
+                    team_text_color = get_text_color(base_color, team_name=selected_opponent)
                     
                     fig = go.Figure()
                     
@@ -8246,12 +8278,14 @@ def main():
                     # Labels outside bars (small bars) are always white
                     # Labels inside bars: white for dark bars, black for light bars
                     pos_attacks_pos = 'outside' if positional_attacks < threshold else 'inside'
-                    pos_attacks_color = 'white' if positional_attacks < threshold else ('white' if is_grey_or_black(base_color) else 'black')
+                    # Use get_text_color with team name for team-specific rules
+                    base_text_color = get_text_color(base_color, team_name=selected_opponent)
+                    pos_attacks_color = 'white' if positional_attacks < threshold else base_text_color
                     comp_pos_attacks_pos = 'outside' if comp_positional < threshold else 'inside'
                     comp_pos_attacks_color = '#FFFFFF'  # League average bars are always dark gray
                     
                     pos_shots_pos = 'outside' if positional_with_shots < threshold else 'inside'
-                    pos_shots_color = 'white' if positional_with_shots < threshold else ('white' if is_grey_or_black(base_color) else 'black')
+                    pos_shots_color = 'white' if positional_with_shots < threshold else base_text_color
                     comp_pos_shots_pos = 'outside' if comp_positional_with_shots < threshold else 'inside'
                     comp_pos_shots_color = '#FFFFFF'  # League average bars are always dark gray
                     
@@ -8431,7 +8465,8 @@ def main():
                                 return True
                         return False
                     
-                    team_text_color = 'white' if is_grey_or_black(team_color) else 'black'
+                    # Use get_text_color with team name for team-specific rules
+                    team_text_color = get_text_color(team_color, team_name=selected_opponent)
                     
                     # Calculate max value to determine if bars are too small
                     all_def_values = [v for v in chart_team_values + chart_comp_values if v is not None and v > 0]
@@ -8442,7 +8477,9 @@ def main():
                     # Labels outside bars (small bars) are always white
                     # Labels inside bars: white for dark bars, black for light bars
                     team_def_text_positions = ['outside' if v < threshold else 'inside' for v in chart_team_values]
-                    team_def_text_colors = ['white' if v < threshold else ('white' if is_grey_or_black(team_color) else 'black') for v in chart_team_values]
+                    # Use get_text_color with team name for team-specific rules
+                    base_text_color = get_text_color(team_color, team_name=selected_opponent)
+                    team_def_text_colors = ['white' if v < threshold else base_text_color for v in chart_team_values]
                     comp_def_text_positions = ['outside' if v < threshold else 'inside' for v in chart_comp_values]
                     comp_def_text_colors = ['#FFFFFF' for v in chart_comp_values]  # League average bars are always dark gray
                     
@@ -8616,7 +8653,9 @@ def main():
                     # Labels outside bars (small bars) are always white
                     # Labels inside bars: white for dark bars, black for light bars
                     team_corners_positions = ['outside' if v < threshold else 'inside' for v in [corners, corners_with_shots]]
-                    team_corners_colors = ['white' if v < threshold else ('white' if is_grey_or_black(base_color) else 'black') for v in [corners, corners_with_shots]]
+                    # Use get_text_color with team name for team-specific rules
+                    base_text_color = get_text_color(base_color, team_name=selected_opponent)
+                    team_corners_colors = ['white' if v < threshold else base_text_color for v in [corners, corners_with_shots]]
                     comp_corners_positions = ['outside' if v < threshold else 'inside' for v in [comp_corners, comp_corners_with_shots]]
                     comp_corners_colors = ['#FFFFFF' for v in [comp_corners, comp_corners_with_shots]]  # League average bars are always dark gray
                     
@@ -8673,7 +8712,9 @@ def main():
                     # Labels outside bars (small bars) are always white
                     # Labels inside bars: white for dark bars, black for light bars
                     team_fk_positions = ['outside' if v < threshold else 'inside' for v in [free_kicks, free_kicks_with_shots]]
-                    team_fk_colors = ['white' if v < threshold else ('white' if is_grey_or_black(base_color) else 'black') for v in [free_kicks, free_kicks_with_shots]]
+                    # Use get_text_color with team name for team-specific rules
+                    base_text_color = get_text_color(base_color, team_name=selected_opponent)
+                    team_fk_colors = ['white' if v < threshold else base_text_color for v in [free_kicks, free_kicks_with_shots]]
                     comp_fk_positions = ['outside' if v < threshold else 'inside' for v in [comp_free_kicks, comp_free_kicks_with_shots]]
                     comp_fk_colors = ['#FFFFFF' for v in [comp_free_kicks, comp_free_kicks_with_shots]]  # League average bars are always dark gray
                     
@@ -8730,7 +8771,9 @@ def main():
                     # Labels outside bars (small bars) are always white
                     # Labels inside bars: white for dark bars, black for light bars
                     team_penalties_positions = ['outside' if v < threshold else 'inside' for v in [penalties, penalties_converted]]
-                    team_penalties_colors = ['white' if v < threshold else ('white' if is_grey_or_black(base_color) else 'black') for v in [penalties, penalties_converted]]
+                    # Use get_text_color with team name for team-specific rules
+                    base_text_color = get_text_color(base_color, team_name=selected_opponent)
+                    team_penalties_colors = ['white' if v < threshold else base_text_color for v in [penalties, penalties_converted]]
                     comp_penalties_positions = ['outside' if v < threshold else 'inside' for v in [comp_penalties, comp_penalties_converted]]
                     comp_penalties_colors = ['#FFFFFF' for v in [comp_penalties, comp_penalties_converted]]  # League average bars are always dark gray
                     
@@ -8787,7 +8830,9 @@ def main():
                     # Labels outside bars (small bars) are always white
                     # Labels inside bars: white for dark bars, black for light bars
                     team_throw_ins_positions = ['outside' if v < threshold else 'inside' for v in [throw_ins, throw_ins_accurate]]
-                    team_throw_ins_colors = ['white' if v < threshold else ('white' if is_grey_or_black(base_color) else 'black') for v in [throw_ins, throw_ins_accurate]]
+                    # Use get_text_color with team name for team-specific rules
+                    base_text_color = get_text_color(base_color, team_name=selected_opponent)
+                    team_throw_ins_colors = ['white' if v < threshold else base_text_color for v in [throw_ins, throw_ins_accurate]]
                     comp_throw_ins_positions = ['outside' if v < threshold else 'inside' for v in [comp_throw_ins, comp_throw_ins_accurate]]
                     comp_throw_ins_colors = ['#FFFFFF' for v in [comp_throw_ins, comp_throw_ins_accurate]]  # League average bars are always dark gray
                     
