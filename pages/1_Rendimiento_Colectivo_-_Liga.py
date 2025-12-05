@@ -596,6 +596,9 @@ if not df_liga_mayor.empty:
                 filters=filters,
             )
 
+            # Add spacing to prevent overlap with summary text
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            
             st.plotly_chart(
                 fig_radar,
                 use_container_width=True,

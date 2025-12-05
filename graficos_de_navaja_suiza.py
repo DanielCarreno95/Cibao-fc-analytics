@@ -326,7 +326,7 @@ def build_scatter(
         color=color_col if color_col else None,
         size=size_col if size_col else None,
         hover_data=config.get("hover_data", []),
-        text=group_col if aggregate_flag and group_col in df.columns else None,
+        text=text_labels,  # Only labels Cibao and selected opponent
         labels={x_col: x_label, y_col: y_label},
         title=config.get("title"),
         template="plotly_dark",
@@ -480,7 +480,8 @@ def build_scatter(
         fig.update_traces(marker=dict(color=colors, size=18, opacity=opacities))
     else:
         fig.update_traces(marker=dict(size=18))
-    if aggregate_flag and group_col in df.columns:
+    # Only set textposition if we have text labels (for Cibao and selected opponent)
+    if aggregate_flag and group_col in df.columns and text_labels and any(text_labels):
         fig.update_traces(textposition="top center", cliponaxis=False)
     return fig
 
