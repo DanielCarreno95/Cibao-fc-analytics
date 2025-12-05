@@ -7,6 +7,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
+from datetime import datetime
 
 from src.data_processing.load_cibao_team_data import load_cibao_team_data
 from src.utils.metrics_dictionary import METRICS_DICT
@@ -21,6 +22,9 @@ pio.templates.default = "plotly_dark"
 
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
+
+# === IMPORTA GENERADOR DE PDF ===
+from src.utils.pdf_generator import generate_pdf_report
 
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Rendimiento Colectivo - Liga", layout="wide")
@@ -427,6 +431,9 @@ if not df_liga_mayor.empty:
 
     else:
         opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
+        
+        # Guardar en session_state para PDF
+        st.session_state["opponent_choice"] = opponent_choice
 
         metric_labels = list(METRIC_OPTIONS.keys())
 
@@ -459,6 +466,12 @@ if not df_liga_mayor.empty:
 
         x_column = METRIC_OPTIONS.get(x_choice)
         y_column = METRIC_OPTIONS.get(y_choice)
+        
+        # Guardar métricas en session_state para PDF
+        st.session_state["x_metric"] = x_column
+        st.session_state["y_metric"] = y_column
+        st.session_state["x_label"] = x_choice
+        st.session_state["y_label"] = y_choice
 
         if x_column is None or y_column is None:
             st.error("No se encontró la métrica seleccionada en el dataset.")
@@ -1627,305 +1640,82 @@ with tab5:
         </div>
         """, unsafe_allow_html=True)
 
-# ===========================================
-# EXPORTACIÓN HTML + PDF - SOLUCIÓN DEFINITIVA
-# ===========================================
+# ============================================================
+# 📄 GENERACIÓN DE PDF PROFESIONAL
+# ============================================================
+st.markdown("---")
+st.markdown("### 📄 Generar Reporte en PDF")
 
-import io
-from datetime import datetime
-import base64
-import requests
+col_pdf1, col_pdf2 = st.columns([2, 1])
 
-def generar_html_completo(df_filtrado, df_liga_mayor, partidos_sel, mostrar_prom):
-    """Genera HTML completo y optimizado."""
-    
-    logo_b64 = ""
-    try:
-        r = requests.get("https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png", timeout=10)
-        if r.status_code == 200:
-            logo_b64 = base64.b64encode(r.content).decode()
-    except:
-        pass
-    
-    fecha = datetime.now().strftime("%d/%m/%Y - %H:%M")
-    
-    # KPIS
-    kpis = ""
-    if not df_filtrado.empty:
-        u = df_filtrado.sort_values("Date", ascending=False).iloc[0]
-        fp = pd.to_datetime(u.get("Date")).strftime("%d-%m-%Y") if pd.notna(u.get("Date")) else "-"
-        kpis = f"""
-        <div class="kpis-grid">
-            <div class="kpi"><div class="val">{fp}</div><div class="lbl">Fecha</div></div>
-            <div class="kpi"><div class="val">{u.get('Jornada', '-')}</div><div class="lbl">Jornada</div></div>
-            <div class="kpi"><div class="val">{u.get('Match', '-')}</div><div class="lbl">Partido</div></div>
-            <div class="kpi"><div class="val">{u.get('Final Result', '-')}</div><div class="lbl">Resultado</div></div>
-            <div class="kpi"><div class="val">{u.get('Alineacion', '-')}</div><div class="lbl">Formación</div></div>
-            <div class="kpi"><div class="val">{u.get('xg', 0):.2f}</div><div class="lbl">xG</div></div>
-            <div class="kpi"><div class="val">{u.get('possession_percent', 0):.1f}%</div><div class="lbl">Posesión</div></div>
-            <div class="kpi"><div class="val">{int(u.get('yellow_cards', 0))}</div><div class="lbl">T. Amarillas</div></div>
-            <div class="kpi"><div class="val">{int(u.get('red_cards', 0))}</div><div class="lbl">T. Rojas</div></div>
-        </div>
-        """
-    
-    # COMPARATIVA
-    comp = ""
-    if not df_liga_mayor.empty and 'opponent_choice' in globals() and 'x_choice' in globals():
+with col_pdf1:
+    st.markdown("""
+    <p style='color:#ccc; font-size:14px;'>
+    Genera un PDF profesional de 8 páginas con todos los gráficos, análisis y tablas del reporte.
+    El PDF incluye: portada, KPIs, comparativas, gráficos de eficiencia, construcción, defensa,
+    distribución táctica y tablas comparativas.
+    </p>
+    """, unsafe_allow_html=True)
+
+with col_pdf2:
+    if st.button("📄 Generar PDF Completo", use_container_width=True, type="primary"):
         try:
-            fig, _, _ = make_team_scatter(df_liga_mayor, "Cibao", opponent_choice, METRIC_OPTIONS.get(x_choice), METRIC_OPTIONS.get(y_choice), x_choice, y_choice, f"Cibao FC vs {opponent_choice}", {"Competition": lambda s: s.str.contains("Liga", case=False, na=False)})
-            fig.update_layout(height=480, margin=dict(l=40, r=40, t=70, b=40), font=dict(size=14))
-            comp = fig.to_html(include_plotlyjs='cdn', config={'displayModeBar': False}, div_id="comp")
-        except:
-            pass
-    
-    # FUNCIÓN GRÁFICO
-    def hacer_graf(nom, mts, ori):
-        cls = [v for v in mts.values() if v in df_filtrado.columns]
-        if not cls:
-            return ""
-        ets = {v: k for k, v in mts.items() if v in df_filtrado.columns}
-        cm = df_filtrado[cls].mean()
-        data = [{"label": ets[c], "Equipo": "Cibao FC", "valor": cm[c]} for c in cls]
-        if mostrar_prom and not df_liga_mayor.empty:
-            dl = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"]
-            for c in cls:
-                if c in dl.columns:
-                    lv = pd.to_numeric(dl[c], errors="coerce").mean()
-                    data.append({"label": ets[c], "Equipo": "Promedio Liga", "valor": lv if not pd.isna(lv) else 0})
-        dp = pd.DataFrame(data)
-        clrs = {"Cibao FC": "#FF8C00", "Promedio Liga": "#FFC966"}
-        if ori == 'h':
-            fg = px.bar(dp, x="valor", y="label", color="Equipo", orientation="h", text_auto=".2f", color_discrete_map=clrs, barmode="group")
-        else:
-            fg = px.bar(dp, x="label", y="valor", color="Equipo", text_auto=".2f", color_discrete_map=clrs, barmode="group")
-            fg.update_layout(xaxis=dict(tickangle=-25))
-        fg.update_layout(template="plotly_dark", plot_bgcolor="#111", paper_bgcolor="#111", font=dict(size=14), title=dict(text=f"<b>{nom}</b>", font=dict(size=18, color="#FF8C00")), showlegend=True, legend=dict(orientation="h", y=1.15, x=0.5, font=dict(size=13)), height=300, margin=dict(l=25, r=25, t=70, b=25))
-        fg.update_traces(textfont=dict(size=14, color='white'), textposition='outside')
-        gh = fg.to_html(include_plotlyjs=False, config={'displayModeBar': False}, div_id=f"{nom.replace(' ', '_')}")
-        vals = {ets[c]: cm[c] for c in cls}
-        mx = max(vals, key=vals.get)
-        mn = min(vals, key=vals.get)
-        return f"<div class='g'>{gh}<div class='c'><b>Fortaleza:</b> {mx} ({vals[mx]:.2f}) | <b>Mejora:</b> {mn} ({vals[mn]:.2f})</div></div>"
-    
-    def hacer_gauge(nom, col):
-        if col not in df_filtrado.columns:
-            return ""
-        vc = df_filtrado[col].mean()
-        vl = None
-        if mostrar_prom and not df_liga_mayor.empty and col in df_liga_mayor.columns:
-            vl = pd.to_numeric(df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"][col], errors="coerce").mean()
-        fg = go.Figure(go.Indicator(mode="gauge+number", value=vc, title={'text': f"<b>{nom}</b>", 'font': {'color': '#FF8C00', 'size': 18}}, number={'font': {'color': '#FF8C00', 'size': 42}}, gauge={'axis': {'range': [0, max(40, vc*1.5)]}, 'bar': {'color': "#FF8C00"}, 'bgcolor': "#333", 'threshold': {'line': {'color': "#FFC966", 'width': 3}, 'value': vl if vl and not pd.isna(vl) else 0} if vl and not pd.isna(vl) else None}))
-        fg.update_layout(paper_bgcolor="#111", height=300, margin=dict(l=25, r=25, t=70, b=25))
-        gh = fg.to_html(include_plotlyjs=False, config={'displayModeBar': False}, div_id=f"gg_{nom}")
-        vlt = f"{vl:.2f}" if vl and not pd.isna(vl) else "N/A"
-        return f"<div class='g'>{gh}<div class='c'><b>Cibao:</b> {vc:.2f} | <b>Liga:</b> {vlt}</div></div>"
-    
-    def hacer_hm(nom, mts):
-        cls = [v for v in mts.values() if v in df_filtrado.columns]
-        if not cls:
-            return ""
-        lbs = [k for k, v in mts.items() if v in df_filtrado.columns]
-        sr = df_filtrado[cls].mean().fillna(0)
-        rk = sr.rank(method="dense") - 1
-        zv = rk.astype(int).to_numpy().reshape(1, -1)
-        fg = go.Figure(data=go.Heatmap(z=zv, x=lbs, y=[""], colorscale=[[0, "#2a2a2a"], [0.5, "#ff7b00"], [1, "#ffae42"]], showscale=True))
-        ans = [dict(x=lbs[j], y="", text=f"{sr.iloc[j]:.1f}", font=dict(color="white", size=16), showarrow=False) for j in range(len(lbs))]
-        fg.update_layout(annotations=ans, template="plotly_dark", title=dict(text=f"<b>{nom}</b>", font=dict(size=18, color="#FF8C00")), paper_bgcolor="#111", height=330, margin=dict(l=25, r=25, t=70, b=25))
-        gh = fg.to_html(include_plotlyjs=False, config={'displayModeBar': False}, div_id=f"hm_{nom}")
-        return f"<div class='g'>{gh}<div class='c'><b>Mayor actividad:</b> {lbs[sr.argmax()]}</div></div>"
-    
-    # GENERAR TODOS LOS GRÁFICOS
-    t1 = [
-        hacer_graf("Producción ofensiva", {"Goles": "goals", "Contra": "conceded_goals", "xG": "xg"}, 'h'),
-        hacer_graf("Eficiencia tiro", {"Puerta (%)": "shots_on_target_percent", "Fuera (%)": "shots_from_outside_penalty_area_on_target_percent"}, 'h'),
-        hacer_graf("Patrones", {"Posicionales (%)": "positional_attacks_with_shots_percent", "Contra (%)": "counter_attacks_with_shots_percent"}, 'h'),
-        hacer_graf("Balón parado", {"Set (%)": "set_pieces_with_shots_percent", "Corners (%)": "corners_with_shots_percent", "Pen (%)": "penalties_converted_percent"}, 'h'),
-        hacer_graf("Juego interior", {"Entradas": "penalty_area_entries", "Toques": "touches_in_penalty_area", "Centros": "penalty_area_entries_crosses"}, 'h'),
-    ]
-    
-    t2 = [
-        hacer_graf("Control", {"Posesión (%)": "possession_percent", "Precisión (%)": "passes_accurate_percent"}, 'v'),
-        hacer_graf("Progresión", {"Progresivos (%)": "progressive_passes_accurate_percent", "Atrás (%)": "back_passes_accurate_percent"}, 'v'),
-        hacer_graf("Conexiones", {"Último tercio (%)": "passes_to_final_third_accurate_percent", "Inteligentes (%)": "smart_passes_accurate_percent"}, 'v'),
-        hacer_graf("Reinicios", {"Banda": "throw_ins", "Meta": "goal_kicks"}, 'v'),
-        hacer_gauge("Longitud media pase", "average_pass_length"),
-    ]
-    
-    t3 = [
-        hacer_graf("Duelos", {"Ofensivos (%)": "offensive_duels_won_percent", "Generales (%)": "duels_won_percent"}, 'h'),
-        hacer_graf("Solidez", {"Defensivos (%)": "defensive_duels_won_percent", "Aéreos (%)": "aerial_duels_won_percent"}, 'h'),
-        hacer_graf("Acciones", {"Intercep.": "interceptions", "Despejes": "clearances", "Pérdidas": "losses"}, 'h'),
-        hacer_graf("Presión rival", {"Contra": "shots_against", "Puerta": "shots_against_on_target"}, 'h'),
-        hacer_gauge("Distancia disparo", "average_shot_distance"),
-    ]
-    
-    t4 = [
-        hacer_hm("Recuperaciones", {"Altas": "recoveries_high", "Medias": "recoveries_medium", "Bajas": "recoveries_low"}),
-        hacer_hm("Presión", {"Alta": "losses_high", "Media": "losses_medium", "Baja": "losses_low"}),
-    ]
-    
-    # TABLAS
-    t5 = '<h2 class="tit">ANÁLISIS COMPARATIVO</h2>'
-    for cat, mts in [("Ofensivas", {"Goles": "goals", "xG": "xg", "Disparos": "shots", "Puerta": "shots_on_target", "Conv (%)": "shot_conversion_percent", "Acciones": "attacking_actions", "Centros": "crosses", "Claves": "key_passes", "Corners": "corners"}), ("Construcción", {"Posesión": "possession_percent", "Pases": "passes", "Precisión": "passes_accurate_percent", "Progresivos": "progressive_passes", "Últ. tercio": "passes_to_final_third_accurate_percent", "Al área": "passes_to_penalty_area"}), ("Defensivas", {"Intercep.": "interceptions", "Despejes": "clearances", "Duelos": "duels_won_percent", "Def (%)": "defensive_duels_won_percent", "Pérdidas": "losses", "Contra": "shots_against", "PPDA": "ppda"})]:
-        t5 += f'<h3 class="sub">{cat}</h3><table><tr><th>Métrica</th><th>Cibao</th><th>Liga</th><th>Dif.</th></tr>'
-        for nm, cl in mts.items():
-            if cl in df_filtrado.columns:
-                vc = pd.to_numeric(df_filtrado[cl], errors='coerce').mean()
-                vl = 0
-                if not df_liga_mayor.empty and cl in df_liga_mayor.columns:
-                    vl = pd.to_numeric(df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"][cl], errors='coerce').mean()
-                if pd.isna(vc): vc = 0
-                if pd.isna(vl): vl = 0
-                dif = vc - vl
-                clc = "pos" if dif > 0.5 else "neg" if dif < -0.5 else "neu"
-                t5 += f'<tr><td class="nm">{nm}</td><td>{vc:.2f}</td><td>{vl:.2f}</td><td class="{clc}">{dif:+.2f}</td></tr>'
-        t5 += '</table>'
-    
-    html = f"""<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Cibao FC - Reporte</title>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<style>
-@page{{size:420mm 297mm;margin:5mm}}
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:Arial;background:#111;color:#DDD}}
-.page{{background:#111;padding:20px;min-height:287mm;page-break-after:always}}
-.page:last-child{{page-break-after:auto}}
-.portada{{display:flex;flex-direction:column;justify-content:center;align-items:center;height:287mm}}
-.portada img{{width:160px;margin-bottom:40px}}
-.portada h1{{color:#FF8C00;font-size:56px;font-weight:900;margin:8px 0}}
-.portada h2{{color:#DDD;font-size:28px;margin:60px 0}}
-.portada .f{{color:#999;font-size:16px;margin:5px 0}}
-.tit{{color:#FF8C00;font-size:32px;font-weight:900;text-align:center;margin:12px 0 25px}}
-.kpis-grid{{display:grid;grid-template-columns:repeat(9,1fr);gap:10px;margin:20px auto 40px;max-width:98%}}
-.kpi{{background:rgba(30,30,30,0.9);border:2px solid rgba(255,140,0,0.5);border-radius:10px;padding:14px 10px;text-align:center}}
-.val{{color:#FF8C00;font-size:24px;font-weight:900;margin-bottom:7px}}
-.lbl{{color:#CCC;font-size:11px}}
-.grid-2x2{{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}}
-.grid-1{{max-width:50%;margin:0 auto}}
-.grid-2{{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:80%;margin:0 auto}}
-.g{{background:rgba(20,20,20,0.7);border-radius:8px;padding:12px}}
-.c{{background:rgba(30,30,30,0.95);border-left:3px solid #FF8C00;padding:9px 11px;margin-top:9px;font-size:12px}}
-.c b{{color:#FF8C00}}
-.sub{{color:#FF8C00;font-size:20px;font-weight:700;margin:20px 0 10px}}
-table{{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px}}
-th{{background:#1a1a1a;color:#FF8C00;padding:11px;border:1px solid #333;font-weight:700}}
-td{{background:#111;color:#DDD;padding:9px;border:1px solid #2a2a2a;text-align:center}}
-.nm{{text-align:left;padding-left:12px}}
-.pos{{color:#66DD66;font-weight:700}}
-.neg{{color:#FF6666}}
-.neu{{color:#999}}
-.final{{display:flex;flex-direction:column;justify-content:center;align-items:center;height:287mm}}
-.final h1{{color:#FF8C00;font-size:56px;margin-bottom:25px}}
-.final p{{color:#AAA;font-size:19px;margin:6px 0}}
-@media print{{body{{print-color-adjust:exact;-webkit-print-color-adjust:exact}}}}
-</style>
-</head>
-<body>
-
-<div class="page portada">
-{"<img src='data:image/png;base64," + logo_b64 + "'>" if logo_b64 else ""}
-<h1>REPORTE DE RENDIMIENTO</h1>
-<h1>COLECTIVO</h1>
-<h2>Liga Dominicana - Temporada 2024/2025</h2>
-<p class="f">Generado: {fecha}</p>
-{f"<p class='f'>Partidos: {', '.join(partidos_sel[:3])}</p>" if partidos_sel else ""}
-</div>
-
-<div class="page">
-<h2 class="tit">INDICADORES Y COMPARATIVA</h2>
-{kpis}
-{comp}
-</div>
-
-<div class="page">
-<h2 class="tit">EFICIENCIA Y ATAQUE</h2>
-<div class="grid-2x2">{"".join([g for g in t1[:4] if g])}</div>
-<div class="grid-1">{"".join([g for g in t1[4:] if g])}</div>
-</div>
-
-<div class="page">
-<h2 class="tit">CONSTRUCCIÓN Y PASES</h2>
-<div class="grid-2x2">{"".join([g for g in t2[:4] if g])}</div>
-<div class="grid-1">{"".join([g for g in t2[4:] if g])}</div>
-</div>
-
-<div class="page">
-<h2 class="tit">DEFENSA Y EFICIENCIA</h2>
-<div class="grid-2x2">{"".join([g for g in t3[:4] if g])}</div>
-<div class="grid-1">{"".join([g for g in t3[4:] if g])}</div>
-</div>
-
-<div class="page">
-<h2 class="tit">DISTRIBUCIÓN TÁCTICA</h2>
-<div class="grid-2">{"".join([g for g in t4 if g])}</div>
-</div>
-
-<div class="page">
-{t5}
-</div>
-
-<div class="page final">
-<h1>CIBAO FC</h1>
-<p>Departamento de Análisis y Rendimiento</p>
-<p>www.cibaofc.com</p>
-</div>
-
-</body>
-</html>"""
-    
-    return html
-
-# ===========================================
-# INTERFAZ STREAMLIT
-# ===========================================
-
-st.markdown("<hr style='margin:40px 0; border-color:#ff8c00;'>", unsafe_allow_html=True)
-st.markdown("<h2 style='color:#ff8c00; text-align:center;'>📄 Exportar Reporte Profesional</h2>", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns([1, 1, 1])
-
-with col2:
-    if st.button("🚀 GENERAR REPORTE", use_container_width=True, type="primary"):
-        with st.spinner("Generando reporte..."):
-            try:
-                html_content = generar_html_completo(df_filtrado, df_liga_mayor, partidos_seleccionados if 'partidos_seleccionados' in locals() else [], mostrar_promedio_liga)
-                st.session_state['html_generado'] = html_content
-                st.success("✅ Reporte generado correctamente!")
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-
-# BOTONES DE DESCARGA
-if 'html_generado' in st.session_state:
-    st.markdown("<br>", unsafe_allow_html=True)
-    col_a, col_b = st.columns(2)
-    
-    with col_a:
-        st.download_button(
-            label="📥 DESCARGAR HTML",
-            data=st.session_state['html_generado'],
-            file_name=f"Cibao_FC_Reporte_{datetime.now().strftime('%Y%m%d_%H%M')}.html",
-            mime="text/html",
-            use_container_width=True,
-            type="secondary"
-        )
-    
-    with col_b:
-        # Convertir a PDF con weasyprint
-        try:
-            from weasyprint import HTML as WH
-            pdf_bytes = WH(string=st.session_state['html_generado']).write_pdf()
-            
-            st.download_button(
-                label="📥 DESCARGAR PDF",
-                data=pdf_bytes,
-                file_name=f"Cibao_FC_Reporte_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                type="primary"
-            )
+            with st.spinner("🔄 Generando PDF... Esto puede tomar 30-60 segundos."):
+                # Obtener valores del scatter si están disponibles
+                opponent_choice = st.session_state.get("opponent_choice", None)
+                x_metric = st.session_state.get("x_metric", "goals")
+                y_metric = st.session_state.get("y_metric", "conceded_goals")
+                x_label = st.session_state.get("x_label", "Goles por 90")
+                y_label = st.session_state.get("y_label", "Goles en contra por 90")
+                
+                # Verificar que los grupos estén definidos
+                if 'grupos' not in locals() or 'grupos_pases' not in locals() or 'grupos_def' not in locals():
+                    st.error("❌ Error: Los grupos de métricas no están definidos. Por favor, recarga la página.")
+                    st.stop()
+                
+                # Generar PDF
+                pdf_bytes = generate_pdf_report(
+                    df_cibao=df_cibao,
+                    df_filtrado=df_filtrado,
+                    df_liga_mayor=df_liga_mayor,
+                    partidos_seleccionados=partidos_seleccionados,
+                    mostrar_promedio_liga=mostrar_promedio_liga,
+                    plot_group_func=plot_group,
+                    plot_group_vertical_func=plot_group_vertical,
+                    plot_horizontal_func=plot_horizontal,
+                    plot_vertical_func=plot_vertical,
+                    plot_gauge_func=plot_gauge,
+                    plot_longitud_pase_func=plot_longitud_pase,
+                    plot_heatmap_func=plot_heatmap,
+                    make_team_scatter_func=make_team_scatter,
+                    grupos=grupos,
+                    grupos_pases=grupos_pases,
+                    grupos_def=grupos_def,
+                    grupos_tacticos=grupos_tacticos,
+                    metrics_blocks=metrics_blocks,
+                    opponent_choice=opponent_choice,
+                    x_metric=x_metric,
+                    y_metric=y_metric,
+                    x_label=x_label,
+                    y_label=y_label,
+                )
+                
+                # Guardar en estado para descarga
+                st.session_state["pdf_bytes"] = pdf_bytes
+                st.session_state["pdf_generated"] = True
+                st.success("✅ PDF generado exitosamente! Usa el botón de descarga abajo.")
+                st.balloons()
         except Exception as e:
-            st.warning("⚠️ PDF directo no disponible. Descarga HTML → Abre → Ctrl+P → Guardar PDF")
+            st.error(f"❌ Error generando PDF: {e}")
+            st.exception(e)
+
+# Botón de descarga de PDF (si fue generado)
+if st.session_state.get("pdf_generated", False) and "pdf_bytes" in st.session_state:
+    st.download_button(
+        label="📥 Descargar PDF del Reporte Completo",
+        data=st.session_state["pdf_bytes"],
+        file_name=f"reporte_rendimiento_colectivo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        help="Descarga el PDF profesional con todos los gráficos y análisis"
+    )
