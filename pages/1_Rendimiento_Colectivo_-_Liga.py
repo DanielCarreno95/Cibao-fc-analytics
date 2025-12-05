@@ -1627,10 +1627,10 @@ with tab5:
         </div>
         """, unsafe_allow_html=True)
 
- """
+ # ============================================================
 Generador de PDF profesional para Reporte de Rendimiento Colectivo - Cibao FC
 Usa fpdf2 para crear PDFs con gráficos Plotly convertidos a imágenes
-"""
+ # ============================================================
 
 import io
 import tempfile
