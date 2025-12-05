@@ -257,18 +257,23 @@ def get_metric(df: pd.DataFrame, config_entry: Optional[tuple]):
     if column_lower in df_cols_lower:
         return label, df_cols_lower[column_lower]
     
+    # Normalize column name for mapping lookup (replace spaces with underscores)
+    column_normalized = column_lower.replace(" ", "_").replace("-", "_")
+    
     # Try mapping common variations
     column_mappings = {
-        "goals": ["Goals", "Goles", "goal", "gol"],
-        "conceded_goals": ["Conceded goals", "Goles en contra", "conceded", "goles_concedidos"],
+        "goals": ["Goals", "Goles", "goal", "gol", "Goles A Favor"],
+        "conceded_goals": ["Conceded goals", "Goles en contra", "Goles En Contra", "conceded", "goles_concedidos", "Goals Against", "Goals conceded"],
         "xg": ["xG", "Expected Goals", "expected_goals"],
         "shots": ["Shots", "Tiros", "shot", "tiro", "Shots / on target"],  # May need to calculate total shots
         "shots_on_target": ["Shots / on target", "Tiros a puerta", "shots_on_target", "on_target"],
         "possession_percent": ["Possession, %", "Posesión", "possession", "posesion", "Possession, %"]
     }
     
-    if column_lower in column_mappings:
-        for mapped_col in column_mappings[column_lower]:
+    # Check both the normalized version and the original lowercase
+    mapping_key = column_normalized if column_normalized in column_mappings else column_lower
+    if mapping_key in column_mappings:
+        for mapped_col in column_mappings[mapping_key]:
             if mapped_col in df.columns:
                 return label, mapped_col
             # Try case-insensitive
