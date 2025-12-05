@@ -428,7 +428,7 @@ if not df_liga_mayor.empty:
     else:
         opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
         
-        # Guardar en session_state para PDF
+        # Guardar en session_state para HTML
         st.session_state["opponent_choice"] = opponent_choice
 
         # ----------------------------------------------------
@@ -468,7 +468,7 @@ if not df_liga_mayor.empty:
         x_column = METRIC_OPTIONS.get(x_choice)
         y_column = METRIC_OPTIONS.get(y_choice)
         
-        # Guardar en session_state para PDF
+        # Guardar en session_state para HTML
         st.session_state["x_metric"] = x_column
         st.session_state["y_metric"] = y_column
         st.session_state["x_label"] = x_choice
@@ -478,51 +478,26 @@ if not df_liga_mayor.empty:
             st.error("No se encontró la métrica seleccionada en el dataset.")
 
         else:
-            # Verificar que las columnas existan en el dataframe
-            try:
-                # Crear una copia temporal para verificar columnas
-                df_temp = df_liga_mayor.copy()
-                
-                # Aplicar filtros
-                if filters:
-                    for col, filter_func in filters.items():
-                        if col in df_temp.columns:
-                            df_temp = df_temp[df_temp[col].apply(filter_func)]
-                
-                # Verificar que las columnas existan
-                if x_column not in df_temp.columns:
-                    st.warning(f"⚠️ La columna '{x_column}' no existe en el dataset después de aplicar filtros.")
-                    st.info(f"Columnas disponibles: {', '.join(list(df_temp.columns)[:10])}...")
-                elif y_column not in df_temp.columns:
-                    st.warning(f"⚠️ La columna '{y_column}' no existe en el dataset después de aplicar filtros.")
-                    st.info(f"Columnas disponibles: {', '.join(list(df_temp.columns)[:10])}...")
-                else:
-                    # Si las columnas existen, generar el gráfico
-                    fig_radar, resumen_radar, _ = make_team_scatter(
-                        df_liga_mayor,
-                        primary_team="Cibao",
-                        opponent=opponent_choice,
-                        x_metric=x_column,
-                        y_metric=y_column,
-                        x_label=x_choice,
-                        y_label=y_choice,
-                        title=f"Liga Mayor — {x_choice} vs {y_choice}",
-                        filters=filters,
-                    )
+            fig_radar, resumen_radar, _ = make_team_scatter(
+                df_liga_mayor,
+                primary_team="Cibao",
+                opponent=opponent_choice,
+                x_metric=x_column,
+                y_metric=y_column,
+                x_label=x_choice,
+                y_label=y_choice,
+                title=f"Liga Mayor — {x_choice} vs {y_choice}",
+                filters=filters,
+            )
 
-                    st.plotly_chart(
-                        fig_radar,
-                        use_container_width=True,
-                        config={"displayModeBar": True},
-                    )
+            st.plotly_chart(
+                fig_radar,
+                use_container_width=True,
+                config={"displayModeBar": True},
+            )
 
-                    if resumen_radar:
-                        st.caption(f"Resumen: {resumen_radar}")
-            except KeyError as e:
-                st.error(f"❌ Error: {e}")
-                st.info("💡 Intenta seleccionar otras métricas o verifica que el dataset tenga las columnas necesarias.")
-            except Exception as e:
-                st.error(f"❌ Error generando gráfico: {e}")
+            if resumen_radar:
+                st.caption(f"Resumen: {resumen_radar}")
 
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
