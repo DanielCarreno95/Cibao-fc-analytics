@@ -391,7 +391,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # ==============================
 # Bloque 0 — ANÁLISIS RÁPIDO CIBAO VS RIVAL
 # ==============================
@@ -424,12 +423,13 @@ if not df_liga_mayor.empty:
 
     if not team_options:
         st.info("No hay rivales disponibles en el dataset de Liga Mayor.")
-
+        opponent_choice = None
     else:
         opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
 
         metric_labels = list(METRIC_OPTIONS.keys())
 
+        # Default indices
         x_default = (
             metric_labels.index("Goles por 90")
             if "Goles por 90" in metric_labels
@@ -441,17 +441,23 @@ if not df_liga_mayor.empty:
             else min(1, len(metric_labels) - 1)
         )
 
+        # X-axis metric - Streamlit selectbox has built-in search when you click and type
         x_choice = col_sel2.selectbox(
-            "Métrica ofensiva (eje X)",
+            "Métrica ofensiva (eje X) - Haz clic y escribe para buscar",
             metric_labels,
             index=x_default if metric_labels else 0,
         )
 
+        # Y-axis metric - Streamlit selectbox has built-in search when you click and type
         y_choice = col_sel3.selectbox(
-            "Métrica defensiva (eje Y)",
+            "Métrica defensiva (eje Y) - Haz clic y escribe para buscar",
             metric_labels,
             index=y_default if metric_labels else 0,
         )
+
+        filters = {
+            "Competition": lambda s: s.str.contains("Liga", case=False, na=False)
+        }
 
         x_column = METRIC_OPTIONS.get(x_choice)
         y_column = METRIC_OPTIONS.get(y_choice)
@@ -460,79 +466,30 @@ if not df_liga_mayor.empty:
             st.error("No se encontró la métrica seleccionada en el dataset.")
 
         else:
-            # Adaptar dataframe (igual que en Copa)
-            df_liga_adapter = df_liga_mayor.copy()
-            
-            # Asegurar que las columnas numéricas sean numéricas
-            for col_num in [x_column, y_column]:
-                if col_num in df_liga_adapter.columns:
-                    df_liga_adapter[col_num] = (
-                        pd.to_numeric(df_liga_adapter[col_num], errors="coerce").fillna(0)
-                    )
+            fig_radar, resumen_radar, _ = make_team_scatter(
+                df_liga_mayor,
+                primary_team="Cibao",
+                opponent=opponent_choice,
+                x_metric=x_column,
+                y_metric=y_column,
+                x_label=x_choice,
+                y_label=y_choice,
+                title=f"Liga Mayor — {x_choice} vs {y_choice}",
+                filters=filters,
+            )
 
-            df_liga_view = df_liga_adapter.fillna(0)
+            st.plotly_chart(
+                fig_radar,
+                use_container_width=True,
+                config={"displayModeBar": True},
+            )
 
-            if df_liga_view.empty:
-                st.info("No hay registros disponibles para el análisis de Liga.")
-
-            else:
-                try:
-                    filters = {
-                        "Competition": lambda s: s.str.contains("Liga", case=False, na=False)
-                    }
-
-                    fig_radar, resumen_radar, _ = make_team_scatter(
-                        df_liga_view,
-                        primary_team="Cibao",
-                        opponent=opponent_choice,
-                        x_metric=x_column,
-                        y_metric=y_column,
-                        x_label=x_choice,
-                        y_label=y_choice,
-                        title=f"Liga Mayor — {x_choice} vs {y_choice}",
-                        filters=filters,
-                    )
-
-                    fig_radar.layout.annotations = [
-                        ann for ann in fig_radar.layout.annotations if ann.yref != "paper" or ann.y < 1
-                    ]
-                    fig_radar.update_layout(
-                        margin=dict(t=100, b=80, l=60, r=40),
-                        title_pad=dict(t=60),
-                        title_font=dict(size=20),
-                    )
-
-                    st.plotly_chart(
-                        fig_radar,
-                        use_container_width=True,
-                        config={"displayModeBar": True},
-                    )
-
-                    if resumen_radar:
-                        st.markdown("---")
-                        st.caption(f"**Resumen:** {resumen_radar}")
-
-                except Exception as e:
-                    st.warning(f"No se pudo usar make_team_scatter ({e}). Se muestra un scatter básico.")
-                    fig_basic = px.scatter(
-                        df_liga_view,
-                        x=x_column,
-                        y=y_column,
-                        color="Team",
-                        hover_data=["Match", "Date"] if "Match" in df_liga_view.columns and "Date" in df_liga_view.columns else [],
-                        title=f"Liga Mayor — {x_choice} vs {y_choice}",
-                        template="plotly_dark",
-                    )
-                    fig_basic.update_layout(
-                        margin=dict(t=100, b=80, l=60, r=40),
-                        title_pad=dict(t=60),
-                        title_font=dict(size=20),
-                    )
-                    st.plotly_chart(fig_basic, use_container_width=True)
+            if resumen_radar:
+                st.caption(f"Resumen: {resumen_radar}")
 
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
-    
+
 # ===========================
 # EFICIENCIA Y ATAQUE – BLOQUE COMPLETO
 # ===========================
@@ -550,33 +507,33 @@ Evaluación del comportamiento ofensivo del Cibao FC: producción, eficacia en t
 
 grupos = {
     "Producción ofensiva directa": {
-        "Goles por partido": "goals",
-        "Goles en contra por partido": "conceded_goals",
-        "xG (Goles esperados)": "xg",
+        "Goles por partido": "Goals",
+        "Goles en contra por partido": "Conceded goals",
+        "xG (Goles esperados)": "xG",
     },
 
     "Eficiencia en el tiro": {
-        "Porcentaje de disparos a puerta (%)": "shots_on_target_percent",
-        "Disparos desde fuera del área a puerta (%)": "shots_from_outside_penalty_area_on_target_percent",
+        "Porcentaje de disparos a puerta (%)": "Shot Accuracy %",
+        "Disparos desde fuera del área a puerta (%)": "Shots Outside PA Accuracy %",
     },
 
     "Patrones de ataque": {
-        "Ataques posicionales con disparo (%)": "positional_attacks_with_shots_percent",
-        "Contraataques con disparo (%)": "counter_attacks_with_shots_percent",
+        "Ataques posicionales con disparo (%)": "Positional Attacks With Shot %",
+        "Contraataques con disparo (%)": "Counterattacks With Shot %",
     },
 
     "Balón parado y definición": {
-        "Balones parados con disparo (%)": "set_pieces_with_shots_percent",
-        "Corners con disparo (%)": "corners_with_shots_percent",
-        "Faltas directas con disparo (%)": "free_kicks_with_shots_percent",
-        "Conversión de penaltis (%)": "penalties_converted_percent",
+        "Balones parados con disparo (%)": "Set Pieces With Shot %",
+        "Corners con disparo (%)": "Corners With Shot %",
+        "Faltas directas con disparo (%)": "Free Kicks With Shot %",
+        "Conversión de penaltis (%)": "Penalties Conversion %",
     },
 
     "Juego interior y profundidad": {
-        "Entradas al área por 90": "penalty_area_entries",
-        "Entradas al área con conducción": "penalty_area_entries_runs",
-        "Entradas al área con centros": "penalty_area_entries_crosses",
-        "Toques en el área por 90": "touches_in_penalty_area",
+        "Entradas al área por 90": "Penalty Area Entries",
+        "Entradas al área con conducción": "Penalty Area Runs",
+        "Entradas al área con centros": "Penalty Area Crosses",
+        "Toques en el área por 90": "Touches in Penalty Area",
     },
 }
 
@@ -593,73 +550,86 @@ PALETTE_CIBAO = ["#FF8C00"]
 # FUNCIÓN DE GRÁFICO + CONCLUSIONES
 # ===========================
 
-def plot_group(nombre_grupo, mapping):
+def plot_group(nombre_grupo, mapping, opponent=None):
+    # Use Wyscout data - include both Cibao and opponent if specified
+    if df_liga_mayor.empty:
+        st.warning(f"No hay datos disponibles para: {nombre_grupo}")
+        return
+    
+    # Filter for Cibao and opponent (if provided)
+    teams_to_include = ["Cibao"]
+    if opponent and opponent != "Cibao":
+        teams_to_include.append(opponent)
+    
+    df_plot = df_liga_mayor[df_liga_mayor["Team"].isin(teams_to_include)].copy()
+    
+    if df_plot.empty:
+        st.warning(f"No hay datos disponibles para: {nombre_grupo}")
+        return
 
-    columnas = [v for v in mapping.values() if v in df_filtrado.columns]
-    etiquetas = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
+    # Helper function to find column with flexible matching
+    def find_column(col_name):
+        """Find column in DataFrame with case-insensitive and normalized matching."""
+        if col_name in df_plot.columns:
+            return col_name
+        # Try case-insensitive
+        col_lower = col_name.lower()
+        for df_col in df_plot.columns:
+            if str(df_col).lower() == col_lower:
+                return df_col
+        # Try normalized (spaces to underscores, etc.)
+        col_normalized = col_name.replace(" ", "_").replace("%", "percent").lower()
+        for df_col in df_plot.columns:
+            df_col_normalized = str(df_col).replace(" ", "_").replace("%", "percent").lower()
+            if df_col_normalized == col_normalized:
+                return df_col
+        return None
+    
+    # Find available columns using flexible matching
+    columnas = []
+    etiquetas = {}
+    for k, v in mapping.items():
+        found_col = find_column(v)
+        if found_col:
+            columnas.append(found_col)
+            etiquetas[found_col] = k
 
     if len(columnas) == 0:
         st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
         return
 
-    # ===== CALCULAR PROMEDIO DE CIBAO (con filtros) =====
-    df_cibao_filtered = df_filtrado.copy()
-    cibao_means = df_cibao_filtered[columnas].mean()
+    # Calculate means per team
+    df_means = df_plot.groupby("Team")[columnas].mean().reset_index()
+    
+    # Melt to long format for plotting
+    df_melted = df_means.melt(
+        id_vars=["Team"],
+        value_vars=columnas,
+        var_name="metric",
+        value_name="valor"
+    )
+    df_melted["label"] = df_melted["metric"].map(etiquetas)
+    
+    # Sort by metric and team for consistent display
+    df_melted = df_melted.sort_values(["metric", "Team"])
 
-    # ===== PREPARAR DATOS PARA COMPARACIÓN =====
-    comparison_data = []
-
-    # Agregar Cibao
-    for col in columnas:
-        comparison_data.append({
-            "label": etiquetas[col],
-            "Equipo": "Cibao FC",
-            "valor": cibao_means[col]
-        })
-
-    # ===== PROMEDIO LIGA (si está activado) =====
-    if mostrar_promedio_liga and not df_liga_mayor.empty:
-        # Filtrar equipos excluyendo Cibao
-        df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
-
-        # Calcular promedio para cada métrica
-        for col in columnas:
-            if col in df_liga_sin_cibao.columns:
-                liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
-                comparison_data.append({
-                    "label": etiquetas[col],
-                    "Equipo": "Promedio Liga",
-                    "valor": liga_val if not pd.isna(liga_val) else 0
-                })
-
-    # ===== CREAR DATAFRAME PARA PLOTLY =====
-    df_plot = pd.DataFrame(comparison_data)
-
-    # Ordenar por valor de Cibao (para mantener consistencia visual)
-    cibao_order = df_plot[df_plot["Equipo"] == "Cibao FC"].sort_values("valor", ascending=True)["label"].tolist()
-    df_plot["label"] = pd.Categorical(df_plot["label"], categories=cibao_order, ordered=True)
-    df_plot = df_plot.sort_values("label")
-
-    # ===== MAPA DE COLORES =====
-    color_map = {
-        "Cibao FC": CIBAO_ORANGE,
-        "Promedio Liga": CIBAO_ORANGE_LIGHT,
-    }
-
-    # ===== CREAR GRÁFICO =====
+    # Create grouped bar chart
     fig = px.bar(
-        df_plot,
+        df_melted,
         x="valor",
         y="label",
-        color="Equipo",
+        color="Team",
         orientation="h",
         text_auto=".2f",
-        color_discrete_map=color_map,
+        color_discrete_map={
+            "Cibao": CIBAO_ORANGE,
+            opponent: CIBAO_GRAY if opponent else CIBAO_ORANGE
+        } if opponent else {team: CIBAO_ORANGE for team in df_melted["Team"].unique()},
         barmode="group",
     )
 
     fig.update_layout(
-        height=350,
+        height=300,
         template="plotly_dark",
         plot_bgcolor=CIBAO_BLACK,
         paper_bgcolor=CIBAO_BLACK,
@@ -667,39 +637,42 @@ def plot_group(nombre_grupo, mapping):
         title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
         title_x=0.5,
         margin=dict(l=20, r=20, t=50, b=20),
+        showlegend=bool(opponent),
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
             xanchor="right",
-            x=1,
-            bgcolor="rgba(0,0,0,0.5)",
-            font=dict(size=10)
-        ),
+            x=1
+        ) if opponent else None,
     )
-
+    
     st.plotly_chart(fig, use_container_width=True)
 
-    # ===== CONCLUSIONES TÁCTICAS =====
-    cibao_data = df_plot[df_plot["Equipo"] == "Cibao FC"].copy()
-    if not cibao_data.empty:
-        max_row = cibao_data.loc[cibao_data["valor"].idxmax()]
-        min_row = cibao_data.loc[cibao_data["valor"].idxmin()]
+    # -------- CONCLUSIONES TÁCTICAS --------
+    # Get Cibao's data for conclusions
+    df_cibao_only = df_melted[df_melted["Team"] == "Cibao"].copy()
+    if not df_cibao_only.empty:
+        max_row = df_cibao_only.loc[df_cibao_only["valor"].idxmax()]
+        min_row = df_cibao_only.loc[df_cibao_only["valor"].idxmin()]
 
         conclusion = f"""
         <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE}; margin-top:-8px; margin-bottom:25px;'>
         <b>Conclusiones tácticas</b><br><br>
-        
-        • <b>Punto fuerte:</b> El equipo muestra mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f}),
+
+        • <b>Punto fuerte:</b> El equipo muestra mayor impacto en <b>{max_row['label']}</b>,
           acción que está contribuyendo directamente al modelo ofensivo.<br><br>
-        
-        • <b>Área con menor incidencia:</b> El valor más bajo corresponde a <b>{min_row['label']}</b> ({min_row['valor']:.2f}),
+
+        • <b>Área con menor incidencia:</b> El valor más bajo corresponde a <b>{min_row['label']}</b>,
           indicador de un comportamiento aún mejorable dentro de la estructura ofensiva.<br><br>
         </div>
         """
 
         st.markdown(conclusion, unsafe_allow_html=True)
 
+# ============================================================
+# 🔶 CREACIÓN DE LAS 5 PESTAÑAS
+# ============================================================
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Eficiencia y Ataque",
