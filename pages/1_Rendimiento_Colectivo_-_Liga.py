@@ -20,17 +20,6 @@ pio.templates.default = "plotly_dark"
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
 
-from src.utils.html_pdf_generator import generate_html_report
-
-# En el botón:
-html_content = generate_html_report(...)
-st.download_button(
-    label="📥 Descargar HTML para PDF",
-    data=html_content.encode('utf-8'),
-    file_name="reporte_cibao.html",
-    mime="text/html"
-)
-
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Rendimiento Colectivo - Liga", layout="wide")
 
