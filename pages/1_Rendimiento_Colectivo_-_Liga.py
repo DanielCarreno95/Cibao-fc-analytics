@@ -7,7 +7,6 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-from datetime import datetime
 
 from src.data_processing.load_cibao_team_data import load_cibao_team_data
 from src.utils.metrics_dictionary import METRICS_DICT
@@ -22,9 +21,6 @@ pio.templates.default = "plotly_dark"
 
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
-
-# === IMPORTA GENERADOR DE PDF ===
-from src.utils.pdf_generator import generate_pdf_report
 
 # ---------- CONFIG ----------
 st.set_page_config(page_title="Rendimiento Colectivo - Liga", layout="wide")
@@ -431,9 +427,6 @@ if not df_liga_mayor.empty:
 
     else:
         opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
-        
-        # Guardar en session_state para PDF
-        st.session_state["opponent_choice"] = opponent_choice
 
         metric_labels = list(METRIC_OPTIONS.keys())
 
@@ -466,12 +459,6 @@ if not df_liga_mayor.empty:
 
         x_column = METRIC_OPTIONS.get(x_choice)
         y_column = METRIC_OPTIONS.get(y_choice)
-        
-        # Guardar métricas en session_state para PDF
-        st.session_state["x_metric"] = x_column
-        st.session_state["y_metric"] = y_column
-        st.session_state["x_label"] = x_choice
-        st.session_state["y_label"] = y_choice
 
         if x_column is None or y_column is None:
             st.error("No se encontró la métrica seleccionada en el dataset.")
@@ -1640,82 +1627,13 @@ with tab5:
         </div>
         """, unsafe_allow_html=True)
 
-# ============================================================
-# 📄 GENERACIÓN DE PDF PROFESIONAL
-# ============================================================
-st.markdown("---")
-st.markdown("### 📄 Generar Reporte en PDF")
 
-col_pdf1, col_pdf2 = st.columns([2, 1])
 
-with col_pdf1:
-    st.markdown("""
-    <p style='color:#ccc; font-size:14px;'>
-    Genera un PDF profesional de 8 páginas con todos los gráficos, análisis y tablas del reporte.
-    El PDF incluye: portada, KPIs, comparativas, gráficos de eficiencia, construcción, defensa,
-    distribución táctica y tablas comparativas.
-    </p>
-    """, unsafe_allow_html=True)
 
-with col_pdf2:
-    if st.button("📄 Generar PDF Completo", use_container_width=True, type="primary"):
-        try:
-            with st.spinner("🔄 Generando PDF... Esto puede tomar 30-60 segundos."):
-                # Obtener valores del scatter si están disponibles
-                opponent_choice = st.session_state.get("opponent_choice", None)
-                x_metric = st.session_state.get("x_metric", "goals")
-                y_metric = st.session_state.get("y_metric", "conceded_goals")
-                x_label = st.session_state.get("x_label", "Goles por 90")
-                y_label = st.session_state.get("y_label", "Goles en contra por 90")
-                
-                # Verificar que los grupos estén definidos
-                if 'grupos' not in locals() or 'grupos_pases' not in locals() or 'grupos_def' not in locals():
-                    st.error("❌ Error: Los grupos de métricas no están definidos. Por favor, recarga la página.")
-                    st.stop()
-                
-                # Generar PDF
-                pdf_bytes = generate_pdf_report(
-                    df_cibao=df_cibao,
-                    df_filtrado=df_filtrado,
-                    df_liga_mayor=df_liga_mayor,
-                    partidos_seleccionados=partidos_seleccionados,
-                    mostrar_promedio_liga=mostrar_promedio_liga,
-                    plot_group_func=plot_group,
-                    plot_group_vertical_func=plot_group_vertical,
-                    plot_horizontal_func=plot_horizontal,
-                    plot_vertical_func=plot_vertical,
-                    plot_gauge_func=plot_gauge,
-                    plot_longitud_pase_func=plot_longitud_pase,
-                    plot_heatmap_func=plot_heatmap,
-                    make_team_scatter_func=make_team_scatter,
-                    grupos=grupos,
-                    grupos_pases=grupos_pases,
-                    grupos_def=grupos_def,
-                    grupos_tacticos=grupos_tacticos,
-                    metrics_blocks=metrics_blocks,
-                    opponent_choice=opponent_choice,
-                    x_metric=x_metric,
-                    y_metric=y_metric,
-                    x_label=x_label,
-                    y_label=y_label,
-                )
-                
-                # Guardar en estado para descarga
-                st.session_state["pdf_bytes"] = pdf_bytes
-                st.session_state["pdf_generated"] = True
-                st.success("✅ PDF generado exitosamente! Usa el botón de descarga abajo.")
-                st.balloons()
-        except Exception as e:
-            st.error(f"❌ Error generando PDF: {e}")
-            st.exception(e)
 
-# Botón de descarga de PDF (si fue generado)
-if st.session_state.get("pdf_generated", False) and "pdf_bytes" in st.session_state:
-    st.download_button(
-        label="📥 Descargar PDF del Reporte Completo",
-        data=st.session_state["pdf_bytes"],
-        file_name=f"reporte_rendimiento_colectivo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-        mime="application/pdf",
-        use_container_width=True,
-        help="Descarga el PDF profesional con todos los gráficos y análisis"
-    )
+
+
+
+
+Número de Depositantes
+Clientes Activos
