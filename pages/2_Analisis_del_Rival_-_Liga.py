@@ -785,6 +785,7 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         
         # Posesión y Pases
         "Possession, %": "possessionPercentage",
+        "Possession %": "possessionPercentage",  # Alternative format without comma
         "Passes / accurate": "passAccuracy",  # Antes de fix (count)
         "Passes Accurate": "passAccuracy",  # Después de fix (count)
         "Passes": "totalPass",  # Después de fix (total passes)
@@ -823,7 +824,11 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         # Disciplina
         "Fouls": "fkFoulLost",
         "Yellow cards": "totalYellowCard",
+        "Yellow Cards": "totalYellowCard",  # Wyscout format
+        "Yellow Cards Per 90": "totalYellowCard",  # Per 90 format
         "Red cards": "totalRedCard",
+        "Red Cards": "totalRedCard",  # Wyscout format
+        "Red Cards Per 90": "totalRedCard",  # Per 90 format
         "Offsides": "offsides",
         
         # Otras
@@ -834,6 +839,7 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         
         # Métricas adicionales
         "PPDA": "ppda",
+        "Match Tempo": "match_tempo",  # Wyscout tempo metric
         "Counterattacks / with shots": "counter_attacks",
         "Counter Attacks": "counter_attacks",  # Después de fix (total counter attacks)
         "Counter Attacks With Shots": "counter_attacks_with_shots",  # Después de fix (con disparos)
@@ -5815,6 +5821,34 @@ def main():
                     match_dict["date"] = match_dict["Date"].strftime("%Y-%m-%d")
                 else:
                     match_dict["date"] = str(match_dict["Date"])
+            
+            # Derive is_home from Match string if not already present
+            if "is_home" not in match_dict or pd.isna(match_dict.get("is_home")):
+                match_str = str(match_dict.get("Match", ""))
+                team_name = str(match_dict.get("Team", "")).strip()
+                if match_str and team_name:
+                    # Extract teams from match string (format: "Team1 - Team2 score:score")
+                    # The first team is home, second is away
+                    parts = match_str.split(" - ")
+                    if len(parts) >= 2:
+                        home_team = parts[0].strip()
+                        # Check if this team is the home team
+                        team_name_lower = team_name.lower()
+                        home_team_lower = home_team.lower()
+                        # Check if team name matches home team (with some flexibility)
+                        if (team_name_lower in home_team_lower or 
+                            home_team_lower in team_name_lower or
+                            team_name_lower.replace(' fc', '').strip() in home_team_lower.replace(' fc', '').strip() or
+                            home_team_lower.replace(' fc', '').strip() in team_name_lower.replace(' fc', '').strip()):
+                            match_dict["is_home"] = True
+                        else:
+                            match_dict["is_home"] = False
+                    else:
+                        # Fallback: default to False if we can't determine
+                        match_dict["is_home"] = False
+                else:
+                    match_dict["is_home"] = False
+            
             team_all_matches.append(match_dict)
     
     # Create compatibility variable for functions that expect all_matches
@@ -5829,6 +5863,34 @@ def main():
                     match_dict["date"] = match_dict["Date"].strftime("%Y-%m-%d")
                 else:
                     match_dict["date"] = str(match_dict["Date"])
+            
+            # Derive is_home from Match string if not already present
+            if "is_home" not in match_dict or pd.isna(match_dict.get("is_home")):
+                match_str = str(match_dict.get("Match", ""))
+                team_name = str(match_dict.get("Team", "")).strip()
+                if match_str and team_name:
+                    # Extract teams from match string (format: "Team1 - Team2 score:score")
+                    # The first team is home, second is away
+                    parts = match_str.split(" - ")
+                    if len(parts) >= 2:
+                        home_team = parts[0].strip()
+                        # Check if this team is the home team
+                        team_name_lower = team_name.lower()
+                        home_team_lower = home_team.lower()
+                        # Check if team name matches home team (with some flexibility)
+                        if (team_name_lower in home_team_lower or 
+                            home_team_lower in team_name_lower or
+                            team_name_lower.replace(' fc', '').strip() in home_team_lower.replace(' fc', '').strip() or
+                            home_team_lower.replace(' fc', '').strip() in team_name_lower.replace(' fc', '').strip()):
+                            match_dict["is_home"] = True
+                        else:
+                            match_dict["is_home"] = False
+                    else:
+                        # Fallback: default to False if we can't determine
+                        match_dict["is_home"] = False
+                else:
+                    match_dict["is_home"] = False
+            
             all_matches.append(match_dict)
     
     # Crear pestañas para organizar el contenido
@@ -7048,14 +7110,26 @@ def main():
             """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Get discipline metrics
-            opp_yellow = comparison_team_averages.get("totalYellowCard", 0)
-            opp_red = comparison_team_averages.get("totalRedCard", 0)
+            # Get discipline metrics - try multiple column name variations
+            opp_yellow = (comparison_team_averages.get("totalYellowCard") or 
+                         comparison_team_averages.get("Yellow Cards") or 
+                         comparison_team_averages.get("Yellow Cards Per 90") or 
+                         comparison_team_averages.get("yellow_cards") or 0)
+            opp_red = (comparison_team_averages.get("totalRedCard") or 
+                      comparison_team_averages.get("Red Cards") or 
+                      comparison_team_averages.get("Red Cards Per 90") or 
+                      comparison_team_averages.get("red_cards") or 0)
             opp_fouls_committed = comparison_team_averages.get("fkFoulLost", 0)
             opp_fouls_won = comparison_team_averages.get("fkFoulWon", 0)
             
-            cibao_yellow = comparison_cibao_averages.get("totalYellowCard", 0)
-            cibao_red = comparison_cibao_averages.get("totalRedCard", 0)
+            cibao_yellow = (comparison_cibao_averages.get("totalYellowCard") or 
+                           comparison_cibao_averages.get("Yellow Cards") or 
+                           comparison_cibao_averages.get("Yellow Cards Per 90") or 
+                           comparison_cibao_averages.get("yellow_cards") or 0)
+            cibao_red = (comparison_cibao_averages.get("totalRedCard") or 
+                        comparison_cibao_averages.get("Red Cards") or 
+                        comparison_cibao_averages.get("Red Cards Per 90") or 
+                        comparison_cibao_averages.get("red_cards") or 0)
             cibao_fouls_committed = comparison_cibao_averages.get("fkFoulLost", 0)
             cibao_fouls_won = comparison_cibao_averages.get("fkFoulWon", 0)
             
@@ -7121,14 +7195,19 @@ def main():
                     textfont=dict(size=14, color=cibao_card_colors, family='Arial Black')
                 ))
                 
+                # Set y-axis range to ensure bars are visible even when values are 0
+                max_card_display = max(max(opponent_card_vals), max(cibao_card_vals)) if opponent_card_vals or cibao_card_vals else 1
+                yaxis_range = [0, max(max_card_display * 1.1, 0.5)]  # At least 0.5 range to show bars
+                
                 fig_cards.update_layout(
                     template='plotly_dark',
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
                     height=400,
                     title="Tarjetas",
-                    xaxis_title="Tipo de Tarjeta",
+                    xaxis_title="",  # Remove "Tipo de Tarjeta" label
                     yaxis_title="Promedio por 90 min",
+                    yaxis=dict(range=yaxis_range),  # Set explicit range
                     barmode='group',
                     legend=dict(
                         orientation="h",
@@ -7315,9 +7394,15 @@ def main():
             """, unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Get possession data
-            opp_possession = comparison_team_averages.get("possessionPercentage", 0)
-            cibao_possession = comparison_cibao_averages.get("possessionPercentage", 0)
+            # Get possession data - try multiple keys
+            opp_possession = (comparison_team_averages.get("possessionPercentage") or 
+                            comparison_team_averages.get("Possession %") or 
+                            comparison_team_averages.get("Possession, %") or 
+                            comparison_team_averages.get("possession_pct") or 0)
+            cibao_possession = (comparison_cibao_averages.get("possessionPercentage") or 
+                              comparison_cibao_averages.get("Possession %") or 
+                              comparison_cibao_averages.get("Possession, %") or 
+                              comparison_cibao_averages.get("possession_pct") or 0)
             
             # KPI Cards for Possession
             col1, col2 = st.columns(2)
@@ -7697,14 +7782,18 @@ def main():
                     long_passes = tactical_team_averages.get("longPasses", 0) or tactical_team_averages.get("Long Passes", 0) or 0
                     crosses = tactical_team_averages.get("crosses", 0) or tactical_team_averages.get("Crosses", 0) or 0
                     ppda = tactical_team_averages.get("ppda", 0) or tactical_team_averages.get("PPDA", 0) or 0
-                    match_tempo = tactical_team_averages.get("Average passes per possession", 0) or 0
+                    match_tempo = (tactical_team_averages.get("Match Tempo") or 
+                                  tactical_team_averages.get("match_tempo") or 
+                                  tactical_team_averages.get("Average passes per possession") or 0)
                     
                     # Competition averages
                     comp_possession = tactical_competition_averages.get("possessionPercentage", 0) or tactical_competition_averages.get("Possession, %", 0) or 0
                     comp_long_passes = tactical_competition_averages.get("longPasses", 0) or tactical_competition_averages.get("Long Passes", 0) or 0
                     comp_crosses = tactical_competition_averages.get("crosses", 0) or tactical_competition_averages.get("Crosses", 0) or 0
                     comp_ppda = tactical_competition_averages.get("ppda", 0) or tactical_competition_averages.get("PPDA", 0) or 0
-                    comp_match_tempo = tactical_competition_averages.get("Average passes per possession", 0) or 0
+                    comp_match_tempo = (tactical_competition_averages.get("Match Tempo") or 
+                                       tactical_competition_averages.get("match_tempo") or 
+                                       tactical_competition_averages.get("Average passes per possession") or 0)
                     
                     # KPI Cards
                     col1, col2, col3, col4, col5 = st.columns(5)
@@ -7866,21 +7955,49 @@ def main():
                 """, unsafe_allow_html=True)
                 
                 if tactical_team_averages and isinstance(team_df, pd.DataFrame) and not team_df.empty:
-                    # Get passing pattern metrics
-                    progressive_passes = tactical_team_averages.get("progressivePassesAccurate", 0) or tactical_team_averages.get("Progressive Passes Accurate", 0) or 0
-                    long_passes = tactical_team_averages.get("longPasses", 0) or tactical_team_averages.get("Long Passes", 0) or 0
-                    passes_to_final_third = tactical_team_averages.get("passesToFinalThirdAccurate", 0) or tactical_team_averages.get("Passes To Final Third Accurate", 0) or 0
-                    deep_passes = tactical_team_averages.get("deepCompletedPasses", 0) or tactical_team_averages.get("Deep completed passes", 0) or 0
-                    avg_passes_per_possession = tactical_team_averages.get("Average passes per possession", 0) or 0
-                    avg_pass_length = tactical_team_averages.get("Average pass length", 0) or 0
+                    # Get passing pattern metrics - try multiple column name variations
+                    progressive_passes = (tactical_team_averages.get("Progressive Passes") or 
+                                          tactical_team_averages.get("Progressive Passes Per 90") or 
+                                          tactical_team_averages.get("Progressive Passes Accurate") or 
+                                          tactical_team_averages.get("progressivePassesAccurate") or 0)
+                    long_passes = (tactical_team_averages.get("Long Passes") or 
+                                  tactical_team_averages.get("Long Passes Per 90") or 
+                                  tactical_team_averages.get("longPasses") or 0)
+                    passes_to_final_third = (tactical_team_averages.get("Passes to Final Third") or 
+                                            tactical_team_averages.get("Passes to Final Third Per 90") or 
+                                            tactical_team_averages.get("Passes to Final Third Accurate") or 
+                                            tactical_team_averages.get("Passes To Final Third Accurate") or 
+                                            tactical_team_averages.get("passesToFinalThirdAccurate") or 0)
+                    deep_passes = (tactical_team_averages.get("Deep Completed Passes") or 
+                                  tactical_team_averages.get("Deep Completed Passes Per 90") or 
+                                  tactical_team_averages.get("Deep completed passes") or 
+                                  tactical_team_averages.get("deepCompletedPasses") or 0)
+                    avg_passes_per_possession = (tactical_team_averages.get("Average Passes Per Possession") or 
+                                                tactical_team_averages.get("Average passes per possession") or 0)
+                    avg_pass_length = (tactical_team_averages.get("Average Pass Length") or 
+                                      tactical_team_averages.get("Average pass length") or 0)
                     
                     # Competition averages
-                    comp_progressive = tactical_competition_averages.get("progressivePassesAccurate", 0) or tactical_competition_averages.get("Progressive Passes Accurate", 0) or 0
-                    comp_long_passes = tactical_competition_averages.get("longPasses", 0) or tactical_competition_averages.get("Long Passes", 0) or 0
-                    comp_final_third = tactical_competition_averages.get("passesToFinalThirdAccurate", 0) or tactical_competition_averages.get("Passes To Final Third Accurate", 0) or 0
-                    comp_deep_passes = tactical_competition_averages.get("deepCompletedPasses", 0) or tactical_competition_averages.get("Deep completed passes", 0) or 0
-                    comp_avg_passes_per_possession = tactical_competition_averages.get("Average passes per possession", 0) or 0
-                    comp_avg_pass_length = tactical_competition_averages.get("Average pass length", 0) or 0
+                    comp_progressive = (tactical_competition_averages.get("Progressive Passes") or 
+                                      tactical_competition_averages.get("Progressive Passes Per 90") or 
+                                      tactical_competition_averages.get("Progressive Passes Accurate") or 
+                                      tactical_competition_averages.get("progressivePassesAccurate") or 0)
+                    comp_long_passes = (tactical_competition_averages.get("Long Passes") or 
+                                       tactical_competition_averages.get("Long Passes Per 90") or 
+                                       tactical_competition_averages.get("longPasses") or 0)
+                    comp_final_third = (tactical_competition_averages.get("Passes to Final Third") or 
+                                       tactical_competition_averages.get("Passes to Final Third Per 90") or 
+                                       tactical_competition_averages.get("Passes to Final Third Accurate") or 
+                                       tactical_competition_averages.get("Passes To Final Third Accurate") or 
+                                       tactical_competition_averages.get("passesToFinalThirdAccurate") or 0)
+                    comp_deep_passes = (tactical_competition_averages.get("Deep Completed Passes") or 
+                                       tactical_competition_averages.get("Deep Completed Passes Per 90") or 
+                                       tactical_competition_averages.get("Deep completed passes") or 
+                                       tactical_competition_averages.get("deepCompletedPasses") or 0)
+                    comp_avg_passes_per_possession = (tactical_competition_averages.get("Average Passes Per Possession") or 
+                                                      tactical_competition_averages.get("Average passes per possession") or 0)
+                    comp_avg_pass_length = (tactical_competition_averages.get("Average Pass Length") or 
+                                           tactical_competition_averages.get("Average pass length") or 0)
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     
@@ -7999,13 +8116,24 @@ def main():
                 """, unsafe_allow_html=True)
                 
                 if tactical_team_averages and isinstance(team_df, pd.DataFrame) and not team_df.empty:
-                    # Get attacking method metrics
-                    positional_attacks = tactical_team_averages.get("positionalAttacks", 0) or tactical_team_averages.get("Positional Attacks", 0) or 0
-                    positional_with_shots = tactical_team_averages.get("positionalAttacksWithShots", 0) or tactical_team_averages.get("Positional Attacks With Shots", 0) or 0
+                    # Get attacking method metrics - try multiple column name variations
+                    positional_attacks = (tactical_team_averages.get("Positional Attacks") or 
+                                          tactical_team_averages.get("Positional Attacks Per 90") or 
+                                          tactical_team_averages.get("positionalAttacks") or 0)
+                    positional_with_shots = (tactical_team_averages.get("Positional Attacks With Shot") or 
+                                            tactical_team_averages.get("Positional Attacks With Shot Per 90") or 
+                                            tactical_team_averages.get("Positional Attacks With Shots") or 
+                                            tactical_team_averages.get("positionalAttacksWithShots") or 0)
                     positional_shot_pct = (positional_with_shots / positional_attacks * 100) if positional_attacks > 0 else 0
                     
-                    counter_attacks = tactical_team_averages.get("counterAttacks", 0) or tactical_team_averages.get("Counter Attacks", 0) or 0
-                    counter_with_shots = tactical_team_averages.get("counterAttacksWithShots", 0) or tactical_team_averages.get("Counter Attacks With Shots", 0) or 0
+                    counter_attacks = (tactical_team_averages.get("Counterattacks") or 
+                                      tactical_team_averages.get("Counterattacks Per 90") or 
+                                      tactical_team_averages.get("Counter Attacks") or 
+                                      tactical_team_averages.get("counterAttacks") or 0)
+                    counter_with_shots = (tactical_team_averages.get("Counterattacks With Shot") or 
+                                         tactical_team_averages.get("Counterattacks With Shot Per 90") or 
+                                         tactical_team_averages.get("Counter Attacks With Shots") or 
+                                         tactical_team_averages.get("counterAttacksWithShots") or 0)
                     counter_shot_pct = (counter_with_shots / counter_attacks * 100) if counter_attacks > 0 else 0
                     
                     set_pieces = tactical_team_averages.get("setPieces", 0) or tactical_team_averages.get("Set Pieces", 0) or 0
@@ -8013,9 +8141,21 @@ def main():
                     set_pieces_shot_pct = (set_pieces_with_shots / set_pieces * 100) if set_pieces > 0 else 0
                     
                     # Competition averages
-                    comp_positional = tactical_competition_averages.get("positionalAttacks", 0) or tactical_competition_averages.get("Positional Attacks", 0) or 0
-                    comp_positional_with_shots = tactical_competition_averages.get("positionalAttacksWithShots", 0) or tactical_competition_averages.get("Positional Attacks With Shots", 0) or 0
-                    comp_counter = tactical_competition_averages.get("counterAttacks", 0) or tactical_competition_averages.get("Counter Attacks", 0) or 0
+                    comp_positional = (tactical_competition_averages.get("Positional Attacks") or 
+                                      tactical_competition_averages.get("Positional Attacks Per 90") or 
+                                      tactical_competition_averages.get("positionalAttacks") or 0)
+                    comp_positional_with_shots = (tactical_competition_averages.get("Positional Attacks With Shot") or 
+                                                 tactical_competition_averages.get("Positional Attacks With Shot Per 90") or 
+                                                 tactical_competition_averages.get("Positional Attacks With Shots") or 
+                                                 tactical_competition_averages.get("positionalAttacksWithShots") or 0)
+                    comp_counter = (tactical_competition_averages.get("Counterattacks") or 
+                                   tactical_competition_averages.get("Counterattacks Per 90") or 
+                                   tactical_competition_averages.get("Counter Attacks") or 
+                                   tactical_competition_averages.get("counterAttacks") or 0)
+                    comp_counter_with_shots = (tactical_competition_averages.get("Counterattacks With Shot") or 
+                                              tactical_competition_averages.get("Counterattacks With Shot Per 90") or 
+                                              tactical_competition_averages.get("Counter Attacks With Shots") or 
+                                              tactical_competition_averages.get("counterAttacksWithShots") or 0)
                     comp_set_pieces = tactical_competition_averages.get("setPieces", 0) or tactical_competition_averages.get("Set Pieces", 0) or 0
                     
                     # KPI Cards
@@ -8171,17 +8311,33 @@ def main():
                 if tactical_team_averages and isinstance(team_df, pd.DataFrame) and not team_df.empty:
                     # Get defensive metrics
                     ppda = tactical_team_averages.get("ppda", 0) or tactical_team_averages.get("PPDA", 0) or 0
-                    defensive_duels_won_pct = tactical_team_averages.get("defensiveDuelsWonPct", 0) or tactical_team_averages.get("Defensive Duels Won %", 0) or tactical_team_averages.get("defensive_duels_won_pct", 0) or 0
-                    aerial_duels_won_pct = tactical_team_averages.get("aerialDuelsWonPct", 0) or tactical_team_averages.get("Aerial Duels Won %", 0) or tactical_team_averages.get("aerial_duels_won_pct", 0) or 0
-                    interceptions = tactical_team_averages.get("interceptions", 0) or tactical_team_averages.get("Interceptions", 0) or 0
+                    defensive_duels_won_pct = (tactical_team_averages.get("Defensive Duels Win %") or 
+                                              tactical_team_averages.get("Defensive Duels Won %") or 
+                                              tactical_team_averages.get("defensiveDuelsWonPct") or 
+                                              tactical_team_averages.get("defensive_duels_won_pct") or 0)
+                    aerial_duels_won_pct = (tactical_team_averages.get("Aerial Duels Win %") or 
+                                          tactical_team_averages.get("Aerial Duels Won %") or 
+                                          tactical_team_averages.get("aerialDuelsWonPct") or 
+                                          tactical_team_averages.get("aerial_duels_won_pct") or 0)
+                    interceptions = (tactical_team_averages.get("Interceptions") or 
+                                   tactical_team_averages.get("Interceptions Per 90") or 
+                                   tactical_team_averages.get("interceptions") or 0)
                     recoveries = tactical_team_averages.get("recoveries", 0) or tactical_team_averages.get("Recoveries", 0) or 0
                     recoveries_high = tactical_team_averages.get("Recoveries High", 0) or 0
                     
                     # Competition averages
                     comp_ppda = tactical_competition_averages.get("ppda", 0) or tactical_competition_averages.get("PPDA", 0) or 0
-                    comp_defensive_pct = tactical_competition_averages.get("defensiveDuelsWonPct", 0) or tactical_competition_averages.get("Defensive Duels Won %", 0) or tactical_competition_averages.get("defensive_duels_won_pct", 0) or 0
-                    comp_aerial_pct = tactical_competition_averages.get("aerialDuelsWonPct", 0) or tactical_competition_averages.get("Aerial Duels Won %", 0) or tactical_competition_averages.get("aerial_duels_won_pct", 0) or 0
-                    comp_interceptions = tactical_competition_averages.get("interceptions", 0) or tactical_competition_averages.get("Interceptions", 0) or 0
+                    comp_defensive_pct = (tactical_competition_averages.get("Defensive Duels Win %") or 
+                                         tactical_competition_averages.get("Defensive Duels Won %") or 
+                                         tactical_competition_averages.get("defensiveDuelsWonPct") or 
+                                         tactical_competition_averages.get("defensive_duels_won_pct") or 0)
+                    comp_aerial_pct = (tactical_competition_averages.get("Aerial Duels Win %") or 
+                                      tactical_competition_averages.get("Aerial Duels Won %") or 
+                                      tactical_competition_averages.get("aerialDuelsWonPct") or 
+                                      tactical_competition_averages.get("aerial_duels_won_pct") or 0)
+                    comp_interceptions = (tactical_competition_averages.get("Interceptions") or 
+                                         tactical_competition_averages.get("Interceptions Per 90") or 
+                                         tactical_competition_averages.get("interceptions") or 0)
                     comp_recoveries = tactical_competition_averages.get("recoveries", 0) or tactical_competition_averages.get("Recoveries", 0) or 0
                     
                     # KPI Cards
@@ -8337,169 +8493,6 @@ def main():
                 else:
                     st.info("No hay datos disponibles para el análisis de presión e intensidad defensiva.")
                 
-                # ========== SECCIÓN 1.9: WIDTH & CROSSING ==========
-                st.markdown("---")
-                st.markdown("""
-                <h3 style='color:#FF9900; margin-top:20px;'>Amplitud y Centros</h3>
-                """, unsafe_allow_html=True)
-                
-                if tactical_team_averages and isinstance(team_df, pd.DataFrame) and not team_df.empty:
-                    # Get width and crossing metrics
-                    crosses = tactical_team_averages.get("crosses", 0) or tactical_team_averages.get("Crosses", 0) or 0
-                    crosses_accurate = tactical_team_averages.get("crossesAccurate", 0) or tactical_team_averages.get("Crosses Accurate", 0) or 0
-                    crosses_pct = (crosses_accurate / crosses * 100) if crosses > 0 else 0
-                    deep_crosses = tactical_team_averages.get("deepCompletedCrosses", 0) or tactical_team_averages.get("Deep completed crosses", 0) or 0
-                    lateral_passes = tactical_team_averages.get("lateralPassesAccurate", 0) or tactical_team_averages.get("Lateral Passes Accurate", 0) or 0
-                    
-                    # Competition averages
-                    comp_crosses = tactical_competition_averages.get("crosses", 0) or tactical_competition_averages.get("Crosses", 0) or 0
-                    comp_crosses_accurate = tactical_competition_averages.get("crossesAccurate", 0) or tactical_competition_averages.get("Crosses Accurate", 0) or 0
-                    comp_crosses_pct = (comp_crosses_accurate / comp_crosses * 100) if comp_crosses > 0 else 0
-                    comp_lateral = tactical_competition_averages.get("lateralPassesAccurate", 0) or tactical_competition_averages.get("Lateral Passes Accurate", 0) or 0
-                    
-                    # KPI Cards
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        display_metric_card(
-                            "Centros Totales",
-                            f"{crosses:.1f}",
-                            "",
-                            f"Liga: {comp_crosses:.1f}",
-                            color="normal"
-                        )
-                    with col2:
-                        display_metric_card(
-                            "Precisión Centros",
-                            f"{crosses_pct:.1f}%",
-                            "",
-                            f"Liga: {comp_crosses_pct:.1f}%",
-                            color="normal"
-                        )
-                    with col3:
-                        display_metric_card(
-                            "Centros Profundos",
-                            f"{deep_crosses:.1f}",
-                            "",
-                            "Completados",
-                            color="normal"
-                        )
-                    with col4:
-                        display_metric_card(
-                            "Pases Laterales",
-                            f"{lateral_passes:.1f}",
-                            "",
-                            f"Liga: {comp_lateral:.1f}",
-                            color="normal"
-                        )
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    
-                    # Bar chart for width metrics (Crosses/Centros)
-                    # "Centros" refers to "Crosses" - passes from wide areas into the penalty box
-                    st.markdown(f"**Precisión de Centros: {crosses_pct:.1f}%** (Centros precisos: {crosses_accurate:.1f} de {crosses:.1f} total)")
-                    fig = go.Figure()
-                    
-                    metrics = ["Centros Totales", "Centros Precisos", "Centros Profundos", "Pases Laterales"]
-                    team_vals = [crosses, crosses_accurate, deep_crosses, lateral_passes]
-                    comp_vals = [comp_crosses, comp_crosses_accurate, 0, comp_lateral]  # Deep crosses not in comp avg
-                    
-                    # Helper function to determine if color is light (needs black text) or dark (needs white text)
-                    def hex_to_rgb(hex_color):
-                        """Convert hex color to RGB tuple."""
-                        hex_color = hex_color.lstrip('#')
-                        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-                    
-                    def is_grey_or_black(hex_color):
-                        """Check if a color is grey or black - if so, use white text."""
-                        hex_str = str(hex_color).upper().lstrip('#')
-                        # Explicitly check for common grey/black hex values
-                        grey_black_hexes = ['888888', '666666', '555555', '444444', '333333', '222222', '111111', '000000',
-                                            '999999', '777777', 'AAAAAA', 'BBBBBB']
-                        if hex_str in grey_black_hexes:
-                            return True
-                        rgb = hex_to_rgb(hex_color)
-                        r, g, b = rgb
-                        # Check if it's black or very dark
-                        if r < 50 and g < 50 and b < 50:
-                            return True
-                        # Check if it's grey: R, G, B are all equal (pure grey) or very close (within 10)
-                        if r == g == b:
-                            return True
-                        if abs(r - g) <= 10 and abs(g - b) <= 10 and abs(r - b) <= 10:
-                            # If average brightness is less than 200, it's dark grey
-                            if (r + g + b) / 3 < 200:
-                                return True
-                        return False
-                    
-                    team_text_color = 'white' if is_grey_or_black(team_color) else 'black'
-                    
-                    # Calculate max value to determine if bars are too small
-                    all_cross_values = [v for v in team_vals + comp_vals if v is not None and v > 0]
-                    max_cross_val = max(all_cross_values) if all_cross_values else 1
-                    threshold = max_cross_val * 0.05
-                    
-                    # Determine text position and color for each bar
-                    # Labels outside bars (small bars) are always white
-                    # Labels inside bars: white for dark bars, black for light bars
-                    team_cross_text_positions = ['outside' if v < threshold else 'inside' for v in team_vals]
-                    team_cross_text_colors = ['white' if v < threshold else ('white' if is_grey_or_black(team_color) else 'black') for v in team_vals]
-                    comp_cross_text_positions = ['outside' if (v > 0 and v < threshold) else 'inside' if v > 0 else 'inside' for v in comp_vals]
-                    comp_cross_text_colors = ['#FFFFFF' for v in comp_vals]  # League average bars are always dark gray
-                    
-                    fig.add_trace(go.Bar(
-                        name=selected_opponent,
-                        x=metrics,
-                        y=team_vals,
-                        marker_color=team_color,
-                        text=[f"{v:.1f}" for v in team_vals],
-                        textposition=team_cross_text_positions,
-                        insidetextanchor='middle',
-                        textfont=dict(size=14, color=team_cross_text_colors, family='Arial Black'),
-                        cliponaxis=False
-                    ))
-                    
-                    fig.add_trace(go.Bar(
-                        name='Promedio Liga',
-                        x=metrics,
-                        y=comp_vals,
-                        marker_color='#888888',
-                        opacity=0.7,
-                        text=[f"{v:.1f}" if v > 0 else "" for v in comp_vals],
-                        textposition=comp_cross_text_positions,
-                        insidetextanchor='middle',
-                        textfont=dict(size=14, color=comp_cross_text_colors, family='Arial Black'),
-                        cliponaxis=False
-                    ))
-                    
-                    # Calculate y-axis range to ensure all bars are tall enough for labels
-                    all_values = [v for v in team_vals + comp_vals if v > 0]
-                    if all_values:
-                        max_val = max(all_values)
-                        # Ensure minimum range so small bars are still readable
-                        min_range = max(max_val * 1.2, 10)  # At least 10 units or 20% above max
-                        yaxis_range = [0, min_range]
-                    else:
-                        yaxis_range = None
-                    
-                    fig.update_layout(
-                        barmode='group',
-                        template='plotly_dark',
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        height=450,
-                        margin=dict(t=100, b=60, l=50, r=50),  # Increased top margin for outside labels
-                        yaxis_title="Por 90 Minutos",
-                        xaxis_title="",
-                        showlegend=True,
-                        legend=dict(font=dict(color='white')),
-                        font=dict(color='white'),
-                        yaxis=dict(range=yaxis_range)
-                    )
-                    
-                    st.plotly_chart(fig, use_container_width=True, key=f"width_crossing_chart_{selected_opponent}")
-                else:
-                    st.info("No hay datos disponibles para el análisis de amplitud y centros.")
-                
                 # ========== SECCIÓN 4: SET PIECES ==========
                 st.markdown("---")
                 st.markdown("""
@@ -8507,13 +8500,23 @@ def main():
                 """, unsafe_allow_html=True)
                 
                 if tactical_team_averages and isinstance(team_df, pd.DataFrame) and not team_df.empty:
-                    # Get set pieces metrics from Wyscout data
-                    corners = tactical_team_averages.get("corners", 0) or tactical_team_averages.get("Corners", 0) or 0
-                    corners_with_shots = tactical_team_averages.get("cornersWithShots", 0) or tactical_team_averages.get("Corners With Shots", 0) or 0
+                    # Get set pieces metrics from Wyscout data - try multiple column name variations
+                    corners = (tactical_team_averages.get("Corners") or 
+                              tactical_team_averages.get("Corners Per 90") or 
+                              tactical_team_averages.get("corners") or 0)
+                    corners_with_shots = (tactical_team_averages.get("Corners With Shot") or 
+                                         tactical_team_averages.get("Corners With Shot Per 90") or 
+                                         tactical_team_averages.get("Corners With Shots") or 
+                                         tactical_team_averages.get("cornersWithShots") or 0)
                     corners_shot_pct = (corners_with_shots / corners * 100) if corners > 0 else 0
                     
-                    free_kicks = tactical_team_averages.get("freeKicks", 0) or tactical_team_averages.get("Free Kicks", 0) or 0
-                    free_kicks_with_shots = tactical_team_averages.get("freeKicksWithShots", 0) or tactical_team_averages.get("Free Kicks With Shots", 0) or 0
+                    free_kicks = (tactical_team_averages.get("Free Kicks") or 
+                                 tactical_team_averages.get("Free Kicks Per 90") or 
+                                 tactical_team_averages.get("freeKicks") or 0)
+                    free_kicks_with_shots = (tactical_team_averages.get("Free Kicks With Shot") or 
+                                            tactical_team_averages.get("Free Kicks With Shot Per 90") or 
+                                            tactical_team_averages.get("Free Kicks With Shots") or 
+                                            tactical_team_averages.get("freeKicksWithShots") or 0)
                     free_kicks_shot_pct = (free_kicks_with_shots / free_kicks * 100) if free_kicks > 0 else 0
                     
                     penalties = tactical_team_averages.get("penalties", 0) or tactical_team_averages.get("Penalties", 0) or 0
@@ -8525,10 +8528,20 @@ def main():
                     throw_ins_pct = (throw_ins_accurate / throw_ins * 100) if throw_ins > 0 else 0
                     
                     # Competition averages
-                    comp_corners = tactical_competition_averages.get("corners", 0) or tactical_competition_averages.get("Corners", 0) or 0
-                    comp_corners_with_shots = tactical_competition_averages.get("cornersWithShots", 0) or tactical_competition_averages.get("Corners With Shots", 0) or 0
-                    comp_free_kicks = tactical_competition_averages.get("freeKicks", 0) or tactical_competition_averages.get("Free Kicks", 0) or 0
-                    comp_free_kicks_with_shots = tactical_competition_averages.get("freeKicksWithShots", 0) or tactical_competition_averages.get("Free Kicks With Shots", 0) or 0
+                    comp_corners = (tactical_competition_averages.get("Corners") or 
+                                   tactical_competition_averages.get("Corners Per 90") or 
+                                   tactical_competition_averages.get("corners") or 0)
+                    comp_corners_with_shots = (tactical_competition_averages.get("Corners With Shot") or 
+                                              tactical_competition_averages.get("Corners With Shot Per 90") or 
+                                              tactical_competition_averages.get("Corners With Shots") or 
+                                              tactical_competition_averages.get("cornersWithShots") or 0)
+                    comp_free_kicks = (tactical_competition_averages.get("Free Kicks") or 
+                                      tactical_competition_averages.get("Free Kicks Per 90") or 
+                                      tactical_competition_averages.get("freeKicks") or 0)
+                    comp_free_kicks_with_shots = (tactical_competition_averages.get("Free Kicks With Shot") or 
+                                                  tactical_competition_averages.get("Free Kicks With Shot Per 90") or 
+                                                  tactical_competition_averages.get("Free Kicks With Shots") or 
+                                                  tactical_competition_averages.get("freeKicksWithShots") or 0)
                     comp_penalties = tactical_competition_averages.get("penalties", 0) or tactical_competition_averages.get("Penalties", 0) or 0
                     comp_penalties_converted = tactical_competition_averages.get("penaltiesConverted", 0) or tactical_competition_averages.get("Penalties Converted", 0) or 0
                     comp_throw_ins = tactical_competition_averages.get("throwIns", 0) or tactical_competition_averages.get("Throw Ins", 0) or 0

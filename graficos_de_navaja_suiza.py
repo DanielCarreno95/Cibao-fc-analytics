@@ -481,7 +481,7 @@ def build_scatter(
     else:
         fig.update_traces(marker=dict(size=18))
     if aggregate_flag and group_col in df.columns:
-        fig.update_traces(textposition="top center")
+        fig.update_traces(textposition="top center", cliponaxis=False)
     return fig
 
 
@@ -592,10 +592,15 @@ def make_team_scatter(
         default_other_color=DEFAULT_OTHER_COLOR,
         default_other_opacity=DEFAULT_OTHER_OPACITY,
     )
+    
+    # Get the actual column names from the DataFrame using get_metric
+    _, x_col_actual = get_metric(prepared, scatter_config.get("x"))
+    _, y_col_actual = get_metric(prepared, scatter_config.get("y"))
+    
     resumen = build_summary_text(
         prepared,
-        x_metric,
-        y_metric,
+        x_col_actual if x_col_actual else x_metric,
+        y_col_actual if y_col_actual else y_metric,
         primary_team=primary_team,
         opponent=opponent,
         group_col=GROUP_BY_COLUMN,

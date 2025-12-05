@@ -9,31 +9,239 @@ import plotly.graph_objects as go
 import plotly.io as pio
 
 from src.data_processing.load_cibao_team_data import load_cibao_team_data
+from src.data_processing.loaders import load_per90_data
 from src.utils.metrics_dictionary import METRICS_DICT
 from graficos_de_navaja_suiza import (
-    load_data as load_liga_mayor_data,
     make_team_scatter,
     METRIC_OPTIONS,
-    DATA_FILE as LIGA_MAYOR_DATA_FILE,
 )
 # Tema Plotly oscuro
 pio.templates.default = "plotly_dark"
 
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
+from src.utils.navigation import render_top_navigation
 
 # ---------- CONFIG ----------
-st.set_page_config(page_title="Rendimiento Colectivo - Liga", layout="wide")
+st.set_page_config(
+    page_title="Rendimiento Colectivo - Liga",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # ---------- ACTIVAR TEMA OSCURO GLOBAL ----------
 inject_dark_theme()
 
+# ---------- TOP NAVIGATION BAR ----------
+render_top_navigation()
+
+# ---------- CUSTOM FONT SIZES ----------
+st.markdown("""
+<style>
+    /* Texto general del cuerpo - mantener grande para legibilidad */
+    .stApp {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Párrafos y texto general */
+    p, div, span, label {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Tablas */
+    .stDataFrame {
+        font-size: 1.4rem !important;
+    }
+    
+    .stDataFrame table {
+        font-size: 1.4rem !important;
+    }
+    
+    .stDataFrame th {
+        font-size: 1.5rem !important;
+        font-weight: bold !important;
+        padding: 12px !important;
+    }
+    
+    /* Table headers - black text, bold, orange background */
+    div[data-testid="stDataFrame"] table thead th,
+    div[data-testid="stDataFrame"] table th,
+    .stDataFrame table thead th,
+    .stDataFrame table th,
+    .dataframe thead th,
+    .dataframe th {
+        color: #000000 !important;
+        font-weight: 900 !important;
+        background-color: #ff8c00 !important;
+    }
+    
+    .stDataFrame td {
+        font-size: 1.4rem !important;
+        padding: 10px !important;
+    }
+    
+    /* Métricas de Streamlit */
+    [data-testid="stMetricValue"] {
+        font-size: 2.5rem !important;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        font-size: 1.4rem !important;
+    }
+    
+    [data-testid="stMetricDelta"] {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        font-size: 1.3rem !important;
+    }
+    
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        font-size: 1.6rem !important;
+    }
+    
+    /* Selectores y controles */
+    .stSelectbox label,
+    .stRadio label,
+    .stMultiselect label {
+        font-size: 1.4rem !important;
+        font-weight: 500 !important;
+    }
+    
+    .stSelectbox [class*="selectbox"],
+    .stRadio [class*="radio"],
+    .stMultiselect [class*="multiselect"] {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Info boxes y warnings */
+    .stInfo, .stWarning, .stError, .stSuccess {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Pestañas */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 55px;
+        padding: 12px 24px;
+        font-size: 1.4rem !important;
+        font-weight: 500 !important;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        font-size: 1.5rem !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Botones - exclude navigation buttons to keep them consistent */
+    .stButton button:not([key^="home_btn"]):not([key^="nav_"]) {
+        font-size: 1.3rem !important;
+        padding: 0.5rem 1.5rem !important;
+    }
+    
+    /* Home button - override to match global theme - highest specificity */
+    button[key="home_btn_1"],
+    .stButton button[key="home_btn_1"],
+    div[data-testid="column"] button[key="home_btn_1"],
+    div[data-testid="column"] .stButton button[key="home_btn_1"],
+    div[data-testid="stButton"] button[key="home_btn_1"],
+    div[data-testid="column"] div[data-testid="stButton"] button[key="home_btn_1"] {
+        font-size: 24px !important;
+        height: 50px !important;
+        min-height: 50px !important;
+        max-height: 50px !important;
+        line-height: 50px !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+    
+</style>
+""", unsafe_allow_html=True)
+
+# ---------- FINAL OVERRIDE: Ensure navigation buttons match regular buttons exactly ----------
+# This must be AFTER render_top_navigation() to override any conflicting styles
+# Use both CSS and JavaScript to ensure styles persist after Streamlit re-renders
+st.markdown("""
+<style>
+    /* FINAL OVERRIDE: Navigation buttons must match regular buttons - maximum specificity */
+    /* This ensures they stay consistent even if other CSS loads after */
+    div.top-nav-container div[data-testid="column"] div[data-testid="stButton"] button[key^="nav_"],
+    div.top-nav-container div[data-testid="column"] div[data-testid="stButton"] button[key^="nav_"] *,
+    div.top-nav-container div[data-testid="column"] .stButton button[key^="nav_"],
+    div.top-nav-container div[data-testid="column"] .stButton button[key^="nav_"] *,
+    div.top-nav-container div[data-testid="column"] button[key^="nav_"],
+    div.top-nav-container div[data-testid="column"] button[key^="nav_"] *,
+    .top-nav-container div[data-testid="column"] div[data-testid="stButton"] button[key^="nav_"],
+    .top-nav-container div[data-testid="column"] div[data-testid="stButton"] button[key^="nav_"] *,
+    .top-nav-container div[data-testid="column"] .stButton button[key^="nav_"],
+    .top-nav-container div[data-testid="column"] .stButton button[key^="nav_"] *,
+    .top-nav-container .stButton button[key^="nav_"],
+    .top-nav-container .stButton button[key^="nav_"] *,
+    .top-nav-container button[key^="nav_"],
+    .top-nav-container button[key^="nav_"] * {
+        background-color: #ff7b00 !important;
+        border: 1px solid #ff7b00 !important;
+        color: black !important;
+        font-size: 1.3rem !important;
+        padding: 0.5rem 1.5rem !important;
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+        line-height: normal !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        font-weight: normal !important;
+    }
+</style>
+<script>
+    // Force navigation button styles to persist after Streamlit re-renders
+    function enforceNavButtonStyles() {
+        const navButtons = document.querySelectorAll('button[key^="nav_"]');
+        navButtons.forEach(btn => {
+            btn.style.backgroundColor = '#ff7b00';
+            btn.style.border = '1px solid #ff7b00';
+            btn.style.color = 'black';
+            btn.style.fontSize = '1.3rem';
+            btn.style.padding = '0.5rem 1.5rem';
+            btn.style.height = 'auto';
+            btn.style.minHeight = 'auto';
+            btn.style.maxHeight = 'none';
+            btn.style.lineHeight = 'normal';
+            btn.style.width = '100%';
+            btn.style.minWidth = '0';
+            btn.style.maxWidth = '100%';
+            btn.style.boxSizing = 'border-box';
+            btn.style.fontWeight = 'normal';
+        });
+    }
+    
+    // Run immediately and after DOM changes
+    enforceNavButtonStyles();
+    const observer = new MutationObserver(enforceNavButtonStyles);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Also run on page load and after a short delay
+    window.addEventListener('load', enforceNavButtonStyles);
+    setTimeout(enforceNavButtonStyles, 100);
+    setTimeout(enforceNavButtonStyles, 500);
+</script>
+""", unsafe_allow_html=True)
+
 # ---------- ENCABEZADO VISUAL DEL SIDEBAR ----------
 with st.sidebar:
     st.markdown("""
-        <h3 style='margin-top:0; color:#ff7b00;'>Análisis Liga</h3>
-        <hr style='margin-top:6px; margin-bottom:20px; opacity:0.3;'>
-        """, unsafe_allow_html=True)
+    <h3 style='margin-top:0; color:#ff7b00;'>Análisis Liga</h3>
+    <hr style='margin-top:6px; margin-bottom:20px; opacity:0.3;'>
+    """, unsafe_allow_html=True)
 
 # ---------- DATA ----------
 try:
@@ -47,7 +255,8 @@ df_cibao.columns = [c.strip().replace("\n", " ").replace("  ", " ") for c in df_
 
 @st.cache_data
 def load_liga_mayor_per90():
-    return load_liga_mayor_data(LIGA_MAYOR_DATA_FILE)
+    """Load Liga Mayor data from Wyscout JSON files (same as page 2)."""
+    return load_per90_data()
 
 try:
     df_liga_mayor = load_liga_mayor_per90()
@@ -82,12 +291,20 @@ else:
 
 # --- Obtener partidos correspondientes ---
 if not df_cibao.empty and "Match" in df_cibao.columns:
-    default_partidos = (
-        df_cibao[df_cibao["Jornada"].isin(ultimas_jornadas)]
-        .sort_values("Date")["Match"]
-        .unique()
-        .tolist()[:5]
-    )
+    if "Jornada" in df_cibao.columns and ultimas_jornadas:
+        default_partidos = (
+            df_cibao[df_cibao["Jornada"].isin(ultimas_jornadas)]
+            .sort_values("Date")["Match"]
+            .unique()
+            .tolist()[:5]
+        )
+    else:
+        # If no Jornada column, just get the last 5 matches by date
+        default_partidos = (
+            df_cibao.sort_values("Date", na_position='last')["Match"]
+            .unique()
+            .tolist()[-5:]
+        )
 else:
     default_partidos = []
 
@@ -103,58 +320,30 @@ if "global_partidos" not in st.session_state:
 with st.sidebar:
     st.subheader("Filtros")
 
-    # Crear opciones combinadas "Jornada - Partido"
-    if not df_cibao.empty and "Jornada" in df_cibao.columns and "Match" in df_cibao.columns:
-        df_cibao_sorted = df_cibao.sort_values("Date")
-        opciones_partidos = []
-        for _, row in df_cibao_sorted.iterrows():
-            jornada = row.get("Jornada", "")
-            partido = row.get("Match", "")
-            if pd.notna(jornada) and pd.notna(partido):
-                opciones_partidos.append(f"J{int(jornada)} - {partido}")
-
-        # Eliminar duplicados manteniendo orden
-        opciones_partidos = list(dict.fromkeys(opciones_partidos))
-
-        # Seleccionar últimos 3 por defecto
-        default_selection = opciones_partidos[-3:] if len(opciones_partidos) >= 3 else opciones_partidos
-    else:
-        opciones_partidos = []
-        default_selection = []
-
-    # Inicializar estado
-    if "partidos_seleccionados" not in st.session_state:
-        st.session_state["partidos_seleccionados"] = default_selection
-
-    partidos_seleccionados = st.multiselect(
-        "Selecciona Partidos (máx 5)",
-        options=opciones_partidos,
-        default=st.session_state["partidos_seleccionados"],
-        key="sidebar_partidos_combinados",
+    jornadas_sel = st.multiselect(
+        "Selecciona Jornadas (máx 5)",
+        options=sorted(df_cibao["Jornada"].unique().tolist()) if "Jornada" in df_cibao.columns else [],
+        default=st.session_state["global_jornadas"],
+        key="sidebar_jornadas",
         max_selections=5,
-        help="Formato: Jornada - Partido"
+    )
+
+    partidos_sel = st.multiselect(
+        "Selecciona Partidos (máx 5)",
+        options=df_cibao["Match"].unique().tolist(),
+        default=st.session_state["global_partidos"],
+        key="sidebar_partidos",
+        max_selections=5,
     )
 
     # --- Botón para limpiar filtros ---
     if st.button("🔄 Borrar filtros", use_container_width=True):
-        st.session_state["partidos_seleccionados"] = default_selection
-        st.session_state["sidebar_partidos_combinados"] = default_selection
-        st.toast("Filtros restablecidos a los últimos 3 partidos ✅", icon="🔁")
+        st.session_state["global_jornadas"] = ultimas_jornadas
+        st.session_state["global_partidos"] = default_partidos
+        st.session_state["sidebar_jornadas"] = ultimas_jornadas
+        st.session_state["sidebar_partidos"] = default_partidos
+        st.toast("Filtros restablecidos a las últimas 3 jornadas ✅", icon="🔁")
         st.rerun()
-
-    # ===============================================
-    # 📊 COMPARACIÓN CON PROMEDIO LIGA
-    # ===============================================
-    st.markdown("<hr style='margin:20px 0; opacity:0.3;'>", unsafe_allow_html=True)
-    st.subheader("Comparación")
-
-    # Checkbox para promedio de liga
-    mostrar_promedio_liga = st.checkbox(
-        "Mostrar Promedio Liga",
-        value=True,
-        key="mostrar_promedio_liga",
-        help="Compara Cibao con el promedio de todos los equipos de la liga"
-    )
 
 # ===============================================
 # 🧮 SINCRONIZACIÓN entre sidebar y app
@@ -171,16 +360,19 @@ partidos_sel = st.session_state["global_partidos"]
 # ===============================================
 df_filtrado = df_cibao.copy()
 
-if partidos_seleccionados:
-    # Extraer nombres de partidos de las selecciones "J# - Partido"
-    partidos_nombres = [p.split(" - ", 1)[1] if " - " in p else p for p in partidos_seleccionados]
-    df_filtrado = df_filtrado[df_filtrado["Match"].isin(partidos_nombres)]
+if jornadas_sel and "Jornada" in df_filtrado.columns:
+    df_filtrado = df_filtrado[df_filtrado["Jornada"].isin(jornadas_sel)]
 
-# Si no hay selección válida, usa últimos 3 por defecto
+if partidos_sel:
+    df_filtrado = df_filtrado[df_filtrado["Match"].isin(partidos_sel)]
+
+# Si no hay selección válida, usa últimas 3 por defecto
 if df_filtrado.empty and not df_cibao.empty:
-    # Usar últimos 3 partidos
-    ultimos_partidos = df_cibao.sort_values("Date").tail(3)["Match"].unique().tolist()
-    df_filtrado = df_cibao[df_cibao["Match"].isin(ultimos_partidos)]
+    if "Jornada" in df_cibao.columns and ultimas_jornadas:
+        df_filtrado = df_cibao[df_cibao["Jornada"].isin(ultimas_jornadas)]
+    else:
+        # If no Jornada column, use all data or last 5 matches by date
+        df_filtrado = df_cibao.copy()
 
 # ===============================================
 # 🧠 HELPERS AUXILIARES
@@ -190,14 +382,24 @@ def col_from(metric_name: str):
     if not metric_name:
         return None
     col = METRICS_DICT.get(metric_name)
-    return col if (col in df_filtrado.columns) else None
+    # Check in df_liga_mayor (Wyscout data) first, then df_filtrado (Excel) as fallback
+    if col and not df_liga_mayor.empty and col in df_liga_mayor.columns:
+        return col
+    if col and col in df_filtrado.columns:
+        return col
+    return None
 
 def mean_safe(metric_name: str) -> float:
     """Media robusta; retorna np.nan si no existe o no es numérica."""
     col = col_from(metric_name)
     if col is None:
         return np.nan
-    s = pd.to_numeric(df_filtrado[col], errors="coerce")
+    # Use df_liga_mayor if column exists there, otherwise use df_filtrado
+    if not df_liga_mayor.empty and col in df_liga_mayor.columns:
+        df_to_use = df_liga_mayor
+    else:
+        df_to_use = df_filtrado
+    s = pd.to_numeric(df_to_use[col], errors="coerce")
     return float(s.mean()) if s.notna().any() else np.nan
 
 def available(metric_names):
@@ -224,97 +426,12 @@ with cols_reset[1]:
         st.toast("Filtros restablecidos a las últimas 3 jornadas ✅", icon="🔄")
         st.rerun()
 
-# ===============================================
-# Bloque KPIs
-# ===============================================
-
-st.markdown("### Indicadores del último partido")
-
-# Seleccionar el último partido según la fecha más reciente
-if not df_filtrado.empty:
-    ultimo_partido = df_filtrado.sort_values("Date", ascending=False).iloc[0]
-else:
-    st.warning("No hay datos disponibles para mostrar los KPIs.")
-    st.stop()
-
-# Formatear fecha (dd-mm-yyyy)
-fecha_str = "-"
-if pd.notna(ultimo_partido.get("Date", None)):
-    try:
-        fecha_str = pd.to_datetime(ultimo_partido["Date"]).strftime("%d-%m-%Y")
-    except Exception:
-        fecha_str = str(ultimo_partido.get("Date", ""))
-
-# KPIs textuales
-kpi_texts = [
-    ("Fecha",              fecha_str),
-    ("Jornada número",     ultimo_partido.get("Jornada", "")),
-    ("Partido",            ultimo_partido.get("Match", "")),
-    ("Resultado Final",    ultimo_partido.get("Final Result", "")),
-    ("Alineación",         ultimo_partido.get("Alineacion", "")),
-]
-
-# KPIs numéricos del último partido
-kpi_numericos = [
-    ("Goles Esperados (xG)",  ultimo_partido.get("xg", np.nan)),
-    ("Posesión (%)",          ultimo_partido.get("possession_percent", np.nan)),
-    ("Tarjetas Amarillas",    ultimo_partido.get("yellow_cards", np.nan)),
-    ("Tarjetas Rojas",        ultimo_partido.get("red_cards", np.nan)),
-]
-
-# Mostrar KPIs textuales
-cols_text = st.columns(len(kpi_texts))
-for (label, value), c in zip(kpi_texts, cols_text):
-    with c:
-        display = str(value) if pd.notna(value) else "-"
-        st.markdown(
-            f"""
-            <div style='background:rgba(25,25,25,0.95);
-                        border:1px solid rgba(255,140,0,0.35);
-                        border-radius:14px;padding:18px;
-                        text-align:center;box-shadow:0 0 18px rgba(255,140,0,0.12);'>
-                <div style='font-size:1.3rem;color:#FF8C00;font-weight:700;'>{display}</div>
-                <div style='color:#cfcfcf;font-size:0.9rem;'>{label}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# Mostrar KPIs numéricos (xG, Posesión, Tarjetas)
-cols_num = st.columns(len(kpi_numericos))
-for (label, val), c in zip(kpi_numericos, cols_num):
-    with c:
-        if "Tarjetas" in label:
-            display = "-" if pd.isna(val) else f"{int(val)}"
-        else:
-            display = "-" if pd.isna(val) else f"{val:.2f}"
-        st.markdown(
-            f"""
-            <div style='background:rgba(25,25,25,0.95);
-                        border:1px solid rgba(255,140,0,0.35);
-                        border-radius:14px;padding:18px;
-                        text-align:center;box-shadow:0 0 18px rgba(255,140,0,0.12);'>
-                <div style='font-size:2.1rem;color:#FF8C00;font-weight:900;'>{display}</div>
-                <div style='color:#cfcfcf;font-size:0.95rem;'>{label}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- Separador visual antes de los KPIs ---
-st.markdown("<br>", unsafe_allow_html=True)
 
 # ==============================
 # 🎨 PALETA INSTITUCIONAL CIBAO FC
 # ==============================
-CIBAO_ORANGE = "#FF8C00"         # Naranja principal - Cibao FC
-CIBAO_ORANGE_LIGHT = "#FFC966"   # Naranja dorado claro - Promedio Liga
-CIBAO_WHITE = "#E8E8E8"          # Gris claro/blanco - Equipo 1
-CIBAO_GRAY_MED = "#808080"       # Gris medio - Equipo 2
+CIBAO_ORANGE = "#FF8C00"         # Naranja principal
+CIBAO_ORANGE_LIGHT = "#FFA64D"   # Naranja claro
 CIBAO_BLACK = "#111111"          # Fondo general
 CIBAO_GRAY = "#D3D3D3"           # Texto neutro
 CIBAO_DARKGRAY = "#1B1B1B"       # Contenedor gris oscuro
@@ -390,6 +507,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
 
 # ==============================
 # Bloque 0 — ANÁLISIS RÁPIDO CIBAO VS RIVAL
@@ -507,33 +625,33 @@ Evaluación del comportamiento ofensivo del Cibao FC: producción, eficacia en t
 
 grupos = {
     "Producción ofensiva directa": {
-        "Goles por partido": "goals",
-        "Goles en contra por partido": "conceded_goals",
-        "xG (Goles esperados)": "xg",
+        "Goles por partido": "Goals",
+        "Goles en contra por partido": "Conceded goals",
+        "xG (Goles esperados)": "xG",
     },
 
     "Eficiencia en el tiro": {
-        "Porcentaje de disparos a puerta (%)": "shots_on_target_percent",
-        "Disparos desde fuera del área a puerta (%)": "shots_from_outside_penalty_area_on_target_percent",
+        "Porcentaje de disparos a puerta (%)": "Shot Accuracy %",
+        "Disparos desde fuera del área a puerta (%)": "Shots Outside PA Accuracy %",
     },
 
     "Patrones de ataque": {
-        "Ataques posicionales con disparo (%)": "positional_attacks_with_shots_percent",
-        "Contraataques con disparo (%)": "counter_attacks_with_shots_percent",
+        "Ataques posicionales con disparo (%)": "Positional Attacks With Shot %",
+        "Contraataques con disparo (%)": "Counterattacks With Shot %",
     },
 
     "Balón parado y definición": {
-        "Balones parados con disparo (%)": "set_pieces_with_shots_percent",
-        "Corners con disparo (%)": "corners_with_shots_percent",
-        "Faltas directas con disparo (%)": "free_kicks_with_shots_percent",
-        "Conversión de penaltis (%)": "penalties_converted_percent",
+        "Balones parados con disparo (%)": "Set Pieces With Shot %",
+        "Corners con disparo (%)": "Corners With Shot %",
+        "Faltas directas con disparo (%)": "Free Kicks With Shot %",
+        "Conversión de penaltis (%)": "Penalties Conversion %",
     },
 
     "Juego interior y profundidad": {
-        "Entradas al área por 90": "Penpenalty_area_entries",
-        "Entradas al área con conducción": penalty_area_entries_runs",
-        "Entradas al área con centros": "penalty_area_entries_crosses",
-        "Toques en el área por 90": "touches_in_penalty_area",
+        "Entradas al área por 90": "Penalty Area Entries",
+        "Entradas al área con conducción": "Penalty Area Runs",
+        "Entradas al área con centros": "Penalty Area Crosses",
+        "Toques en el área por 90": "Touches in Penalty Area",
     },
 }
 
@@ -698,18 +816,18 @@ with tab1:
 
     col1, col2 = st.columns(2)
     with col1:
-        plot_group("Producción ofensiva directa", grupos["Producción ofensiva directa"])
+        plot_group("Producción ofensiva directa", grupos["Producción ofensiva directa"], opponent=opponent_choice)
     with col2:
-        plot_group("Eficiencia en el tiro", grupos["Eficiencia en el tiro"])
+        plot_group("Eficiencia en el tiro", grupos["Eficiencia en el tiro"], opponent=opponent_choice)
 
     col3, col4 = st.columns(2)
     with col3:
-        plot_group("Patrones de ataque", grupos["Patrones de ataque"])
+        plot_group("Patrones de ataque", grupos["Patrones de ataque"], opponent=opponent_choice)
     with col4:
-        plot_group("Balón parado y definición", grupos["Balón parado y definición"])
+        plot_group("Balón parado y definición", grupos["Balón parado y definición"], opponent=opponent_choice)
 
     # Último grupo → ancho completo
-    plot_group("Juego interior y profundidad", grupos["Juego interior y profundidad"])
+    plot_group("Juego interior y profundidad", grupos["Juego interior y profundidad"], opponent=opponent_choice)
 
 
 # ================= TABS VACÍAS POR AHORA =====================
@@ -767,69 +885,36 @@ with tab2:
 
     def plot_group_vertical(nombre_grupo, mapping):
 
-        columnas = [v for v in mapping.values() if v in df_filtrado.columns]
-        etiquetas = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
+        df_plot = df_filtrado.copy()
+
+        columnas = [v for v in mapping.values() if v in df_plot.columns]
+        etiquetas = {v: k for k, v in mapping.items() if v in df_plot.columns}
 
         if len(columnas) == 0:
             st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
             return
 
-        # ===== CALCULAR PROMEDIO DE CIBAO (con filtros) =====
-        df_cibao_filtered = df_filtrado.copy()
-        cibao_means = df_cibao_filtered[columnas].mean()
+        df_mean = (
+            df_plot[columnas]
+            .mean()
+            .reset_index()
+            .rename(columns={"index": "metric", 0: "valor"})
+        )
 
-        # ===== PREPARAR DATOS PARA COMPARACIÓN =====
-        comparison_data = []
+        df_mean["label"] = df_mean["metric"].map(etiquetas)
+        df_mean = df_mean.sort_values("valor", ascending=False)
 
-        # Agregar Cibao
-        for col in columnas:
-            comparison_data.append({
-                "label": etiquetas[col],
-                "Equipo": "Cibao FC",
-                "valor": cibao_means[col]
-            })
-
-        # ===== PROMEDIO LIGA (si está activado) =====
-        if mostrar_promedio_liga and not df_liga_mayor.empty:
-            df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
-
-            for col in columnas:
-                if col in df_liga_sin_cibao.columns:
-                    liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
-                    comparison_data.append({
-                        "label": etiquetas[col],
-                        "Equipo": "Promedio Liga",
-                        "valor": liga_val if not pd.isna(liga_val) else 0
-                    })
-
-        # ===== CREAR DATAFRAME PARA PLOTLY =====
-        df_plot = pd.DataFrame(comparison_data)
-
-        # Ordenar por valor de Cibao
-        cibao_order = df_plot[df_plot["Equipo"] == "Cibao FC"].sort_values("valor", ascending=False)["label"].tolist()
-        df_plot["label"] = pd.Categorical(df_plot["label"], categories=cibao_order, ordered=True)
-        df_plot = df_plot.sort_values("label")
-
-        # ===== MAPA DE COLORES =====
-        color_map = {
-            "Cibao FC": CIBAO_ORANGE,
-            "Promedio Liga": CIBAO_ORANGE_LIGHT,
-        }
-
-        # ===== CREAR GRÁFICO =====
         fig = px.bar(
-            df_plot,
+            df_mean,
             x="label",
             y="valor",
-            color="Equipo",
             orientation="v",
             text_auto=".2f",
-            color_discrete_map=color_map,
-            barmode="group",
+            color_discrete_sequence=["#FF8C00"],
         )
 
         fig.update_layout(
-            height=400,
+            height=360,
             template="plotly_dark",
             plot_bgcolor="#111",
             paper_bgcolor="#111",
@@ -837,37 +922,27 @@ with tab2:
             title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color="#FF8C00")),
             title_x=0.5,
             margin=dict(l=20, r=20, t=50, b=20),
+            showlegend=False,
             xaxis=dict(tickangle=-35),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                bgcolor="rgba(0,0,0,0.5)",
-                font=dict(size=10)
-            ),
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
         # -------- CONCLUSIONES TÁCTICAS --------
-        cibao_data = df_plot[df_plot["Equipo"] == "Cibao FC"].copy()
-        if not cibao_data.empty:
-            max_row = cibao_data.loc[cibao_data["valor"].idxmax()]
-            min_row = cibao_data.loc[cibao_data["valor"].idxmin()]
+        max_row = df_mean.iloc[0]
+        min_row = df_mean.iloc[-1]
 
-            conclusion = f"""
-            <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-8px; margin-bottom:25px;'>
-            <b>Conclusiones tácticas</b><br><br>
-            
-            • <b>Fortaleza estructural:</b> El equipo muestra mayor fiabilidad en <b>{max_row['label']}</b> ({max_row['valor']:.2f}), indicador de estabilidad en la fase de construcción.<br><br>
-            
-            • <b>Área por optimizar:</b> La métrica con menor incidencia es <b>{min_row['label']}</b> ({min_row['valor']:.2f}), aspecto donde aumentar la claridad puede mejorar la fluidez asociativa.<br><br>
-            </div>
-            """
+        conclusion = f"""
+        <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-8px; margin-bottom:25px;'>
+        <b>Conclusiones tácticas</b><br><br>
 
-            st.markdown(conclusion, unsafe_allow_html=True)
+        • <b>Fortaleza estructural:</b> El equipo muestra mayor fiabilidad en <b>{max_row['label']}</b>, indicador de estabilidad en la fase de construcción.<br><br>
+
+        • <b>Área por optimizar:</b> La métrica con menor incidencia es <b>{min_row['label']}</b>, aspecto donde aumentar la claridad puede mejorar la fluidez asociativa.<br><br>
+        </div>
+        """
+
+        st.markdown(conclusion, unsafe_allow_html=True)
 
 
     # ===========================
@@ -883,72 +958,39 @@ with tab2:
             st.warning("No hay datos para Longitud media de pase.")
             return
 
-        # Valor de Cibao
-        value_cibao = df_filtrado[col].mean()
-
-        # Valor promedio de liga (si está activado)
-        value_liga = None
-        if mostrar_promedio_liga and not df_liga_mayor.empty and col in df_liga_mayor.columns:
-            df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
-            value_liga = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
+        value = df_filtrado[col].mean()
 
         fig = go.Figure()
 
-        # Gauge principal con valor de Cibao
         fig.add_trace(go.Indicator(
             mode="gauge+number",
-            value=value_cibao,
-            title={'text': f"<b>{label}</b><br><span style='font-size:12px; color:#FFC966'>Cibao FC</span>",
-                   'font': {'color': '#FF8C00', 'size': 18}},
-            number={'font': {'color': '#FF8C00', 'size': 40}},
+            value=value,
+            title={'text': f"<b>{label}</b>", 'font': {'color': '#FF8C00', 'size': 18}},
             gauge={
-                'axis': {'range': [0, max(40, value_cibao * 1.5)]},
-                'bar': {'color': "#FF8C00", 'thickness': 0.7},
+                'axis': {'range': [0, max(40, value * 1.5)]},
+                'bar': {'color': "#FF8C00"},
                 'bgcolor': "#333",
                 'borderwidth': 1,
                 'bordercolor': "#555",
-                'steps': [
-                    {'range': [0, max(40, value_cibao * 1.5)], 'color': "#1a1a1a"}
-                ],
-                # Agregar threshold para promedio liga si existe
-                'threshold': {
-                    'line': {'color': "#FFC966", 'width': 3},
-                    'thickness': 0.8,
-                    'value': value_liga if value_liga and not pd.isna(value_liga) else 0
-                } if value_liga and not pd.isna(value_liga) else None
             },
         ))
 
         fig.update_layout(
-            height=280,
-            margin=dict(l=20, r=20, t=80, b=20),
+            height=220,
+            margin=dict(l=20, r=20, t=60, b=20),
             paper_bgcolor="#111",
             font=dict(color="#D3D3D3")
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # Conclusión con comparación
-        if value_liga and not pd.isna(value_liga):
-            diferencia = value_cibao - value_liga
-            comparacion_text = f"superior en {abs(diferencia):.2f}m" if diferencia > 0 else f"inferior en {abs(diferencia):.2f}m"
-
-            st.markdown(f"""
-            <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
-            <b>Conclusión táctica</b><br><br>
-            • La <b>longitud media de pase de Cibao ({value_cibao:.2f} m)</b> es {comparacion_text} al promedio de la liga ({value_liga:.2f} m).<br><br>
-            • Este valor describe el perfil del equipo en cuanto a riesgo y distancia de circulación,
-              sirviendo como referencia para calibrar la intención de progresar por combinación o por envío largo.
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
-            <b>Conclusión táctica</b><br><br>
-            • La <b>longitud media de pase ({value_cibao:.2f} m)</b> describe el perfil del equipo en cuanto a riesgo y distancia de circulación.
-              Este valor sirve como referencia para calibrar la intención de progresar por combinación o por envío largo.
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
+        <b>Conclusión táctica</b><br><br>
+        • La <b>longitud media de pase ({value:.2f} m)</b> describe el perfil del equipo en cuanto a riesgo y distancia de circulación. 
+          Este valor sirve como referencia para calibrar la intención de progresar por combinación o por envío largo.
+        </div>
+        """, unsafe_allow_html=True)
 
 
 
@@ -1034,164 +1076,79 @@ with tab3:
     # --- BARRAS HORIZONTALES ---
     def plot_horizontal(nombre, mapping):
 
-        cols = [v for v in mapping.values() if v in df_filtrado.columns]
-        labels = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
+        dfp = df_filtrado.copy()
+        cols = [v for v in mapping.values() if v in dfp.columns]
+        labels = {v: k for k, v in mapping.items() if v in dfp.columns}
 
         if not cols:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        # Calcular promedio de Cibao
-        cibao_means = df_filtrado[cols].mean()
-
-        # Preparar datos para comparación
-        comparison_data = []
-
-        # Agregar Cibao
-        for col in cols:
-            comparison_data.append({
-                "label": labels[col],
-                "Equipo": "Cibao FC",
-                "valor": cibao_means[col]
-            })
-
-        # Promedio Liga (si está activado)
-        if mostrar_promedio_liga and not df_liga_mayor.empty:
-            df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
-
-            for col in cols:
-                if col in df_liga_sin_cibao.columns:
-                    liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
-                    comparison_data.append({
-                        "label": labels[col],
-                        "Equipo": "Promedio Liga",
-                        "valor": liga_val if not pd.isna(liga_val) else 0
-                    })
-
-        # Crear dataframe
-        df_plot = pd.DataFrame(comparison_data)
-
-        # Ordenar por valor de Cibao
-        cibao_order = df_plot[df_plot["Equipo"] == "Cibao FC"].sort_values("valor", ascending=True)["label"].tolist()
-        df_plot["label"] = pd.Categorical(df_plot["label"], categories=cibao_order, ordered=True)
-        df_plot = df_plot.sort_values("label")
-
-        # Mapa de colores
-        color_map = {
-            "Cibao FC": CIBAO_ORANGE,
-            "Promedio Liga": CIBAO_ORANGE_LIGHT,
-        }
+        df_mean = dfp[cols].mean().reset_index()
+        df_mean.columns = ["metric", "valor"]
+        df_mean["label"] = df_mean["metric"].map(labels)
+        df_mean = df_mean.sort_values("valor", ascending=True)
 
         fig = px.bar(
-            df_plot,
+            df_mean,
             x="valor",
             y="label",
-            color="Equipo",
             orientation="h",
             text_auto=".2f",
-            color_discrete_map=color_map,
-            barmode="group",
+            color_discrete_sequence=[CIBAO_ORANGE],
         )
 
         fig.update_layout(
-            height=350,
+            height=320,
             template="plotly_dark",
             plot_bgcolor=CIBAO_BLACK,
             paper_bgcolor=CIBAO_BLACK,
             title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
             margin=dict(l=30, r=20, t=50, b=20),
             font=dict(color=CIBAO_GRAY),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                bgcolor="rgba(0,0,0,0.5)",
-                font=dict(size=10)
-            ),
+            showlegend=False
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # Conclusiones
-        cibao_data = df_plot[df_plot["Equipo"] == "Cibao FC"].copy()
-        if not cibao_data.empty:
-            max_row = cibao_data.loc[cibao_data["valor"].idxmax()]
-            min_row = cibao_data.loc[cibao_data["valor"].idxmin()]
+        max_row = df_mean.iloc[-1]
+        min_row = df_mean.iloc[0]
 
-            st.markdown(f"""
-            <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
-                        margin-top:-8px;margin-bottom:25px;'>
-            <b>Conclusiones tácticas</b><br><br>
-            • <b>Comportamiento destacado:</b> Mayor solvencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br><br>
-            • <b>Aspecto mejorable:</b> Valor más bajo en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px;margin-bottom:25px;'>
+        <b>Conclusiones tácticas</b><br><br>
+        • <b>Comportamiento destacado:</b> Mayor solvencia en <b>{max_row['label']}</b>.<br><br>
+        • <b>Aspecto mejorable:</b> Valor más bajo en <b>{min_row['label']}</b>.
+        </div>
+        """, unsafe_allow_html=True)
 
     # --- BARRAS VERTICALES ---
     def plot_vertical(nombre, mapping):
 
-        cols = [v for v in mapping.values() if v in df_filtrado.columns]
-        labels = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
+        dfp = df_filtrado.copy()
+        cols = [v for v in mapping.values() if v in dfp.columns]
+        labels = {v: k for k, v in mapping.items() if v in dfp.columns}
 
         if not cols:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        # Calcular promedio de Cibao
-        cibao_means = df_filtrado[cols].mean()
-
-        # Preparar datos para comparación
-        comparison_data = []
-
-        # Agregar Cibao
-        for col in cols:
-            comparison_data.append({
-                "label": labels[col],
-                "Equipo": "Cibao FC",
-                "valor": cibao_means[col]
-            })
-
-        # Promedio Liga (si está activado)
-        if mostrar_promedio_liga and not df_liga_mayor.empty:
-            df_liga_sin_cibao = df_liga_mayor[df_liga_mayor["Team"].str.lower() != "cibao"].copy()
-
-            for col in cols:
-                if col in df_liga_sin_cibao.columns:
-                    liga_val = pd.to_numeric(df_liga_sin_cibao[col], errors="coerce").mean()
-                    comparison_data.append({
-                        "label": labels[col],
-                        "Equipo": "Promedio Liga",
-                        "valor": liga_val if not pd.isna(liga_val) else 0
-                    })
-
-        # Crear dataframe
-        df_plot = pd.DataFrame(comparison_data)
-
-        # Ordenar por valor de Cibao
-        cibao_order = df_plot[df_plot["Equipo"] == "Cibao FC"].sort_values("valor", ascending=False)["label"].tolist()
-        df_plot["label"] = pd.Categorical(df_plot["label"], categories=cibao_order, ordered=True)
-        df_plot = df_plot.sort_values("label")
-
-        # Mapa de colores
-        color_map = {
-            "Cibao FC": CIBAO_ORANGE,
-            "Promedio Liga": CIBAO_ORANGE_LIGHT,
-        }
+        df_mean = dfp[cols].mean().reset_index()
+        df_mean.columns = ["metric", "valor"]
+        df_mean["label"] = df_mean["metric"].map(labels)
+        df_mean = df_mean.sort_values("valor", ascending=False)
 
         fig = px.bar(
-            df_plot,
+            df_mean,
             x="label",
             y="valor",
-            color="Equipo",
             text_auto=".2f",
-            color_discrete_map=color_map,
-            barmode="group",
+            color_discrete_sequence=[CIBAO_ORANGE],
         )
 
         fig.update_layout(
-            height=400,
+            height=360,
             template="plotly_dark",
             plot_bgcolor=CIBAO_BLACK,
             paper_bgcolor=CIBAO_BLACK,
@@ -1199,33 +1156,22 @@ with tab3:
             margin=dict(l=20, r=20, t=50, b=20),
             font=dict(color=CIBAO_GRAY),
             xaxis=dict(tickangle=-30),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                bgcolor="rgba(0,0,0,0.5)",
-                font=dict(size=10)
-            ),
+            showlegend=False
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # Conclusiones
-        cibao_data = df_plot[df_plot["Equipo"] == "Cibao FC"].copy()
-        if not cibao_data.empty:
-            max_row = cibao_data.loc[cibao_data["valor"].idxmax()]
-            min_row = cibao_data.loc[cibao_data["valor"].idxmin()]
+        max_row = df_mean.iloc[0]
+        min_row = df_mean.iloc[-1]
 
-            st.markdown(f"""
-            <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
-                        margin-top:-8px;margin-bottom:25px;'>
-            <b>Conclusiones tácticas</b><br><br>
-            • <b>Mayor influencia:</b> <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br><br>
-            • <b>Zona con margen de mejora:</b> <b>{min_row['label']}</b> ({min_row['valor']:.2f}).
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                    margin-top:-8px;margin-bottom:25px;'>
+        <b>Conclusiones tácticas</b><br><br>
+        • <b>Mayor influencia:</b> <b>{max_row['label']}</b>.<br><br>
+        • <b>Zona con margen de mejora:</b> <b>{min_row['label']}</b>.
+        </div>
+        """, unsafe_allow_html=True)
 
     # --- GAUGE LINEAL (UNIFICADO) ---
     def plot_gauge(mapping):

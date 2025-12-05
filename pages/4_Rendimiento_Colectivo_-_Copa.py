@@ -7,14 +7,22 @@ import plotly.graph_objects as go
 from src.data_processing.load_concacaf_matchstats_data import load_concacaf_matchstats_data
 from src.utils.metrics_dictionary_concacaf import METRICS_CONCACAF, METRIC_GROUPS_CONCACAF
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
+from src.utils.navigation import render_top_navigation
 from graficos_de_navaja_suiza import make_team_scatter
 
 CIBAO_ORANGE = "#FF8C00"  # Naranja vibrante principal
 CIBAO_ORANGE_LIGHT = "#FFC966"  # Naranja dorado/ámbar claro para rivales (mayor contraste)
 CIBAO_GRAY = "#D3D3D3"
 
-st.set_page_config(page_title="Rendimiento Colectivo - Copa", layout="wide")
+st.set_page_config(
+    page_title="Rendimiento Colectivo - Copa",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 inject_dark_theme()
+
+# ---------- TOP NAVIGATION BAR ----------
+render_top_navigation()
 
 # ===========================================
 # CUSTOM FONT SIZES
@@ -346,7 +354,8 @@ else:
                     ann for ann in fig_copa.layout.annotations if ann.yref != "paper" or ann.y < 1
                 ]
                 fig_copa.update_layout(
-                    margin=dict(t=100, b=80, l=60, r=40),
+                    height=700,  # Increased height for better label visibility
+                    margin=dict(t=120, b=100, l=80, r=120),  # Increased margins, especially right for "Promedio encajados" label
                     title_pad=dict(t=60),
                     title_font=dict(size=20),
                 )
@@ -373,7 +382,8 @@ else:
                     template="plotly_dark",
                 )
                 fig_basic.update_layout(
-                    margin=dict(t=100, b=80, l=60, r=40),
+                    height=700,  # Increased height for better label visibility
+                    margin=dict(t=120, b=100, l=80, r=120),  # Increased margins, especially right for labels
                     title_pad=dict(t=60),
                     title_font=dict(size=20),
                 )
@@ -459,7 +469,7 @@ def plot_horizontal_group(group_title, mapping_pairs):
         color="Equipo",
         text_auto=".2f",
         orientation="h",
-        color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFA64D"},
+        color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFFFFF"},
         barmode="group",
         height=350,
     )
@@ -587,7 +597,7 @@ with tab_pases:
             y="Valor",
             color="Equipo",
             text_auto=".2f",
-            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFA64D"},
+            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFFFFF"},
             barmode="group",
             height=420,
         )
@@ -697,7 +707,7 @@ with tab_defensivo:
             color="Equipo",
             text_auto=".2f",
             orientation="h",
-            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFA64D"},
+            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFFFFF"},
             barmode="group",
             height=360,
         )
@@ -806,7 +816,7 @@ with tab_set_pieces:
             color="Equipo",
             text_auto=".2f",
             orientation="h",
-            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFA64D"},
+            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFFFFF"},
             barmode="group",
             height=360,
         )

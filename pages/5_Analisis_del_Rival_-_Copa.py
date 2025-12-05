@@ -2907,6 +2907,7 @@ def analyze_match_phases(matches: List[Dict], team_name: str) -> Dict:
         "first_15": {"goals_for": 0, "goals_against": 0, "matches": 0},
         "16_30": {"goals_for": 0, "goals_against": 0, "matches": 0},
         "31_45": {"goals_for": 0, "goals_against": 0, "matches": 0},
+        "45_plus": {"goals_for": 0, "goals_against": 0, "matches": 0},
         "46_60": {"goals_for": 0, "goals_against": 0, "matches": 0},
         "61_75": {"goals_for": 0, "goals_against": 0, "matches": 0},
         "76_90": {"goals_for": 0, "goals_against": 0, "matches": 0},
@@ -2954,6 +2955,7 @@ def analyze_match_phases(matches: List[Dict], team_name: str) -> Dict:
         phase_stats["first_15"]["matches"] += 1
         phase_stats["16_30"]["matches"] += 1
         phase_stats["31_45"]["matches"] += 1
+        phase_stats["45_plus"]["matches"] += 1
         phase_stats["46_60"]["matches"] += 1
         phase_stats["61_75"]["matches"] += 1
         phase_stats["76_90"]["matches"] += 1
@@ -2962,51 +2964,118 @@ def analyze_match_phases(matches: List[Dict], team_name: str) -> Dict:
         for goal in goals:
             goal_contestant_id = goal.get("contestantId", "")
             time = goal.get("timeMin", 0)
+            period = goal.get("periodId") or goal.get("period") or 1
+            
+            # If period is missing, infer from time
+            # First half is typically 0-45, second half is 46-90+
+            if period is None or period == 0:
+                if time <= 45:
+                    period = 1
+                else:
+                    period = 2
+            
+            # Ensure period is an integer
+            try:
+                period = int(period)
+            except (ValueError, TypeError):
+                # Default to period 1 if conversion fails
+                period = 1 if time <= 45 else 2
             
             # Determine if this goal is for the team we're analyzing
             is_team_goal = (goal_contestant_id == team_contestant_id)
             
-            if time <= 15:
-                if is_team_goal:
-                    phase_stats["first_15"]["goals_for"] += 1
+            # First half phases (period 1)
+            if period == 1:
+                if time <= 15:
+                    if is_team_goal:
+                        phase_stats["first_15"]["goals_for"] += 1
+                    else:
+                        phase_stats["first_15"]["goals_against"] += 1
+                elif time <= 30:
+                    if is_team_goal:
+                        phase_stats["16_30"]["goals_for"] += 1
+                    else:
+                        phase_stats["16_30"]["goals_against"] += 1
+                elif time <= 45:
+                    if is_team_goal:
+                        phase_stats["31_45"]["goals_for"] += 1
+                    else:
+                        phase_stats["31_45"]["goals_against"] += 1
                 else:
-                    phase_stats["first_15"]["goals_against"] += 1
-            elif time <= 30:
-                if is_team_goal:
-                    phase_stats["16_30"]["goals_for"] += 1
+                    # First half stoppage time (45+1' onwards in period 1)
+                    if is_team_goal:
+                        phase_stats["45_plus"]["goals_for"] += 1
+                    else:
+                        phase_stats["45_plus"]["goals_against"] += 1
+            # Second half phases (period 2)
+            elif period == 2:
+                if time <= 60:
+                    if is_team_goal:
+                        phase_stats["46_60"]["goals_for"] += 1
+                    else:
+                        phase_stats["46_60"]["goals_against"] += 1
+                elif time <= 75:
+                    if is_team_goal:
+                        phase_stats["61_75"]["goals_for"] += 1
+                    else:
+                        phase_stats["61_75"]["goals_against"] += 1
+                elif time <= 90:
+                    if is_team_goal:
+                        phase_stats["76_90"]["goals_for"] += 1
+                    else:
+                        phase_stats["76_90"]["goals_against"] += 1
                 else:
-                    phase_stats["16_30"]["goals_against"] += 1
-            elif time <= 45:
-                if is_team_goal:
-                    phase_stats["31_45"]["goals_for"] += 1
-                else:
-                    phase_stats["31_45"]["goals_against"] += 1
-            elif time <= 60:
-                if is_team_goal:
-                    phase_stats["46_60"]["goals_for"] += 1
-                else:
-                    phase_stats["46_60"]["goals_against"] += 1
-            elif time <= 75:
-                if is_team_goal:
-                    phase_stats["61_75"]["goals_for"] += 1
-                else:
-                    phase_stats["61_75"]["goals_against"] += 1
-            elif time <= 90:
-                if is_team_goal:
-                    phase_stats["76_90"]["goals_for"] += 1
-                else:
-                    phase_stats["76_90"]["goals_against"] += 1
+                    # Second half stoppage time (90+1' onwards in period 2)
+                    if is_team_goal:
+                        phase_stats["90_plus"]["goals_for"] += 1
+                    else:
+                        phase_stats["90_plus"]["goals_against"] += 1
             else:
-                if is_team_goal:
-                    phase_stats["90_plus"]["goals_for"] += 1
+                # Handle extra time periods (period 3, 4, etc.) or unknown periods
+                # Infer phase from time
+                if time <= 60:
+                    if is_team_goal:
+                        phase_stats["46_60"]["goals_for"] += 1
+                    else:
+                        phase_stats["46_60"]["goals_against"] += 1
+                elif time <= 75:
+                    if is_team_goal:
+                        phase_stats["61_75"]["goals_for"] += 1
+                    else:
+                        phase_stats["61_75"]["goals_against"] += 1
+                elif time <= 90:
+                    if is_team_goal:
+                        phase_stats["76_90"]["goals_for"] += 1
+                    else:
+                        phase_stats["76_90"]["goals_against"] += 1
                 else:
-                    phase_stats["90_plus"]["goals_against"] += 1
+                    # Stoppage time or extra time
+                    if is_team_goal:
+                        phase_stats["90_plus"]["goals_for"] += 1
+                    else:
+                        phase_stats["90_plus"]["goals_against"] += 1
     
-    # Calcular promedios
-    for phase in phase_stats.values():
+    # Calcular promedios - ensure all phases have avg values even if 0
+    for phase_key, phase in phase_stats.items():
         if phase["matches"] > 0:
             phase["avg_goals_for"] = phase["goals_for"] / phase["matches"]
             phase["avg_goals_against"] = phase["goals_against"] / phase["matches"]
+        else:
+            # Ensure averages are 0 if no matches
+            phase["avg_goals_for"] = 0.0
+            phase["avg_goals_against"] = 0.0
+    
+    # Ensure all required phases are present
+    required_phases = ["first_15", "16_30", "31_45", "45_plus", "46_60", "61_75", "76_90", "90_plus"]
+    for phase_key in required_phases:
+        if phase_key not in phase_stats:
+            phase_stats[phase_key] = {
+                "goals_for": 0,
+                "goals_against": 0,
+                "matches": 0,
+                "avg_goals_for": 0.0,
+                "avg_goals_against": 0.0
+            }
     
     return phase_stats
 
@@ -3281,8 +3350,8 @@ def get_text_color(hex_color):
 
 def create_phase_chart(phase_stats: Dict, team_color: str, metric_config: Dict = None):
     """Crea gráfico de fases del partido."""
-    phases = ["0-15'", "16-30'", "31-45'", "46-60'", "61-75'", "76-90'", "90+'"]
-    phase_keys = ["first_15", "16_30", "31_45", "46_60", "61_75", "76_90", "90_plus"]
+    phases = ["0-15'", "16-30'", "31-45'", "45+1'", "46-60'", "61-75'", "76-90'", "90+1'"]
+    phase_keys = ["first_15", "16_30", "31_45", "45_plus", "46_60", "61_75", "76_90", "90_plus"]
     
     # Default to average goals if no metric config provided
     if metric_config is None:
@@ -3294,18 +3363,29 @@ def create_phase_chart(phase_stats: Dict, team_color: str, metric_config: Dict =
             "against_label": "Goles en Contra"
         }
     
+    # Ensure all phase_keys exist in phase_stats
+    for key in phase_keys:
+        if key not in phase_stats:
+            phase_stats[key] = {
+                "goals_for": 0,
+                "goals_against": 0,
+                "matches": 0,
+                "avg_goals_for": 0.0,
+                "avg_goals_against": 0.0
+            }
+    
     # Get values based on selected metric
     if metric_config["for_key"] == "goal_difference":
         # Calculate difference for each phase (goals_for - goals_against)
         values_for = [
-            phase_stats[key].get("goals_for", 0) - phase_stats[key].get("goals_against", 0)
+            phase_stats.get(key, {}).get("goals_for", 0) - phase_stats.get(key, {}).get("goals_against", 0)
             for key in phase_keys
         ]
         values_against = None  # Don't show second trace for difference
     else:
-        values_for = [phase_stats[key].get(metric_config["for_key"], 0) for key in phase_keys]
+        values_for = [phase_stats.get(key, {}).get(metric_config["for_key"], 0) for key in phase_keys]
         if metric_config.get("against_key"):
-            values_against = [phase_stats[key].get(metric_config["against_key"], 0) for key in phase_keys]
+            values_against = [phase_stats.get(key, {}).get(metric_config["against_key"], 0) for key in phase_keys]
         else:
             values_against = None
     
@@ -7050,7 +7130,8 @@ def main():
                     st.metric("Goles en Contra (Total)", total_goals_against)
                 with col3:
                     phase_names = {"first_15": "0-15'", "16_30": "16-30'", "31_45": "31-45'", 
-                                  "46_60": "46-60'", "61_75": "61-75'", "76_90": "76-90'", "90_plus": "90+'"}
+                                  "45_plus": "45+1'", "46_60": "46-60'", "61_75": "61-75'", 
+                                  "76_90": "76-90'", "90_plus": "90+1'"}
                     st.metric("Mejor Fase", phase_names.get(best_phase[0], "N/A"))
                 
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -7063,20 +7144,38 @@ def main():
                 if fig:
                     st.plotly_chart(fig, use_container_width=True, key=f"phase_chart_{selected_opponent}_{chart_color}")
                 
-                # Tabla detallada
+                # Tabla detallada - ensure all phases are included
                 phase_data = []
                 phase_names = {"first_15": "0-15'", "16_30": "16-30'", "31_45": "31-45'", 
-                              "46_60": "46-60'", "61_75": "61-75'", "76_90": "76-90'", "90_plus": "90+'"}
+                              "45_plus": "45+1'", "46_60": "46-60'", "61_75": "61-75'", 
+                              "76_90": "76-90'", "90_plus": "90+1'"}
+                
+                # Ensure all phases exist in phase_stats
+                for key in phase_names.keys():
+                    if key not in phase_stats:
+                        phase_stats[key] = {
+                            "goals_for": 0,
+                            "goals_against": 0,
+                            "matches": 0,
+                            "avg_goals_for": 0.0,
+                            "avg_goals_against": 0.0
+                        }
                 
                 for key, name in phase_names.items():
-                    stats = phase_stats[key]
+                    stats = phase_stats.get(key, {
+                        "goals_for": 0,
+                        "goals_against": 0,
+                        "matches": 0,
+                        "avg_goals_for": 0.0,
+                        "avg_goals_against": 0.0
+                    })
                     phase_data.append({
                         "Fase": name,
-                        "Goles a Favor": stats["goals_for"],
-                        "Goles en Contra": stats["goals_against"],
-                        "Diferencia": stats["goals_for"] - stats["goals_against"],
-                        "Promedio GF": f"{stats.get('avg_goals_for', 0):.2f}",
-                        "Promedio GC": f"{stats.get('avg_goals_against', 0):.2f}"
+                        "Goles a Favor": stats.get("goals_for", 0),
+                        "Goles en Contra": stats.get("goals_against", 0),
+                        "Diferencia": stats.get("goals_for", 0) - stats.get("goals_against", 0),
+                        "Promedio GF": f"{stats.get('avg_goals_for', 0.0):.2f}",
+                        "Promedio GC": f"{stats.get('avg_goals_against', 0.0):.2f}"
                     })
                 
                 df = pd.DataFrame(phase_data)
