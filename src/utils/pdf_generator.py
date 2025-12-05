@@ -12,10 +12,12 @@ from typing import Optional, List, Dict, Any
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
+import plotly.express as px  # ← AÑADE ESTA LÍNEA
 import plotly.io as pio
 from fpdf import FPDF
-import requests
+import requests  # ← QUITA PIL.Image, no se usa
+
+# ... resto del código igual ...
 
 # Colores Cibao FC
 CIBAO_ORANGE = "#FF8C00"
