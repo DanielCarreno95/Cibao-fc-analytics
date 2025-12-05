@@ -18,3 +18,4 @@ playwright
 fpdf2
 Pillow
 requests
+beautifulsoup4

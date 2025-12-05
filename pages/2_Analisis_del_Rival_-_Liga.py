@@ -14,9 +14,6 @@ import csv
 import requests
 from bs4 import BeautifulSoup
 import re
-import requests
-from bs4 import BeautifulSoup
-import re
 
 # Tema Plotly oscuro
 pio.templates.default = "plotly_dark"
