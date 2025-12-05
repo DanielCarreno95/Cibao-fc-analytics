@@ -36,15 +36,37 @@ def load_per90_data() -> pd.DataFrame:
     """
     Carga todos los archivos JSON de rendimiento (per90)
     desde data/processed/Wyscout/
+    
+    Prioriza el archivo consolidado si existe, sino carga archivos individuales.
     """
-    folder = os.path.join(DATA_DIR, "processed", "Wyscout")  # 👈 Ruta correcta
-    all_data = []
+    folder = os.path.join(DATA_DIR, "processed", "Wyscout")
 
     if not os.path.exists(folder):
         raise FileNotFoundError(f"La carpeta no existe: {folder}")
 
+    # PRIORIDAD 1: Buscar archivo consolidado (tiene todos los datos en un solo archivo)
+    consolidated_files = [
+        "Liga_Mayor_Clean_Per_90_Consolidated.json",
+        "Wyscout_Data_Consolidated.json"
+    ]
+    
+    for consolidated_file in consolidated_files:
+        consolidated_path = os.path.join(folder, consolidated_file)
+        if os.path.exists(consolidated_path):
+            try:
+                df = load_json(consolidated_path)
+                df["source_file"] = consolidated_file
+                print(f"✓ Cargado archivo consolidado: {consolidated_file} ({len(df)} filas, {len(df.columns) if not df.empty else 0} columnas)")
+                return df
+            except Exception as e:
+                print(f"⚠️ Error cargando archivo consolidado {consolidated_file}: {e}")
+                # Continuar y buscar archivos individuales
+    
+    # PRIORIDAD 2: Cargar archivos individuales (fallback)
+    all_data = []
     for file in os.listdir(folder):
-        if file.endswith(".json"):
+        # Excluir archivos consolidados ya intentados y archivos temporales
+        if file.endswith(".json") and not any(cf in file for cf in consolidated_files):
             path = os.path.join(folder, file)
             try:
                 df = load_json(path)
@@ -56,7 +78,9 @@ def load_per90_data() -> pd.DataFrame:
     if not all_data:
         raise ValueError("No se encontraron archivos JSON en data/processed/Wyscout/")
 
-    return pd.concat(all_data, ignore_index=True)
+    result = pd.concat(all_data, ignore_index=True)
+    print(f"✓ Cargados {len(all_data)} archivos individuales ({len(result)} filas, {len(result.columns)} columnas)")
+    return result
 
 
 # ==============================

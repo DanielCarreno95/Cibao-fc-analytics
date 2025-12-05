@@ -14,12 +14,16 @@ import csv
 import requests
 from bs4 import BeautifulSoup
 import re
+import requests
+from bs4 import BeautifulSoup
+import re
 
 # Tema Plotly oscuro
 pio.templates.default = "plotly_dark"
 
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
+from src.utils.navigation import render_top_navigation
 
 # ===========================================
 # COLORES DE EQUIPOS
@@ -170,6 +174,9 @@ st.set_page_config(
 
 # ---------- ACTIVAR TEMA OSCURO GLOBAL ----------
 inject_dark_theme()
+
+# ---------- TOP NAVIGATION BAR ----------
+render_top_navigation()
 
 # ===========================================
 # ESTILOS ADICIONALES - TEXTO MÁS GRANDE PARA LEGIBILIDAD
@@ -322,10 +329,42 @@ st.markdown("""
         font-weight: 600 !important;
     }
     
-    /* Botones */
-    .stButton button {
+    /* Botones - exclude home button */
+    .stButton button:not([key^="home_btn"]):not([key^="nav_"]) {
         font-size: 1.3rem !important;
         padding: 0.5rem 1.5rem !important;
+    }
+    
+    /* CRITICAL: Protect navigation buttons from page-specific button styling - must be last */
+    /* Match the same size as other pages (1.3rem font, 0.5rem 1.5rem padding) */
+    div.top-nav-container div[data-testid="column"] div[data-testid="stButton"] button[key^="nav_"],
+    div.top-nav-container div[data-testid="column"] .stButton button[key^="nav_"],
+    div.top-nav-container div[data-testid="column"] button[key^="nav_"],
+    .top-nav-container div[data-testid="column"] .stButton button[key^="nav_"],
+    .top-nav-container .stButton button[key^="nav_"],
+    .top-nav-container button[key^="nav_"] {
+        font-size: 1.3rem !important;
+        padding: 0.5rem 1.5rem !important;
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+        line-height: normal !important;
+    }
+    
+    /* Home button - override to match global theme - highest specificity */
+    button[key="home_btn_5"],
+    .stButton button[key="home_btn_5"],
+    div[data-testid="column"] button[key="home_btn_5"],
+    div[data-testid="column"] .stButton button[key="home_btn_5"],
+    div[data-testid="stButton"] button[key="home_btn_5"],
+    div[data-testid="column"] div[data-testid="stButton"] button[key="home_btn_5"] {
+        font-size: 24px !important;
+        height: 50px !important;
+        min-height: 50px !important;
+        max-height: 50px !important;
+        line-height: 50px !important;
+        padding: 0 !important;
+        width: 100% !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -355,40 +394,28 @@ def fetch_next_fixture_from_scoresway(url: str) -> Optional[Dict]:
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Buscar la tabla de fixtures (Scoresway usa tablas para mostrar partidos)
-        # Buscar tablas que contengan información de partidos
         tables = soup.find_all('table')
         
         for table in tables:
-            # Buscar filas que contengan información de partidos
             rows = table.find_all('tr')
             
             for row in rows:
-                cells = row.find_all(['td', 'th'])
                 row_text = row.get_text()
                 
-                # Buscar filas que contengan información de fecha y equipos
-                # Formato típico: "25/11/2025" o "22:00 Team A v Team B"
                 if re.search(r'\d{2}/\d{2}/\d{4}', row_text) or re.search(r'\d{2}:\d{2}', row_text):
-                    # Esta es una fila de partido
-                    # Extraer fecha
                     date_match = re.search(r'(\d{2}/\d{2}/\d{4})', row_text)
                     date_str = date_match.group(1) if date_match else None
                     
-                    # Extraer hora
                     time_match = re.search(r'(\d{2}:\d{2})', row_text)
                     time_str = time_match.group(1) if time_match else None
                     
-                    # Extraer equipos (buscar texto entre "v" o "vs")
                     teams_match = re.search(r'([A-Za-z\s]+?)\s+v\s+([A-Za-z\s]+?)(?:\s|$)', row_text, re.IGNORECASE)
                     if teams_match:
                         team1 = teams_match.group(1).strip()
                         team2 = teams_match.group(2).strip()
                         
-                        # Determinar el oponente (excluir "Cibao FC" o "Cibao")
                         opponent = team2 if "Cibao" not in team2 else team1
                         
-                        # Buscar enlace al partido
                         match_link = row.find('a', href=re.compile(r'/match/view/'))
                         match_url = None
                         if match_link:
@@ -396,7 +423,6 @@ def fetch_next_fixture_from_scoresway(url: str) -> Optional[Dict]:
                             if not match_url.startswith('http'):
                                 match_url = f"https://www.scoresway.com{match_url}"
                         
-                        # Construir fecha completa
                         full_date = f"{date_str} {time_str}" if date_str and time_str else (date_str or time_str or "Por definir")
                         
                         return {
@@ -422,13 +448,11 @@ def get_next_fixtures() -> Dict[str, Optional[Dict]]:
         "liga_mayor": None
     }
     
-    # Intentar obtener fixture de Concacaf
     try:
         fixtures["concacaf"] = fetch_next_fixture_from_scoresway(concacaf_url)
     except Exception as e:
         pass
     
-    # Intentar obtener fixture de Liga Mayor
     try:
         fixtures["liga_mayor"] = fetch_next_fixture_from_scoresway(liga_mayor_url)
     except Exception as e:
@@ -4795,11 +4819,9 @@ def display_comparison_charts(opponent_metrics: Dict[str, float], cibao_metrics:
 # ===========================================
 
 def main():
-    # Título
+    # Título - standardized to match other pages
+    titulo_naranja("Análisis del Rival — Copa Concacaf")
     st.markdown("""
-    <h1 style='text-align:center; color:#FF9900; text-shadow: 0 0 15px rgba(255,153,0,0.65); font-weight:900;'>
-        Análisis del Rival — Copa Concacaf
-    </h1>
     <p style='text-align:center; color:#D1D5DB; font-size:17px;'>
         Análisis detallado de oponentes para preparación táctica y estratégica
     </p>
@@ -4908,6 +4930,8 @@ def main():
         <h3 style='margin-top:0; color:#ff7b00;'>Análisis Copa</h3>
         <hr style='margin-top:6px; margin-bottom:20px; opacity:0.3;'>
         """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
         
         st.info(f"**Equipo seleccionado:**\n\n**{selected_opponent}**")
         

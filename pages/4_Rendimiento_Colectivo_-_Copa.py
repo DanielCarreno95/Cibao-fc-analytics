@@ -16,9 +16,146 @@ CIBAO_GRAY = "#D3D3D3"
 st.set_page_config(page_title="Rendimiento Colectivo - Copa", layout="wide")
 inject_dark_theme()
 
+# ===========================================
+# CUSTOM FONT SIZES
+# ===========================================
+st.markdown("""
+<style>
+    /* Texto general del cuerpo - mantener grande para legibilidad */
+    .stApp {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Párrafos y texto general */
+    p, div, span, label {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Tablas */
+    .stDataFrame {
+        font-size: 1.4rem !important;
+    }
+    
+    .stDataFrame table {
+        font-size: 1.4rem !important;
+    }
+    
+    .stDataFrame th {
+        font-size: 1.5rem !important;
+        font-weight: bold !important;
+        padding: 12px !important;
+    }
+    
+    /* Table headers - black text, bold, orange background */
+    div[data-testid="stDataFrame"] table thead th,
+    div[data-testid="stDataFrame"] table th,
+    .stDataFrame table thead th,
+    .stDataFrame table th,
+    .dataframe thead th,
+    .dataframe th {
+        color: #000000 !important;
+        font-weight: 900 !important;
+        background-color: #ff8c00 !important;
+    }
+    
+    .stDataFrame td {
+        font-size: 1.4rem !important;
+        padding: 10px !important;
+    }
+    
+    /* Métricas de Streamlit */
+    [data-testid="stMetricValue"] {
+        font-size: 2.5rem !important;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        font-size: 1.4rem !important;
+    }
+    
+    [data-testid="stMetricDelta"] {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        font-size: 1.3rem !important;
+    }
+    
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        font-size: 1.6rem !important;
+    }
+    
+    /* Selectores y controles */
+    .stSelectbox label,
+    .stRadio label,
+    .stMultiselect label {
+        font-size: 1.4rem !important;
+        font-weight: 500 !important;
+    }
+    
+    .stSelectbox [class*="selectbox"],
+    .stRadio [class*="radio"],
+    .stMultiselect [class*="multiselect"] {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Info boxes y warnings */
+    .stInfo, .stWarning, .stError, .stSuccess {
+        font-size: 1.3rem !important;
+    }
+    
+    /* Pestañas */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 55px;
+        padding: 12px 24px;
+        font-size: 1.4rem !important;
+        font-weight: 500 !important;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        font-size: 1.5rem !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Botones */
+    .stButton button:not([key^="home_btn"]) {
+        font-size: 1.3rem !important;
+        padding: 0.5rem 1.5rem !important;
+    }
+    
+    /* Home button - override to match global theme - highest specificity */
+    button[key="home_btn_4"],
+    .stButton button[key="home_btn_4"],
+    div[data-testid="column"] button[key="home_btn_4"],
+    div[data-testid="column"] .stButton button[key="home_btn_4"],
+    div[data-testid="stButton"] button[key="home_btn_4"],
+    div[data-testid="column"] div[data-testid="stButton"] button[key="home_btn_4"] {
+        font-size: 24px !important;
+        height: 50px !important;
+        min-height: 50px !important;
+        max-height: 50px !important;
+        line-height: 50px !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # =========================================================
 # ✳️ ENCABEZADO PRINCIPAL
 # =========================================================
+# Home button
+col1, col2, col3 = st.columns([1, 6, 1])
+with col1:
+    if st.button("🏠", help="Volver al Inicio", use_container_width=True, key="home_btn_4"):
+        st.switch_page("app.py")
+
 titulo_naranja("Rendimiento Colectivo — Cibao FC (Copa)")
 st.markdown(
     f"""
@@ -101,12 +238,9 @@ for (label, value), col in zip(kpi_cards, cols_cards):
     with col:
         st.markdown(
             f"""
-            <div style='background:rgba(25,25,25,0.95);
-                        border:1px solid rgba(255,140,0,0.35);
-                        border-radius:14px;padding:18px;
-                        text-align:center;box-shadow:0 0 18px rgba(255,140,0,0.12);'>
-                <div style='font-size:1.8rem;color:{CIBAO_ORANGE};font-weight:800;'>{value}</div>
-                <div style='color:#cfcfcf;font-size:0.9rem;'>{label}</div>
+            <div style='background: linear-gradient(135deg, #1E293B 0%, rgba(30, 41, 59, 0.8) 100%); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 1.5rem; text-align: center; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); transition: transform 0.2s;'>
+                <div style='color: #94A3B8; font-size: 1.2rem; margin-bottom: 0.5rem; font-weight: 500;'>{label}</div>
+                <div style='color: #FFFFFF; font-size: 2rem; font-weight: bold;'>{value}</div>
             </div>
             """,
             unsafe_allow_html=True,

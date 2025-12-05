@@ -23,6 +23,7 @@ pio.templates.default = "plotly_dark"
 
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
+from src.utils.navigation import render_top_navigation
 
 # ===========================================
 # COLORES DE EQUIPOS
@@ -173,6 +174,9 @@ st.set_page_config(
 
 # ---------- ACTIVAR TEMA OSCURO GLOBAL ----------
 inject_dark_theme()
+
+# ---------- TOP NAVIGATION BAR ----------
+render_top_navigation()
 
 # ===========================================
 # ESTILOS ADICIONALES - TEXTO MÁS GRANDE PARA LEGIBILIDAD
@@ -325,10 +329,26 @@ st.markdown("""
         font-weight: 600 !important;
     }
     
-    /* Botones - exclude home button */
-    .stButton button:not([key^="home_btn"]) {
+    /* Botones - exclude home button and navigation buttons */
+    .stButton button:not([key^="home_btn"]):not([key^="nav_"]) {
         font-size: 1.3rem !important;
         padding: 0.5rem 1.5rem !important;
+    }
+    
+    /* CRITICAL: Protect navigation buttons from page-specific button styling - must be last */
+    /* Match the same size as other pages (1.3rem font, 0.5rem 1.5rem padding) */
+    div.top-nav-container div[data-testid="column"] div[data-testid="stButton"] button[key^="nav_"],
+    div.top-nav-container div[data-testid="column"] .stButton button[key^="nav_"],
+    div.top-nav-container div[data-testid="column"] button[key^="nav_"],
+    .top-nav-container div[data-testid="column"] .stButton button[key^="nav_"],
+    .top-nav-container .stButton button[key^="nav_"],
+    .top-nav-container button[key^="nav_"] {
+        font-size: 1.3rem !important;
+        padding: 0.5rem 1.5rem !important;
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+        line-height: normal !important;
     }
     
     /* Home button - override to match global theme - highest specificity */
@@ -5495,17 +5515,9 @@ def display_comparison_charts(opponent_metrics: Dict[str, float], cibao_metrics:
 # ===========================================
 
 def main():
-    # Home button at the top
-    col1, col2, col3 = st.columns([1, 6, 1])
-    with col1:
-        if st.button("🏠", help="Volver al Inicio", use_container_width=True, key="home_btn_5"):
-            st.switch_page("app.py")
-    
-    # Título
+    # Título - standardized to match other pages
+    titulo_naranja("Análisis del Rival — Liga Mayor")
     st.markdown("""
-    <h1 style='text-align:center; color:#FF9900; text-shadow: 0 0 15px rgba(255,153,0,0.65); font-weight:900;'>
-        Análisis del Rival — Liga Mayor
-    </h1>
     <p style='text-align:center; color:#D1D5DB; font-size:17px;'>
         Análisis detallado de oponentes para preparación táctica y estratégica
     </p>
@@ -5635,10 +5647,6 @@ def main():
         <h3 style='margin-top:0; color:#ff7b00;'>Análisis Liga</h3>
         <hr style='margin-top:6px; margin-bottom:20px; opacity:0.3;'>
         """, unsafe_allow_html=True)
-        
-        # Button to go back to home page
-        if st.button("🏠 Volver al Inicio", use_container_width=True, type="primary"):
-            st.switch_page("app.py")
         
         st.markdown("<br>", unsafe_allow_html=True)
         

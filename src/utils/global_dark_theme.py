@@ -116,6 +116,19 @@ def inject_dark_theme():
             border: 1px solid #555 !important;
         }
 
+        /* Home button - standardized size across all pages */
+        button[key="home_btn_1"],
+        button[key="home_btn_2"],
+        button[key="home_btn_3"],
+        button[key="home_btn_4"],
+        button[key="home_btn_5"],
+        button[key="home_btn_6"] {
+            font-size: 24px !important;
+            height: 50px !important;
+            line-height: 50px !important;
+            padding: 0 !important;
+        }
+
         /* ======================================================= */
         /*  TABLAS                                                 */
         /* ======================================================= */

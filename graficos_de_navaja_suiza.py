@@ -53,8 +53,8 @@ DEFAULT_OTHER_OPACITY = 0.6
 # Metric configuration depending on chart type
 # For scatter/line we expect x and y; optional: color, size, hover_data list.
 SCATTER_CONFIG = {
-    "x": ("Goles por 90", "goals"),
-    "y": ("Goles en contra por 90", "conceded_goals"),
+    "x": ("Goles por 90", "Goals"),
+    "y": ("Goles en contra por 90", "Conceded goals"),
     "color": None,
     "size": None,
     "hover_data": [],
@@ -65,9 +65,9 @@ SCATTER_CONFIG = {
 BAR_CONFIG = {
     "category": ("Equipo", "Team"),
     "metrics": [
-        ("Goles por 90", "goals"),
-        ("Goles en contra por 90", "conceded_goals"),
-        ("xG por 90", "xg"),
+        ("Goles por 90", "Goals"),
+        ("Goles en contra por 90", "Conceded goals"),
+        ("xG por 90", "xG"),
     ],
     "orientation": "v",  # "v" o "h"
     "title": "Liga Mayor — Métricas ofensivas vs defensivas",
@@ -76,7 +76,7 @@ BAR_CONFIG = {
 # For line charts
 LINE_CONFIG = {
     "x": ("Fecha", "Date"),
-    "y": ("Goles por 90", "goals"),
+    "y": ("Goles por 90", "Goals"),
     "color": ("Equipo", "Team"),
     "title": "Evolución de los goles por 90",
 }
@@ -84,17 +84,17 @@ LINE_CONFIG = {
 # For box plots
 BOX_CONFIG = {
     "x": ("Equipo", "Team"),
-    "y": ("Goles por 90", "goals"),
+    "y": ("Goles por 90", "Goals"),
     "title": "Distribución de los goles por 90",
 }
 
 METRIC_OPTIONS = {
-    "Goles por 90": "goals",
-    "Goles en contra por 90": "conceded_goals",
-    "xG por 90": "xg",
-    "Tiros por 90": "shots",
-    "Tiros a puerta por 90": "shots_on_target",
-    "Posesión (%)": "possession_percent",
+    "Goles por 90": "Goals",  # Updated to match actual column name
+    "Goles en contra por 90": "Conceded goals",  # Updated to match actual column name
+    "xG por 90": "xG",
+    "Tiros a puerta por 90": "Shots / on target",  # Updated to match actual column name
+    "Posesión (%)": "Possession, %",  # Updated to match actual column name
+    # Note: "Tiros por 90" removed as there's no total shots column in the data
 }
 
 METRIC_LABELS = {value: label for label, value in METRIC_OPTIONS.items()}
@@ -246,9 +246,37 @@ def get_metric(df: pd.DataFrame, config_entry: Optional[tuple]):
     if config_entry is None:
         return None, None
     label, column = config_entry
-    if column not in df.columns:
-        raise KeyError(f"Column '{column}' not found for metric '{label}'")
-    return label, column
+    
+    # Try exact match first
+    if column in df.columns:
+        return label, column
+    
+    # Try case-insensitive match
+    df_cols_lower = {str(c).lower(): c for c in df.columns}
+    column_lower = column.lower()
+    if column_lower in df_cols_lower:
+        return label, df_cols_lower[column_lower]
+    
+    # Try mapping common variations
+    column_mappings = {
+        "goals": ["Goals", "Goles", "goal", "gol"],
+        "conceded_goals": ["Conceded goals", "Goles en contra", "conceded", "goles_concedidos"],
+        "xg": ["xG", "Expected Goals", "expected_goals"],
+        "shots": ["Shots", "Tiros", "shot", "tiro", "Shots / on target"],  # May need to calculate total shots
+        "shots_on_target": ["Shots / on target", "Tiros a puerta", "shots_on_target", "on_target"],
+        "possession_percent": ["Possession, %", "Posesión", "possession", "posesion", "Possession, %"]
+    }
+    
+    if column_lower in column_mappings:
+        for mapped_col in column_mappings[column_lower]:
+            if mapped_col in df.columns:
+                return label, mapped_col
+            # Try case-insensitive
+            for df_col in df.columns:
+                if str(df_col).lower() == mapped_col.lower():
+                    return label, df_col
+    
+    raise KeyError(f"Column '{column}' not found for metric '{label}'. Available columns: {list(df.columns)[:10]}...")
 
 
 # ---------------------------------------------------------------------------
