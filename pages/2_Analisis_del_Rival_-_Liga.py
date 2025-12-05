@@ -7728,30 +7728,6 @@ def main():
                 # This should never happen, but if it does, force gray
                 team_color = "#CCCCCC"
             
-            # Debug: mostrar el color obtenido
-            with st.expander("Debug: Color del Equipo", expanded=False):
-                st.write(f"**Equipo seleccionado:** {selected_opponent}")
-                st.write(f"**Color obtenido del CSV:** {team_color}")
-                st.write(f"**Es Cibao?:** {selected_opponent == CIBAO_TEAM_NAME}")
-                st.write(f"**Color de Cibao (CSV):** {cibao_csv_color}")
-                st.write(f"**Color de Cibao (constante):** {CIBAO_COLOR}")
-                st.write(f"**¿Son iguales?:** {team_color == cibao_csv_color}")
-                
-                # Show which variation matched (matched_variation is set above)
-                if matched_variation:
-                    st.write(f"✅ **Variación que coincidió:** '{matched_variation}' = {current_colors[matched_variation]}")
-                else:
-                    st.write(f"⚠️ **No se encontró coincidencia exacta** - usando color por defecto: {team_color}")
-                
-                st.write(f"**Colores disponibles en CSV (equipos principales):**")
-                # Show only the original team names (not lowercase variations)
-                original_teams = sorted([k for k in current_colors.keys() if k[0].isupper() or k == 'cibao'])
-                for team in original_teams[:15]:  # Show first 15 to avoid clutter
-                    if team in current_colors:
-                        st.write(f"  - {team}: {current_colors[team]}")
-                
-                st.color_picker("Color Visualizado", value=team_color, key="debug_color_picker", disabled=True)
-            
             # Check if we have Wyscout DataFrame data (team_df) or Scoresway JSON data (all_matches)
             has_wyscout_data = isinstance(team_df, pd.DataFrame) and not team_df.empty
             has_scoresway_data = all_matches and len(all_matches) > 0
