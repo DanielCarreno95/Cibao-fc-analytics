@@ -43,12 +43,10 @@ def _handle_go_param():
         # LIGA
         "colectivo": "pages/1_Rendimiento_Colectivo_-_Liga.py",
         "rival": "pages/2_Analisis_del_Rival_-_Liga.py",
-        "individual": "pages/3_Rendimiento_Individual_-_Liga.py",
 
         # COPA
         "colectivo_copa": "pages/4_Rendimiento_Colectivo_-_Copa.py",
         "rival_copa": "pages/5_Analisis_del_Rival_-_Copa.py",
-        "individual_copa": "pages/6_Rendimiento_Individual_-_Copa.py",
     }
 
     page = mapping.get(str(go).lower())
@@ -247,10 +245,9 @@ def main_hub():
     liga_modules = [
         ("Rendimiento Colectivo", "pages/1_Rendimiento_Colectivo_-_Liga.py"),
         ("Análisis del Rival", "pages/2_Analisis_del_Rival_-_Liga.py"),
-        ("Rendimiento Individual", "pages/3_Rendimiento_Individual_-_Liga.py"),
     ]
 
-    cols_liga = st.columns(3, gap="large")
+    cols_liga = st.columns(2, gap="large")
     for i, (title, page) in enumerate(liga_modules):
         with cols_liga[i]:
             if st.button(f"**{title}**", use_container_width=True, key=f"liga_btn_{i}"):
@@ -267,10 +264,9 @@ def main_hub():
     copa_modules = [
         ("Rendimiento Colectivo", "pages/4_Rendimiento_Colectivo_-_Copa.py"),
         ("Análisis del Rival", "pages/5_Analisis_del_Rival_-_Copa.py"),
-        ("Rendimiento Individual", "pages/6_Rendimiento_Individual_-_Copa.py"),
     ]
 
-    cols_copa = st.columns(3, gap="large")
+    cols_copa = st.columns(2, gap="large")
     for i, (title, page) in enumerate(copa_modules):
         with cols_copa[i]:
             if st.button(f"**{title}**", use_container_width=True, key=f"copa_btn_{i}"):
