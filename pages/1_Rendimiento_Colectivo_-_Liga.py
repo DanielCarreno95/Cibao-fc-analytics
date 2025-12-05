@@ -428,7 +428,7 @@ if not df_liga_mayor.empty:
     else:
         opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
         
-        # Guardar en session_state para HTML
+        # Guardar para HTML (solo estas 4 líneas nuevas)
         st.session_state["opponent_choice"] = opponent_choice
 
         # ----------------------------------------------------
@@ -468,7 +468,7 @@ if not df_liga_mayor.empty:
         x_column = METRIC_OPTIONS.get(x_choice)
         y_column = METRIC_OPTIONS.get(y_choice)
         
-        # Guardar en session_state para HTML
+        # Guardar para HTML (solo estas 4 líneas nuevas)
         st.session_state["x_metric"] = x_column
         st.session_state["y_metric"] = y_column
         st.session_state["x_label"] = x_choice
@@ -501,7 +501,7 @@ if not df_liga_mayor.empty:
 
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
-
+    
 # ===========================
 # EFICIENCIA Y ATAQUE – BLOQUE COMPLETO
 # ===========================
