@@ -427,15 +427,7 @@ if not df_liga_mayor.empty:
 
     else:
         opponent_choice = col_sel1.selectbox("Próximo rival", team_options)
-        
-        # Guardar para HTML (solo estas 4 líneas nuevas)
-        st.session_state["opponent_choice"] = opponent_choice
 
-        # ----------------------------------------------------
-        # NOTA: Aquí se asume que METRIC_OPTIONS es una estructura válida
-        # y que las columnas resultantes (x_column, y_column) existen en
-        # df_liga_mayor, ya que ese fue el origen del error anterior.
-        # ----------------------------------------------------
         metric_labels = list(METRIC_OPTIONS.keys())
 
         x_default = (
@@ -461,43 +453,82 @@ if not df_liga_mayor.empty:
             index=y_default if metric_labels else 0,
         )
 
-        filters = {
-            "Competition": lambda s: s.str.contains("Liga", case=False, na=False)
-        }
-
         x_column = METRIC_OPTIONS.get(x_choice)
         y_column = METRIC_OPTIONS.get(y_choice)
-        
-        # Guardar para HTML (solo estas 4 líneas nuevas)
-        st.session_state["x_metric"] = x_column
-        st.session_state["y_metric"] = y_column
-        st.session_state["x_label"] = x_choice
-        st.session_state["y_label"] = y_choice
 
         if x_column is None or y_column is None:
             st.error("No se encontró la métrica seleccionada en el dataset.")
 
         else:
-            fig_radar, resumen_radar, _ = make_team_scatter(
-                df_liga_mayor,
-                primary_team="Cibao",
-                opponent=opponent_choice,
-                x_metric=x_column,
-                y_metric=y_column,
-                x_label=x_choice,
-                y_label=y_choice,
-                title=f"Liga Mayor — {x_choice} vs {y_choice}",
-                filters=filters,
-            )
+            # Adaptar dataframe (igual que en Copa)
+            df_liga_adapter = df_liga_mayor.copy()
+            
+            # Asegurar que las columnas numéricas sean numéricas
+            for col_num in [x_column, y_column]:
+                if col_num in df_liga_adapter.columns:
+                    df_liga_adapter[col_num] = (
+                        pd.to_numeric(df_liga_adapter[col_num], errors="coerce").fillna(0)
+                    )
 
-            st.plotly_chart(
-                fig_radar,
-                use_container_width=True,
-                config={"displayModeBar": True},
-            )
+            df_liga_view = df_liga_adapter.fillna(0)
 
-            if resumen_radar:
-                st.caption(f"Resumen: {resumen_radar}")
+            if df_liga_view.empty:
+                st.info("No hay registros disponibles para el análisis de Liga.")
+
+            else:
+                try:
+                    filters = {
+                        "Competition": lambda s: s.str.contains("Liga", case=False, na=False)
+                    }
+
+                    fig_radar, resumen_radar, _ = make_team_scatter(
+                        df_liga_view,
+                        primary_team="Cibao",
+                        opponent=opponent_choice,
+                        x_metric=x_column,
+                        y_metric=y_column,
+                        x_label=x_choice,
+                        y_label=y_choice,
+                        title=f"Liga Mayor — {x_choice} vs {y_choice}",
+                        filters=filters,
+                    )
+
+                    fig_radar.layout.annotations = [
+                        ann for ann in fig_radar.layout.annotations if ann.yref != "paper" or ann.y < 1
+                    ]
+                    fig_radar.update_layout(
+                        margin=dict(t=100, b=80, l=60, r=40),
+                        title_pad=dict(t=60),
+                        title_font=dict(size=20),
+                    )
+
+                    st.plotly_chart(
+                        fig_radar,
+                        use_container_width=True,
+                        config={"displayModeBar": True},
+                    )
+
+                    if resumen_radar:
+                        st.markdown("---")
+                        st.caption(f"**Resumen:** {resumen_radar}")
+
+                except Exception as e:
+                    st.warning(f"No se pudo usar make_team_scatter ({e}). Se muestra un scatter básico.")
+                    fig_basic = px.scatter(
+                        df_liga_view,
+                        x=x_column,
+                        y=y_column,
+                        color="Team",
+                        hover_data=["Match", "Date"] if "Match" in df_liga_view.columns and "Date" in df_liga_view.columns else [],
+                        title=f"Liga Mayor — {x_choice} vs {y_choice}",
+                        template="plotly_dark",
+                    )
+                    fig_basic.update_layout(
+                        margin=dict(t=100, b=80, l=60, r=40),
+                        title_pad=dict(t=60),
+                        title_font=dict(size=20),
+                    )
+                    st.plotly_chart(fig_basic, use_container_width=True)
 
 else:
     st.warning("No se pudo cargar el dataset per 90 de Liga Mayor.")
