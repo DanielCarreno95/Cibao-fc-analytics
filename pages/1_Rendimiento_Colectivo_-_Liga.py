@@ -1,12 +1,10 @@
- # ===========================================
-# 1_Rendimiento_Colectivo_-_Liga.py — Cibao FC Data Hub
-# ===========================================
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
+from datetime import datetime  # ← AÑADE ESTA LÍNEA
 
 from src.data_processing.load_cibao_team_data import load_cibao_team_data
 from src.utils.metrics_dictionary import METRICS_DICT
