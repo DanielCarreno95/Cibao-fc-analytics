@@ -319,6 +319,18 @@ def build_scatter(
     color_label, color_col = get_metric(df, config.get("color"))
     size_label, size_col = get_metric(df, config.get("size"))
 
+    # Only label Cibao and the selected opponent
+    text_labels = None
+    if aggregate_flag and group_col in df.columns:
+        focus_normalized = {normalize_team_name(t) for t in focus_list if isinstance(t, str) and t}
+        text_labels = []
+        for team in df[group_col]:
+            team_norm = normalize_team_name(team)
+            if team_norm in focus_normalized:
+                text_labels.append(team)
+            else:
+                text_labels.append("")  # Empty string for non-focus teams
+
     fig = px.scatter(
         df,
         x=x_col,
