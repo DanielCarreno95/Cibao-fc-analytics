@@ -6563,6 +6563,9 @@ def main():
                 filtered_team_averages = team_averages
             
             # For Cibao, filter matches from df_liga (Wyscout data) or all_matches (Scoresway data)
+            # Initialize filtered_cibao_averages to ensure it's always set
+            filtered_cibao_averages = cibao_averages.copy() if cibao_averages else {}
+            
             # Check if we're using Wyscout DataFrame data
             if isinstance(df_liga, pd.DataFrame) and not df_liga.empty:
                 # Filter Cibao matches from DataFrame
@@ -6575,17 +6578,17 @@ def main():
                 
                 # Apply filters to Cibao matches
                 if comparison_filter == "Últimos 3 partidos":
-                    # Sort by date and take last 3
-                    cibao_matches_list.sort(key=lambda x: (
+                    # Sort by date and take last 3 - create a copy to avoid modifying original
+                    sorted_matches = sorted(cibao_matches_list, key=lambda x: (
                         pd.to_datetime(x.get("Date") or x.get("date") or "1900-01-01", errors='coerce')
                     ), reverse=True)
-                    filtered_cibao_matches = cibao_matches_list[:3] if len(cibao_matches_list) >= 3 else cibao_matches_list
+                    filtered_cibao_matches = sorted_matches[:3] if len(sorted_matches) >= 3 else sorted_matches
                 elif comparison_filter == "Últimos 5 partidos":
-                    # Sort by date and take last 5
-                    cibao_matches_list.sort(key=lambda x: (
+                    # Sort by date and take last 5 - create a copy to avoid modifying original
+                    sorted_matches = sorted(cibao_matches_list, key=lambda x: (
                         pd.to_datetime(x.get("Date") or x.get("date") or "1900-01-01", errors='coerce')
                     ), reverse=True)
-                    filtered_cibao_matches = cibao_matches_list[:5] if len(cibao_matches_list) >= 5 else cibao_matches_list
+                    filtered_cibao_matches = sorted_matches[:5] if len(sorted_matches) >= 5 else sorted_matches
                 elif comparison_filter == "En Casa":
                     filtered_cibao_matches = filter_matches_by_type(cibao_matches_list, CIBAO_TEAM_NAME, "home", all_matches)
                 elif comparison_filter == "Fuera":
@@ -6596,9 +6599,16 @@ def main():
                 # Calculate Cibao averages from filtered DataFrame matches
                 if filtered_cibao_matches:
                     filtered_cibao_df = pd.DataFrame(filtered_cibao_matches)
-                    filtered_cibao_averages = calculate_team_averages_from_df(filtered_cibao_df, CIBAO_TEAM_NAME) if not filtered_cibao_df.empty else cibao_averages
-                else:
-                    filtered_cibao_averages = cibao_averages
+                    if not filtered_cibao_df.empty:
+                        # Always recalculate from filtered matches, don't fall back to cibao_averages
+                        # Ensure Team column exists and is set correctly
+                        if "Team" not in filtered_cibao_df.columns:
+                            filtered_cibao_df["Team"] = CIBAO_TEAM_NAME
+                        filtered_cibao_averages = calculate_team_averages_from_df(filtered_cibao_df, CIBAO_TEAM_NAME)
+                        # If calculation returns empty, it means no valid data, so keep initialized value
+                        if not filtered_cibao_averages:
+                            filtered_cibao_averages = cibao_averages.copy() if cibao_averages else {}
+                    # If empty, keep the initialized value (which is a copy of cibao_averages)
             else:
                 # Fallback: old Scoresway structure
                 cibao_matches_with_stats = []
@@ -6648,9 +6658,9 @@ def main():
                 
                 # Calculate Cibao averages from filtered matches
                 if filtered_cibao_matches:
+                    # Always recalculate from filtered matches, don't fall back to cibao_averages
                     filtered_cibao_averages = calculate_average_metrics_from_matches(filtered_cibao_matches, "cibao_stats")
-                else:
-                    filtered_cibao_averages = cibao_averages
+                # If empty, keep the initialized value (which is a copy of cibao_averages)
             
             # Use filtered averages for all charts
             comparison_team_averages = filtered_team_averages
