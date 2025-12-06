@@ -9,6 +9,7 @@ import pandas as pd
 import json
 from pathlib import Path
 import sys
+from datetime import datetime
 
 # Add src to path - try multiple methods for Streamlit Cloud
 REPO_ROOT = Path(__file__).parents[1]
@@ -86,6 +87,36 @@ except ImportError:
 # Directories
 PROCESSED_DIR = REPO_ROOT / "data" / "processed" / "Wyscout"
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+METADATA_FILE = PROCESSED_DIR / "upload_metadata.json"
+
+def load_upload_metadata():
+    """Load upload metadata from JSON file."""
+    if METADATA_FILE.exists():
+        try:
+            with open(METADATA_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_upload_metadata(metadata):
+    """Save upload metadata to JSON file."""
+    try:
+        with open(METADATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2, ensure_ascii=False, default=str)
+    except Exception as e:
+        st.warning(f"Could not save upload metadata: {e}")
+
+def update_upload_metadata(team_name, filename):
+    """Update metadata with new upload information."""
+    metadata = load_upload_metadata()
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    metadata[team_name] = {
+        "filename": filename,
+        "uploaded_at": timestamp,
+        "uploaded_at_iso": datetime.now().isoformat()
+    }
+    save_upload_metadata(metadata)
 
 st.set_page_config(page_title="Upload Wyscout Data", page_icon="📊", layout="wide")
 inject_dark_theme()
@@ -95,6 +126,29 @@ render_top_navigation()
 
 st.title("📊 Upload Wyscout Data")
 st.markdown("**Simple flow:** Upload Excel → Clean headers → Convert to per90 → Save JSON")
+
+# Display Current Data section
+with st.expander("📋 Current Data", expanded=False):
+    metadata = load_upload_metadata()
+    if metadata:
+        st.markdown("**Uploaded files by team:**")
+        # Sort by upload time (most recent first)
+        sorted_teams = sorted(metadata.items(), key=lambda x: x[1].get("uploaded_at_iso", ""), reverse=True)
+        
+        # Create a table-like display
+        for team_name, info in sorted_teams:
+            filename = info.get("filename", "Unknown")
+            uploaded_at = info.get("uploaded_at", "Unknown")
+            col1, col2, col3 = st.columns([2, 3, 2])
+            with col1:
+                st.markdown(f"**{team_name}**")
+            with col2:
+                st.markdown(f"`{filename}`")
+            with col3:
+                st.markdown(f"📅 {uploaded_at}")
+            st.markdown("---")
+    else:
+        st.info("No files have been uploaded yet.")
 
 # Upload files
 uploaded_files = st.file_uploader(
@@ -167,6 +221,9 @@ if uploaded_files:
                     
                     with open(json_path, "w", encoding="utf-8") as f:
                         json.dump(team_df.to_dict(orient="records"), f, indent=2, ensure_ascii=False, default=str)
+                    
+                    # Update upload metadata
+                    update_upload_metadata(team_name, filename)
                     
                     st.success(f"  ✅ Saved: `{json_path.name}` ({len(team_df)} rows, {len(team_df.columns)} columns)")
                     results["success"] += 1
