@@ -760,6 +760,15 @@ def plot_group(nombre_grupo, mapping, opponent=None):
         st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
         return
 
+    # Ensure all numeric columns are properly converted to float (handle comma decimals)
+    for col in columnas:
+        if col in df_plot.columns:
+            # Convert to string first, replace commas with periods, then to float
+            df_plot[col] = pd.to_numeric(
+                df_plot[col].astype(str).str.replace(',', '.', regex=False),
+                errors='coerce'
+            )
+    
     # Calculate means per team
     df_means = df_plot.groupby("Team")[columnas].mean().reset_index()
     
@@ -771,6 +780,9 @@ def plot_group(nombre_grupo, mapping, opponent=None):
         value_name="valor"
     )
     df_melted["label"] = df_melted["metric"].map(etiquetas)
+    
+    # Ensure valor is numeric and format consistently
+    df_melted["valor"] = pd.to_numeric(df_melted["valor"], errors='coerce').fillna(0)
     
     # Sort by metric and team for consistent display
     df_melted = df_melted.sort_values(["metric", "Team"])
