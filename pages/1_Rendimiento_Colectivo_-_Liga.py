@@ -635,7 +635,8 @@ grupos = {
 
     "Eficiencia en el tiro": {
         "Porcentaje de disparos a puerta (%)": "Shot Accuracy %",
-        "Disparos desde fuera del área a puerta (%)": "Shots Outside PA Accuracy %",
+        "Disparos por 90": "Shots",
+        "Disparos a puerta por 90": "Shots On Target",
     },
 
     "Patrones de ataque": {
