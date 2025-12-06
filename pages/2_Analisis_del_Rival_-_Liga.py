@@ -6689,7 +6689,7 @@ def main():
                 # Try multiple key variations (check for None explicitly)
                 counter_attacks = (display_averages_ui.get("counter_attacks") if display_averages_ui.get("counter_attacks") is not None else
                                   display_averages_ui.get("Counter Attacks") if display_averages_ui.get("Counter Attacks") is not None else
-                                  display_averages_ui.get("Counterattacks / with shots") if display_averages_ui.get("Counterattacks / with shots") is not None else 0)
+                                  display_averages_ui.get("Counterattacks With Shots") if display_averages_ui.get("Counterattacks With Shots") is not None else 0)
                 comp_counter = (filtered_competition_averages.get("counter_attacks") if filtered_competition_averages and filtered_competition_averages.get("counter_attacks") is not None else
                                filtered_competition_averages.get("Counter Attacks") if filtered_competition_averages and filtered_competition_averages.get("Counter Attacks") is not None else
                                filtered_competition_averages.get("Counterattacks With Shots") if filtered_competition_averages and filtered_competition_averages.get("Counterattacks With Shots") is not None else 0) if filtered_competition_averages else 0
