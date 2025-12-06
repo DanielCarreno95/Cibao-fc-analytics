@@ -292,13 +292,14 @@ def process_wyscout_csv(uploaded_file, save_raw: bool = True) -> dict:
                 team_name_normalized = normalize_string(str(team))
                 processed_data[team] = team_df
                 
-                # Crear archivo JSON individual
-                json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
-                df_dict = team_df.to_dict(orient="records")
-                with open(json_file_path, "w", encoding="utf-8") as f:
-                    json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
-                
-                results["files_created"].append(f"JSON: {json_file_path.name}")
+                # Crear archivo JSON individual (only if not using consolidated format)
+                # Skip individual JSON files - we only use the consolidated file
+                # This prevents creating duplicate/old format files
+                # json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
+                # df_dict = team_df.to_dict(orient="records")
+                # with open(json_file_path, "w", encoding="utf-8") as f:
+                #     json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
+                # results["files_created"].append(f"JSON: {json_file_path.name}")
                 results["teams_processed"] += 1
         else:
             # Si no hay columna Team, tratar todo como un solo conjunto (overwrite existing)
