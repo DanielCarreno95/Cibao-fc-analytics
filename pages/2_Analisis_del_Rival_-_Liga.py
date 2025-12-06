@@ -6293,8 +6293,78 @@ def main():
                 filtered_matches_ui = team_all_matches
             
             # Calculate averages from filtered matches (DataFrame-based)
-            if filtered_matches_ui:
+            # For Wyscout data, use the original DataFrame filtering instead of converting dicts back
+            if isinstance(df_liga, pd.DataFrame) and not df_liga.empty and "Team" in df_liga.columns:
+                # Filter DataFrame directly for better accuracy
+                selected_opponent_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                
+                # Try exact match first
+                filtered_team_df = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
+                
+                # If no exact match, try flexible matching
+                if filtered_team_df.empty:
+                    def team_name_match(team_name):
+                        if pd.isna(team_name):
+                            return False
+                        team_name_normalized = str(team_name).lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                        return (selected_opponent_normalized in team_name_normalized or 
+                               team_name_normalized in selected_opponent_normalized or
+                               selected_opponent_normalized.replace(' del ', ' de ') in team_name_normalized.replace(' del ', ' de ') or
+                               team_name_normalized.replace(' del ', ' de ') in selected_opponent_normalized.replace(' del ', ' de '))
+                    
+                    filtered_team_df = df_liga[df_liga["Team"].apply(team_name_match)].copy()
+                
+                # Apply UI filter to the DataFrame
+                if filter_type_ui != "all":
+                    if filter_type_ui == "last_3":
+                        # Sort by date and take last 3
+                        if "Date" in filtered_team_df.columns:
+                            filtered_team_df = filtered_team_df.sort_values("Date", ascending=False).head(3).copy()
+                    elif filter_type_ui == "last_5":
+                        # Sort by date and take last 5
+                        if "Date" in filtered_team_df.columns:
+                            filtered_team_df = filtered_team_df.sort_values("Date", ascending=False).head(5).copy()
+                    elif filter_type_ui == "home":
+                        # Filter for home matches
+                        if "is_home" in filtered_team_df.columns:
+                            filtered_team_df = filtered_team_df[filtered_team_df["is_home"] == True].copy()
+                        elif "Match" in filtered_team_df.columns:
+                            # Derive is_home from Match string
+                            def is_home_match(row):
+                                match_str = str(row.get("Match", ""))
+                                team_name = str(row.get("Team", "")).strip()
+                                if match_str and team_name:
+                                    parts = match_str.split(" - ")
+                                    if len(parts) >= 2:
+                                        home_team = parts[0].strip()
+                                        return team_name.lower() in home_team.lower() or home_team.lower() in team_name.lower()
+                                return False
+                            filtered_team_df = filtered_team_df[filtered_team_df.apply(is_home_match, axis=1)].copy()
+                    elif filter_type_ui == "away":
+                        # Filter for away matches
+                        if "is_home" in filtered_team_df.columns:
+                            filtered_team_df = filtered_team_df[filtered_team_df["is_home"] == False].copy()
+                        elif "Match" in filtered_team_df.columns:
+                            # Derive is_home from Match string
+                            def is_away_match(row):
+                                match_str = str(row.get("Match", ""))
+                                team_name = str(row.get("Team", "")).strip()
+                                if match_str and team_name:
+                                    parts = match_str.split(" - ")
+                                    if len(parts) >= 2:
+                                        home_team = parts[0].strip()
+                                        return not (team_name.lower() in home_team.lower() or home_team.lower() in team_name.lower())
+                                return True
+                            filtered_team_df = filtered_team_df[filtered_team_df.apply(is_away_match, axis=1)].copy()
+                
+                # Calculate averages from filtered DataFrame
+                filtered_averages_ui = calculate_team_averages_from_df(filtered_team_df, selected_opponent) if not filtered_team_df.empty else {}
+            elif filtered_matches_ui:
+                # Fallback: convert dicts to DataFrame (less reliable)
                 filtered_df = pd.DataFrame(filtered_matches_ui)
+                # Ensure Team column exists
+                if "Team" not in filtered_df.columns and selected_opponent:
+                    filtered_df["Team"] = selected_opponent
                 filtered_averages_ui = calculate_team_averages_from_df(filtered_df, selected_opponent) if not filtered_df.empty else {}
             else:
                 filtered_averages_ui = {}
