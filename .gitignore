@@ -1,0 +1,7 @@
+# Processed JSON files (generated from uploads, should not be in git)
+data/processed/Wyscout/*.json
+data/processed/Wyscout/**/*.json
+
+# But keep export_summary.json if needed for reference
+!data/processed/Wyscout/export_summary.json
+
