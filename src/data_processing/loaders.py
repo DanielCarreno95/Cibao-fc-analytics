@@ -141,21 +141,48 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
                 if has_old_format and not has_new_format:
                     try:
                         # Try to apply fix_wyscout_headers on-the-fly
-                        from fix_wyscout_headers import fix_team_headers
-                        df = fix_team_headers(df)
-                        # Verify the fix worked
-                        has_new_format_after = "Passes" in df.columns and "Shots" in df.columns
-                        if has_new_format_after:
-                            print(f"✅ Fixed OLD format file on-the-fly: {file}")
+                        # Try multiple import paths for Streamlit Cloud compatibility
+                        fix_team_headers = None
+                        try:
+                            from src.data_processing.fix_wyscout_headers import fix_team_headers
+                        except ImportError:
+                            try:
+                                import sys
+                                from pathlib import Path
+                                # Add src/data_processing to path
+                                repo_root = Path(__file__).parents[2] if '__file__' in globals() else Path.cwd()
+                                src_data_processing = repo_root / "src" / "data_processing"
+                                if str(src_data_processing) not in sys.path:
+                                    sys.path.insert(0, str(src_data_processing))
+                                from fix_wyscout_headers import fix_team_headers
+                            except ImportError:
+                                # Last resort: try direct import
+                                from fix_wyscout_headers import fix_team_headers
+                        
+                        if fix_team_headers is not None:
+                            df = fix_team_headers(df)
+                            # Verify the fix worked
+                            has_new_format_after = "Passes" in df.columns and "Shots" in df.columns
+                            if has_new_format_after:
+                                print(f"✅ Fixed OLD format file on-the-fly: {file}")
+                                # Update has_new_format so file is not skipped
+                                has_new_format = True
+                            else:
+                                # Still OLD format after fix - skip it
+                                skipped_old_format.append(file)
+                                print(f"⚠️ Skipping OLD format file: {file} (fix applied but still OLD format)")
+                                continue
                         else:
-                            # Still OLD format after fix - skip it
+                            # Couldn't import fix function - skip it
                             skipped_old_format.append(file)
-                            print(f"⚠️ Skipping OLD format file: {file} (could not fix on-the-fly)")
+                            print(f"⚠️ Skipping OLD format file: {file} (could not import fix_team_headers)")
                             continue
                     except Exception as fix_error:
                         # Couldn't fix it - skip it
                         skipped_old_format.append(file)
+                        import traceback
                         print(f"⚠️ Skipping OLD format file: {file} (error fixing: {fix_error})")
+                        print(f"   Traceback: {traceback.format_exc()}")
                         continue
                 
                 df["source_file"] = file
