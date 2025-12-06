@@ -10,30 +10,43 @@ import json
 from pathlib import Path
 import sys
 
-# Add src to path
+# Add src to path - try multiple methods for Streamlit Cloud
 REPO_ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-# Import required functions with fallbacks for Streamlit Cloud
+# Also add src/data_processing to path for direct imports
+src_data_processing = REPO_ROOT / "src" / "data_processing"
+if str(src_data_processing) not in sys.path:
+    sys.path.insert(0, str(src_data_processing))
+
+# Import required functions with multiple fallbacks for Streamlit Cloud
+fix_team_headers = None
+convert_df_to_per90 = None
+
+# Try importing fix_team_headers
 try:
     from src.data_processing.fix_wyscout_headers import fix_team_headers
 except ImportError:
-    # Fallback: add src/data_processing to path
-    src_data_processing = REPO_ROOT / "src" / "data_processing"
-    if str(src_data_processing) not in sys.path:
-        sys.path.insert(0, str(src_data_processing))
-    from fix_wyscout_headers import fix_team_headers
+    try:
+        from fix_wyscout_headers import fix_team_headers
+    except ImportError:
+        st.error("❌ Could not import fix_team_headers. Please check the file exists.")
+        st.stop()
 
+# Try importing convert_df_to_per90
 try:
     from src.data_processing.convert_to_per90_stats import convert_df_to_per90
 except ImportError:
-    # Fallback: should already be in path from above
-    from convert_to_per90_stats import convert_df_to_per90
+    try:
+        from convert_to_per90_stats import convert_df_to_per90
+    except ImportError:
+        st.error("❌ Could not import convert_df_to_per90. Please check the file exists.")
+        st.stop()
 
+# Try importing theme
 try:
     from src.utils.global_dark_theme import inject_dark_theme
 except ImportError:
-    # Fallback for theme
     def inject_dark_theme():
         pass  # No theme if can't import
 
