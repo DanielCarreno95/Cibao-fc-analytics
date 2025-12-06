@@ -946,16 +946,28 @@ def main():
                         help="Elimina todos los archivos JSON en data/processed/Wyscout/ para forzar regeneración"):
                 import shutil
                 deleted_count = 0
+                deleted_files = []
                 try:
                     if PROCESSED_WYSCOUT_DIR.exists():
                         for json_file in PROCESSED_WYSCOUT_DIR.glob("*.json"):
-                            json_file.unlink()
-                            deleted_count += 1
-                    st.success(f"✅ **{deleted_count} archivo(s) JSON eliminado(s)!**")
-                    st.info("💡 Ahora sube tus archivos Excel nuevamente para crear nuevos JSON con formato NEW.")
-                    st.cache_data.clear()
+                            # Skip export_summary.json (it's just metadata)
+                            if json_file.name != "export_summary.json":
+                                json_file.unlink()
+                                deleted_count += 1
+                                deleted_files.append(json_file.name)
+                    if deleted_count > 0:
+                        st.success(f"✅ **{deleted_count} archivo(s) JSON eliminado(s)!**")
+                        with st.expander("Ver archivos eliminados", expanded=False):
+                            for filename in deleted_files:
+                                st.markdown(f"- `{filename}`")
+                        st.info("💡 Ahora sube tus archivos Excel nuevamente para crear nuevos JSON con formato NEW.")
+                        st.cache_data.clear()
+                    else:
+                        st.info("ℹ️ No se encontraron archivos JSON para eliminar (excepto export_summary.json).")
                 except Exception as e:
                     st.error(f"❌ Error eliminando archivos: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
         
         st.markdown("---")
         
