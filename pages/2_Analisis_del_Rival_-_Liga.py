@@ -551,6 +551,16 @@ def load_liga_data() -> pd.DataFrame:
                 # Standard format: single sheet with all teams
                 df = pd.read_excel(xls, sheet_name="TeamStats")
                 
+                # Apply fix_wyscout_headers to remove "Unnamed" columns and fix OLD format
+                if FIX_WYSCOUT_HEADERS_AVAILABLE and fix_team_headers is not None:
+                    try:
+                        df = fix_team_headers(df)
+                    except Exception as e:
+                        pass  # Continue without fixing if error
+                
+                # Filter out "Unnamed" columns (should have been fixed by fix_wyscout_headers, but just in case)
+                df = df.loc[:, ~df.columns.str.contains('Unnamed', case=False)]
+                
                 # Extract team names from Match column if Team column is not valid
                 if "Match" in df.columns and ("Team" not in df.columns or df["Team"].iloc[0] == "TeamStats"):
                     # Create two rows per match (one for each team)
