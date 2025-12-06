@@ -5871,10 +5871,37 @@ def main():
     
     # Convert team_df to list of dicts for compatibility with existing functions
     # For Wyscout data, all rows are "played" matches (they're statistics, not fixtures)
+    # IMPORTANT: Remove duplicates by Match+Date to avoid double counting
     team_all_matches = []
+    seen_match_date = set()  # Track unique Match+Date combinations
+    
     if not team_df.empty:
+        # First, remove duplicates from DataFrame itself (in case there are duplicate rows)
+        if "Match" in team_df.columns and "Date" in team_df.columns:
+            # Drop duplicates based on Match+Date, keeping first occurrence
+            team_df = team_df.drop_duplicates(subset=["Match", "Date"], keep="first").copy()
+        
         for _, row in team_df.iterrows():
             match_dict = row.to_dict()
+            
+            # Create unique identifier for this match
+            match_str = str(match_dict.get("Match", ""))
+            date_val = match_dict.get("Date")
+            if pd.notna(date_val):
+                if isinstance(date_val, pd.Timestamp):
+                    date_str = date_val.strftime("%Y-%m-%d")
+                else:
+                    date_str = str(date_val)
+            else:
+                date_str = ""
+            
+            match_date_key = f"{match_str}_{date_str}"
+            
+            # Skip if we've already processed this Match+Date combination
+            if match_date_key in seen_match_date:
+                continue
+            seen_match_date.add(match_date_key)
+            
             # Add status field to indicate it's a played match (Wyscout data = played matches)
             match_dict["status"] = "played"
             # Add date field if Date column exists
@@ -5886,7 +5913,6 @@ def main():
             
             # Derive is_home from Match string if not already present
             if "is_home" not in match_dict or pd.isna(match_dict.get("is_home")):
-                match_str = str(match_dict.get("Match", ""))
                 team_name = str(match_dict.get("Team", "")).strip()
                 if match_str and team_name:
                     # Extract teams from match string (format: "Team1 - Team2 score:score")
