@@ -597,6 +597,12 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
 # INTERFAZ PRINCIPAL
 # ===========================================
 def main():
+    # Initialize session state for processing results
+    if "processing_results" not in st.session_state:
+        st.session_state.processing_results = None
+    if "show_processing_results" not in st.session_state:
+        st.session_state.show_processing_results = False
+    
     # Home button
     col1, col2, col3 = st.columns([1, 6, 1])
     with col1:
@@ -642,6 +648,50 @@ def main():
         """)
     
     st.markdown("---")
+    
+    # Show processing results if available (after rerun)
+    if st.session_state.show_processing_results and st.session_state.processing_results:
+        all_results = st.session_state.processing_results
+        st.success(f"✅ {all_results['successful']} archivo(s) procesado(s) exitosamente!")
+        st.info("💡 Los datos están ahora disponibles en las páginas de análisis. El cache ha sido limpiado automáticamente.")
+        
+        # Show summary
+        st.markdown("### 📊 Resumen del Procesamiento")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Archivos Totales", all_results["total_files"])
+        with col2:
+            st.metric("✅ Exitosos", all_results["successful"], delta=f"{all_results['failed']} fallidos" if all_results["failed"] > 0 else None)
+        with col3:
+            st.metric("Equipos Procesados", all_results["total_teams_processed"])
+        with col4:
+            st.metric("Archivos Creados", len(all_results["all_files_created"]))
+        
+        # Archivos creados
+        if all_results["all_files_created"]:
+            with st.expander("📁 Ver Archivos Creados", expanded=False):
+                for file_name in all_results["all_files_created"]:
+                    st.markdown(f"- `{file_name}`")
+        
+        # Advertencias
+        if all_results["all_warnings"]:
+            with st.expander("⚠️ Advertencias", expanded=False):
+                for warning in all_results["all_warnings"]:
+                    st.markdown(f"- {warning}")
+        
+        # Errores
+        if all_results["all_errors"]:
+            with st.expander("❌ Errores Encontrados", expanded=all_results["failed"] > 0):
+                for error in all_results["all_errors"]:
+                    st.markdown(f"- {error}")
+        
+        # Clear button to reset
+        if st.button("🔄 Procesar Otros Archivos", use_container_width=True):
+            st.session_state.processing_results = None
+            st.session_state.show_processing_results = False
+            st.rerun()
+        
+        st.markdown("---")
     
     # Upload section
     st.subheader("📤 Subir Archivos de Wyscout")
@@ -706,47 +756,26 @@ def main():
                         }
                 
                 # Mostrar resultados
+                # Store results in session state
+                all_results = {
+                    "total_files": 1,
+                    "successful": 1 if results["success"] else 0,
+                    "failed": 0 if results["success"] else 1,
+                    "total_teams_processed": results["teams_processed"],
+                    "all_files_created": results["files_created"],
+                    "all_errors": results["errors"],
+                    "all_warnings": results["warnings"]
+                }
+                st.session_state.processing_results = all_results
+                st.session_state.show_processing_results = True
+                
                 if results["success"]:
-                    st.success(f"✅ Archivo procesado exitosamente!")
-                    
-                    # Métricas
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Equipos procesados", results["teams_processed"])
-                    with col2:
-                        st.metric("Archivos creados", len(results["files_created"]))
-                    with col3:
-                        st.metric("Errores", len(results["errors"]))
-                    
-                    # Archivos creados
-                    if results["files_created"]:
-                        st.markdown("### 📁 Archivos Creados")
-                        for file_name in results["files_created"]:
-                            st.markdown(f"- `{file_name}`")
-                    
-                    # Advertencias
-                    if results["warnings"]:
-                        st.warning("⚠️ Advertencias:")
-                        for warning in results["warnings"]:
-                            st.markdown(f"- {warning}")
-                    
-                    # Errores
-                    if results["errors"]:
-                        st.error("❌ Errores encontrados:")
-                        for error in results["errors"]:
-                            st.markdown(f"- {error}")
-                    
-                    # Limpiar cache automáticamente y recargar
+                    # Limpiar cache automáticamente
                     st.cache_data.clear()
-                    st.success("✅ Cache limpiado. Recargando aplicación para mostrar datos actualizados...")
                     # Automatically rerun to refresh the app with new data
                     st.rerun()
-                
                 else:
                     st.error("❌ Error procesando el archivo. Revisa los errores arriba.")
-                    if results["errors"]:
-                        for error in results["errors"]:
-                            st.markdown(f"- {error}")
         
         else:
             # Multiple files - show batch processing UI
@@ -833,44 +862,13 @@ def main():
                 progress_bar.empty()
                 status_text.empty()
                 
-                # Mostrar resultados consolidados
-                st.markdown("---")
-                st.markdown("### 📊 Resumen del Procesamiento")
+                # Store results in session state and show after rerun
+                st.session_state.processing_results = all_results
+                st.session_state.show_processing_results = True
                 
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Archivos Totales", all_results["total_files"])
-                with col2:
-                    st.metric("✅ Exitosos", all_results["successful"], delta=f"{all_results['failed']} fallidos" if all_results["failed"] > 0 else None)
-                with col3:
-                    st.metric("Equipos Procesados", all_results["total_teams_processed"])
-                with col4:
-                    st.metric("Archivos Creados", len(all_results["all_files_created"]))
-                
-                # Archivos creados
-                if all_results["all_files_created"]:
-                    with st.expander("📁 Ver Archivos Creados", expanded=False):
-                        for file_name in all_results["all_files_created"]:
-                            st.markdown(f"- `{file_name}`")
-                
-                # Advertencias
-                if all_results["all_warnings"]:
-                    with st.expander("⚠️ Advertencias", expanded=False):
-                        for warning in all_results["all_warnings"]:
-                            st.markdown(f"- {warning}")
-                
-                # Errores
-                if all_results["all_errors"]:
-                    with st.expander("❌ Errores Encontrados", expanded=True):
-                        for error in all_results["all_errors"]:
-                            st.markdown(f"- {error}")
-                
-                # Success message
                 if all_results["successful"] > 0:
-                    st.success(f"✅ {all_results['successful']} archivo(s) procesado(s) exitosamente!")
-                    # Limpiar cache automáticamente y recargar
+                    # Limpiar cache automáticamente
                     st.cache_data.clear()
-                    st.success("✅ Cache limpiado. Recargando aplicación para mostrar datos actualizados...")
                     # Automatically rerun to refresh the app with new data
                     st.rerun()
                 else:
