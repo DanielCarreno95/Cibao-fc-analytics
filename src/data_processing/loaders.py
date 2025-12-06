@@ -85,16 +85,35 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
         "export_summary.json"  # Also exclude summary file
     ]
     all_data = []
+    skipped_old_format = []
     for file in os.listdir(folder):
         # Excluir archivos consolidados ya intentados y archivos temporales
         if file.endswith(".json") and not any(cf in file for cf in consolidated_files):
             path = os.path.join(folder, file)
             try:
                 df = load_json(path)
+                
+                # Skip OLD format files - they cause data inconsistencies
+                # Check if file has OLD format columns (e.g., "Passes / accurate")
+                has_old_format = any(" / " in str(col) or " /accurate" in str(col) or " /on target" in str(col) 
+                                     for col in df.columns)
+                
+                # Check if file has NEW format columns (e.g., "Passes", "Shots")
+                has_new_format = "Passes" in df.columns and "Shots" in df.columns
+                
+                if has_old_format and not has_new_format:
+                    # This is an OLD format file - skip it
+                    skipped_old_format.append(file)
+                    print(f"⚠️ Skipping OLD format file: {file} (contains ' / ' columns)")
+                    continue
+                
                 df["source_file"] = file
                 all_data.append(df)
             except Exception as e:
                 print(f"⚠️ Error cargando {file}: {e}")
+    
+    if skipped_old_format:
+        print(f"⚠️ Skipped {len(skipped_old_format)} OLD format JSON files. Please delete them and re-upload Excel files to generate NEW format JSON files.")
 
     if not all_data:
         raise ValueError("No se encontraron archivos JSON en data/processed/Wyscout/")
