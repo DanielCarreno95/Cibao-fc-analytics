@@ -530,24 +530,35 @@ def load_liga_data() -> pd.DataFrame:
                     try:
                         # Try different import paths
                         fix_team_headers = None
+                        import sys
+                        from pathlib import Path
+                        
+                        # Get the repo root (go up from pages/ to repo root)
+                        # On Streamlit Cloud, __file__ is /mount/src/cibao-fc-analytics/pages/2_Analisis_del_Rival_-_Liga.py
+                        # So parents[1] gives us /mount/src/cibao-fc-analytics/
+                        repo_root = Path(__file__).parents[1]
+                        src_data_processing_path = repo_root / "src" / "data_processing"
+                        fix_wyscout_headers_file = src_data_processing_path / "fix_wyscout_headers.py"
+                        
+                        # Try direct import first
                         try:
                             from src.data_processing.fix_wyscout_headers import fix_team_headers
                         except ImportError:
-                            # Fallback 1: add src/data_processing to sys.path
-                            import sys
-                            from pathlib import Path
-                            # Get the repo root (go up from pages/ to repo root)
-                            repo_root = Path(__file__).parents[1]
-                            src_data_processing_path = repo_root / "src" / "data_processing"
-                            if src_data_processing_path.exists() and str(src_data_processing_path) not in sys.path:
-                                sys.path.insert(0, str(src_data_processing_path))
-                            try:
-                                from fix_wyscout_headers import fix_team_headers
-                            except ImportError:
-                                # Fallback 2: add repo root to sys.path and import with full path
-                                if str(repo_root) not in sys.path:
-                                    sys.path.insert(0, str(repo_root))
-                                from src.data_processing.fix_wyscout_headers import fix_team_headers
+                            # Fallback 1: Check if file exists and add parent directory to sys.path
+                            if fix_wyscout_headers_file.exists():
+                                # Add src/data_processing to sys.path
+                                if str(src_data_processing_path) not in sys.path:
+                                    sys.path.insert(0, str(src_data_processing_path))
+                                try:
+                                    from fix_wyscout_headers import fix_team_headers
+                                except ImportError:
+                                    # Fallback 2: Add repo root to sys.path
+                                    if str(repo_root) not in sys.path:
+                                        sys.path.insert(0, str(repo_root))
+                                    from src.data_processing.fix_wyscout_headers import fix_team_headers
+                            else:
+                                # File doesn't exist - can't import
+                                raise ImportError(f"fix_wyscout_headers.py not found at {fix_wyscout_headers_file}")
                         
                         if fix_team_headers is None:
                             raise ImportError("Could not import fix_team_headers from any path")
