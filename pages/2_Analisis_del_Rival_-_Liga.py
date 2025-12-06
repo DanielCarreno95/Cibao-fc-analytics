@@ -489,18 +489,30 @@ def load_liga_data() -> pd.DataFrame:
     """Carga todos los datos de Liga Mayor desde Wyscout."""
     try:
         # Get cache key based on file modification time
+        get_data_cache_key = None
         try:
             from src.data_processing.loaders import get_data_cache_key
         except ImportError:
-            # Fallback: add path to sys.path
+            # Fallback 1: add src/data_processing to sys.path
             import sys
             from pathlib import Path
-            src_path = Path(__file__).parents[1] / "src" / "data_processing"
-            if str(src_path) not in sys.path:
-                sys.path.insert(0, str(src_path))
-            from loaders import get_data_cache_key
+            repo_root = Path(__file__).parents[1]
+            src_data_processing_path = repo_root / "src" / "data_processing"
+            if src_data_processing_path.exists() and str(src_data_processing_path) not in sys.path:
+                sys.path.insert(0, str(src_data_processing_path))
+            try:
+                from loaders import get_data_cache_key
+            except ImportError:
+                # Fallback 2: add repo root to sys.path and import with full path
+                if str(repo_root) not in sys.path:
+                    sys.path.insert(0, str(repo_root))
+                from src.data_processing.loaders import get_data_cache_key
         
-        cache_key = get_data_cache_key()
+        if get_data_cache_key is None:
+            # If we can't import, just use 0 as cache key (cache will still work, just won't auto-invalidate)
+            cache_key = 0
+        else:
+            cache_key = get_data_cache_key()
         
         # Load per 90 data from processed JSON files (cache key auto-invalidates when files change)
         df = load_per90_data(_cache_key=cache_key)
@@ -517,16 +529,28 @@ def load_liga_data() -> pd.DataFrame:
                 if has_old_format:
                     try:
                         # Try different import paths
+                        fix_team_headers = None
                         try:
                             from src.data_processing.fix_wyscout_headers import fix_team_headers
                         except ImportError:
-                            # Fallback: add path to sys.path
+                            # Fallback 1: add src/data_processing to sys.path
                             import sys
                             from pathlib import Path
-                            src_path = Path(__file__).parents[1] / "src" / "data_processing"
-                            if str(src_path) not in sys.path:
-                                sys.path.insert(0, str(src_path))
-                            from fix_wyscout_headers import fix_team_headers
+                            # Get the repo root (go up from pages/ to repo root)
+                            repo_root = Path(__file__).parents[1]
+                            src_data_processing_path = repo_root / "src" / "data_processing"
+                            if src_data_processing_path.exists() and str(src_data_processing_path) not in sys.path:
+                                sys.path.insert(0, str(src_data_processing_path))
+                            try:
+                                from fix_wyscout_headers import fix_team_headers
+                            except ImportError:
+                                # Fallback 2: add repo root to sys.path and import with full path
+                                if str(repo_root) not in sys.path:
+                                    sys.path.insert(0, str(repo_root))
+                                from src.data_processing.fix_wyscout_headers import fix_team_headers
+                        
+                        if fix_team_headers is None:
+                            raise ImportError("Could not import fix_team_headers from any path")
                         
                         # Make a copy to avoid modifying cached data
                         df = df.copy()
@@ -547,7 +571,7 @@ def load_liga_data() -> pd.DataFrame:
                         # If fix_wyscout_headers is not available, show warning but continue
                         st.warning(f"⚠️ Could not apply fix_wyscout_headers: {str(e)}. Continuing with OLD format data.")
                         # Don't show full traceback for ImportError - it's expected if module doesn't exist
-                        if "ModuleNotFoundError" not in str(e):
+                        if "ModuleNotFoundError" not in str(e) and "ImportError" not in str(type(e).__name__):
                             import traceback
                             st.code(traceback.format_exc())
                 elif has_new_format:
