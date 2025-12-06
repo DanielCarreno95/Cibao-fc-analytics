@@ -525,8 +525,17 @@ def load_liga_data() -> pd.DataFrame:
         # Load per 90 data from processed JSON files (cache key auto-invalidates when files change)
         df = load_per90_data(_cache_key=cache_key)
         if not df.empty and "Team" in df.columns:
-            # Verify Team column has actual team names
-            if df["Team"].nunique() > 1 or df["Team"].iloc[0] not in ["TeamStats", "teamstats"]:
+            # Verify Team column has actual team names (not header rows)
+            # Check if first value is a valid team name (not "TeamStats" or similar)
+            first_team_value = df["Team"].iloc[0] if len(df) > 0 else None
+            is_valid_team_data = (
+                df["Team"].nunique() > 1 or  # Multiple teams = valid
+                (first_team_value is not None and 
+                 str(first_team_value).lower() not in ["teamstats", "team", "equipo", ""] and
+                 pd.notna(first_team_value))
+            )
+            
+            if is_valid_team_data:
                 # Check data source and format
                 data_source = "JSON (via load_per90_data)"
                 # All data is in NEW FORMAT (fix_wyscout_headers is always applied during upload)
@@ -537,6 +546,9 @@ def load_liga_data() -> pd.DataFrame:
                 df.attrs['data_source'] = data_source
                 
                 return df
+            else:
+                # Invalid team data - log and fall through to Excel
+                print(f"⚠️ JSON data has invalid Team column. First value: {first_team_value}, Unique teams: {df['Team'].nunique()}")
     except Exception as e:
         # Log the error - JSON loading should work, so this is unexpected
         import traceback
