@@ -1819,17 +1819,42 @@ def get_recent_form(matches: List[Dict], team_name: str, num_matches: Optional[i
                 # Fallback: try to use Goals/Conceded goals if available (but these are per-90, so round them)
                 goals_for_raw = match.get("Goals", 0)
                 goals_against_raw = match.get("Conceded goals", 0)
-                # If these are per-90 values (typically < 5), round them for display
-                # But ideally we should have the actual score from Match string
-                if isinstance(goals_for_raw, (int, float)) and goals_for_raw < 10:
-                    goals_for = int(round(goals_for_raw))
-                else:
-                    goals_for = int(goals_for_raw) if isinstance(goals_for_raw, (int, float)) else 0
                 
-                if isinstance(goals_against_raw, (int, float)) and goals_against_raw < 10:
-                    goals_against = int(round(goals_against_raw))
-                else:
-                    goals_against = int(goals_against_raw) if isinstance(goals_against_raw, (int, float)) else 0
+                # Safely convert goals_for
+                try:
+                    if pd.isna(goals_for_raw) or goals_for_raw is None:
+                        goals_for = 0
+                    elif isinstance(goals_for_raw, (int, float)):
+                        # Check for NaN or inf
+                        if pd.isna(goals_for_raw) or goals_for_raw == float('inf') or goals_for_raw == float('-inf'):
+                            goals_for = 0
+                        elif goals_for_raw < 10:
+                            goals_for = int(round(goals_for_raw))
+                        else:
+                            goals_for = int(goals_for_raw)
+                    else:
+                        # Try to convert string or other types
+                        goals_for = int(float(str(goals_for_raw))) if str(goals_for_raw).replace('.', '').replace('-', '').isdigit() else 0
+                except (ValueError, TypeError, OverflowError):
+                    goals_for = 0
+                
+                # Safely convert goals_against
+                try:
+                    if pd.isna(goals_against_raw) or goals_against_raw is None:
+                        goals_against = 0
+                    elif isinstance(goals_against_raw, (int, float)):
+                        # Check for NaN or inf
+                        if pd.isna(goals_against_raw) or goals_against_raw == float('inf') or goals_against_raw == float('-inf'):
+                            goals_against = 0
+                        elif goals_against_raw < 10:
+                            goals_against = int(round(goals_against_raw))
+                        else:
+                            goals_against = int(goals_against_raw)
+                    else:
+                        # Try to convert string or other types
+                        goals_against = int(float(str(goals_against_raw))) if str(goals_against_raw).replace('.', '').replace('-', '').isdigit() else 0
+                except (ValueError, TypeError, OverflowError):
+                    goals_against = 0
             
             # Determinar resultado (W/L/D) basado en goles
             if goals_for > goals_against:
