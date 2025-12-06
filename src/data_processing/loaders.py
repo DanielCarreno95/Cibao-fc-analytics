@@ -118,8 +118,22 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
     if not all_data:
         raise ValueError("No se encontraron archivos JSON en data/processed/Wyscout/")
 
-    result = pd.concat(all_data, ignore_index=True)
+    # Concatenate all DataFrames, preserving ALL columns (even if some files don't have all columns)
+    # This ensures we get the full set of columns from files with 181 columns, not just the common 110
+    result = pd.concat(all_data, ignore_index=True, sort=False)
+    
+    # Verify we have key columns
+    has_passes = "Passes" in result.columns
+    has_shots = "Shots" in result.columns
+    if not (has_passes and has_shots):
+        print(f"⚠️ WARNING: Missing key columns after concatenation!")
+        print(f"   Has 'Passes': {has_passes}, Has 'Shots': {has_shots}")
+        print(f"   Total columns: {len(result.columns)}")
+        print(f"   Sample columns: {list(result.columns)[:20]}")
+    
     print(f"✓ Cargados {len(all_data)} archivos individuales ({len(result)} filas, {len(result.columns)} columnas)")
+    if has_passes and has_shots:
+        print(f"   ✅ Key columns 'Passes' and 'Shots' are present")
     return result
 
 
