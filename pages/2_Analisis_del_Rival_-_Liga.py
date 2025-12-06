@@ -506,7 +506,18 @@ def load_liga_data() -> pd.DataFrame:
                 # Apply fix_wyscout_headers if available (headers might not have been cleaned when JSON was created)
                 if has_old_format:
                     try:
-                        from src.data_processing.fix_wyscout_headers import fix_team_headers
+                        # Try different import paths
+                        try:
+                            from src.data_processing.fix_wyscout_headers import fix_team_headers
+                        except ImportError:
+                            # Fallback: add path to sys.path
+                            import sys
+                            from pathlib import Path
+                            src_path = Path(__file__).parents[1] / "src" / "data_processing"
+                            if str(src_path) not in sys.path:
+                                sys.path.insert(0, str(src_path))
+                            from fix_wyscout_headers import fix_team_headers
+                        
                         # Make a copy to avoid modifying cached data
                         df = df.copy()
                         df_before_cols = set(df.columns)
@@ -523,10 +534,12 @@ def load_liga_data() -> pd.DataFrame:
                             # Fix worked
                             data_source += " (fixed from OLD to NEW format)"
                     except (ImportError, Exception) as e:
-                        # If fix_wyscout_headers is not available, show error
-                        st.error(f"❌ Error applying fix_wyscout_headers: {str(e)}")
-                        import traceback
-                        st.code(traceback.format_exc())
+                        # If fix_wyscout_headers is not available, show warning but continue
+                        st.warning(f"⚠️ Could not apply fix_wyscout_headers: {str(e)}. Continuing with OLD format data.")
+                        # Don't show full traceback for ImportError - it's expected if module doesn't exist
+                        if "ModuleNotFoundError" not in str(e):
+                            import traceback
+                            st.code(traceback.format_exc())
                 elif has_new_format:
                     data_source += " (already NEW format)"
                 else:
