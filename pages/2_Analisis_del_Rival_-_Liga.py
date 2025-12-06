@@ -547,102 +547,20 @@ def load_liga_data() -> pd.DataFrame:
                 
                 return df
             else:
-                # Invalid team data - log and fall through to Excel
-                print(f"⚠️ JSON data has invalid Team column. First value: {first_team_value}, Unique teams: {df['Team'].nunique()}")
+                # Invalid team data - show error
+                error_msg = f"❌ JSON data has invalid Team column. First value: {first_team_value}, Unique teams: {df['Team'].nunique()}"
+                print(error_msg)
+                st.error(error_msg + " Please upload files using the Upload page to regenerate JSON files.")
+                return pd.DataFrame()
     except Exception as e:
-        # Log the error - JSON loading should work, so this is unexpected
+        # JSON loading failed - show error to user
         import traceback
-        error_msg = f"⚠️ Error loading JSON files: {e}"
+        error_msg = f"❌ Error loading JSON files: {e}"
         print(error_msg)
         print(f"Traceback: {traceback.format_exc()}")
-        # Show warning to user that JSON loading failed
-        st.warning(f"⚠️ Could not load JSON files. Error: {str(e)}. Falling back to Excel file (may have incomplete data).")
-        # Fall through to Excel loading
-    
-    # Fallback: try loading from Excel
-    try:
-        excel_path = WYSCOUT_RAW_DIR / "Liga_Mayor_Clean_Per_90.xlsx"
-        if excel_path.exists():
-            xls = pd.ExcelFile(excel_path)
-            
-            # Check if we have TeamStats sheet (standard format) or individual team sheets
-            if "TeamStats" in xls.sheet_names:
-                # Standard format: single sheet with all teams
-                df = pd.read_excel(xls, sheet_name="TeamStats")
-                
-                # Apply fix_wyscout_headers to remove "Unnamed" columns and fix OLD format
-                if FIX_WYSCOUT_HEADERS_AVAILABLE and fix_team_headers is not None:
-                    try:
-                        df = fix_team_headers(df)
-                    except Exception as e:
-                        pass  # Continue without fixing if error
-                
-                # Filter out "Unnamed" columns (should have been fixed by fix_wyscout_headers, but just in case)
-                df = df.loc[:, ~df.columns.str.contains('Unnamed', case=False)]
-                
-                # Extract team names from Match column if Team column is not valid
-                if "Match" in df.columns and ("Team" not in df.columns or df["Team"].iloc[0] == "TeamStats"):
-                    # Create two rows per match (one for each team)
-                    all_rows = []
-                    for idx, row in df.iterrows():
-                        match_str = row.get("Match", "")
-                        if pd.notna(match_str) and match_str:
-                            # Home team
-                            home_team = extract_team_from_match(match_str, is_home=True)
-                            if home_team:
-                                row_copy = row.copy()
-                                row_copy["Team"] = home_team
-                                row_copy["is_home"] = True
-                                all_rows.append(row_copy)
-                            
-                            # Away team
-                            away_team = extract_team_from_match(match_str, is_home=False)
-                            if away_team:
-                                row_copy = row.copy()
-                                row_copy["Team"] = away_team
-                                row_copy["is_home"] = False
-                                all_rows.append(row_copy)
-                    
-                    if all_rows:
-                        df = pd.DataFrame(all_rows)
-                    elif "Team" in df.columns:
-                        # If Team column exists but has wrong values, try to fix it
-                        df = df[df["Team"] != "TeamStats"].copy()
-                
-                return df
-            else:
-                # Alternative format: one sheet per team
-                all_data = []
-                for sheet_name in xls.sheet_names:
-                    # Skip summary sheets
-                    if sheet_name in ["All_Teams_Combined", "TeamStats", "Summary"]:
-                        continue
-                    
-                    df_sheet = pd.read_excel(xls, sheet_name=sheet_name)
-                    
-                    # Apply fix_wyscout_headers to remove "Unnamed" columns and fix OLD format
-                    if FIX_WYSCOUT_HEADERS_AVAILABLE and fix_team_headers is not None:
-                        try:
-                            df_sheet = fix_team_headers(df_sheet)
-                        except Exception as e:
-                            print(f"⚠️ Error applying fix_wyscout_headers to {sheet_name}: {e}")
-                            # Continue without fixing if error
-                    
-                    # Filter out "Unnamed" columns (should have been fixed by fix_wyscout_headers, but just in case)
-                    df_sheet = df_sheet.loc[:, ~df_sheet.columns.str.contains('Unnamed', case=False)]
-                    
-                    if "Team" not in df_sheet.columns:
-                        df_sheet["Team"] = sheet_name
-                    all_data.append(df_sheet)
-                if all_data:
-                    df_combined = pd.concat(all_data, ignore_index=True)
-                    # Store source info
-                    df_combined.attrs['data_source'] = "Excel fallback (individual sheets)"
-                    return df_combined
-    except Exception as e2:
-        pass
-    
-    return pd.DataFrame()
+        st.error(f"❌ Could not load JSON files from data/processed/Wyscout/. Error: {str(e)}. Please upload files using the Upload page to generate JSON files.")
+        # Return empty DataFrame - no fallback to Excel
+        return pd.DataFrame()
 
 
 def extract_match_info(match_data: Dict) -> Optional[Dict]:
