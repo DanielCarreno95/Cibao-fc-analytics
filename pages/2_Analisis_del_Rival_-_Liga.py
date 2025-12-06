@@ -783,9 +783,10 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         # Posesión y Pases
         "Possession, %": "possessionPercentage",
         "Possession %": "possessionPercentage",  # Alternative format without comma
-        "Passes / accurate": "passAccuracy",  # Antes de fix (count)
-        "Passes Accurate": "passAccuracy",  # Después de fix (count)
+        "Passes / accurate": "accuratePass",  # Antes de fix (count) - this is accurate passes count
+        "Passes Accurate": "accuratePass",  # Después de fix (count) - this is accurate passes count, NOT percentage
         "Passes": "totalPass",  # Después de fix (total passes)
+        "Passes Accurate %": "passes_accurate_pct",  # Pass accuracy percentage (after fix_wyscout_headers)
         "Forward passes / accurate": "forward_passes_accurate",
         "Forward Passes Accurate": "forward_passes_accurate",  # Después de fix
         "Back passes / accurate": "back_passes_accurate",
@@ -947,19 +948,30 @@ def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_fi
             # Sin total tackles, no podemos calcular porcentaje
             averages["tackleSuccess"] = 0  # Placeholder
     
-    # Pass accuracy percentage: "Passes / accurate" en Wyscout puede ser count, no %
-    # Si es un número grande (>100), probablemente es count, no porcentaje
-    if "passAccuracy" in averages:
-        pass_accurate = averages["passAccuracy"]
-        if pass_accurate > 100:
-            # Es un count, necesitaríamos total passes para calcular %
-            # Por ahora, dejamos como está y el código de display puede manejarlo
-            pass
+    # Pass accuracy percentage: Calculate from accuratePass and totalPass
+    # After fix_wyscout_headers: "Passes Accurate" is the count, "Passes Accurate %" is the percentage
+    if "accuratePass" in averages and "totalPass" in averages:
+        if averages["totalPass"] > 0:
+            pass_accuracy_pct = (averages["accuratePass"] / averages["totalPass"]) * 100
+            averages["passAccuracy"] = round(pass_accuracy_pct, 1)
+        else:
+            averages["passAccuracy"] = 0
+    elif "passes_accurate_pct" in averages:
+        # Use the percentage directly if available
+        averages["passAccuracy"] = averages["passes_accurate_pct"]
+    elif "Passes Accurate %" in averages:
+        # Use the percentage directly if available (original column name)
+        averages["passAccuracy"] = averages["Passes Accurate %"]
     
-    # Corner stats: Wyscout tiene "Corners / with shots" pero no corners won/lost
-    # Usar corners with shots como aproximación
-    if "corners_with_shots" in averages:
-        averages["wonCorners"] = averages.get("corners_with_shots", 0)
+    # Corner stats: After fix_wyscout_headers, we have:
+    # - "Corners" (total corners) → "wonCorners"
+    # - "Corners With Shots" (corners with shots) → "corners_with_shots"
+    # Don't overwrite wonCorners - it should already be set from "Corners" column
+    # Only set it from corners_with_shots if wonCorners is not already set
+    if "wonCorners" not in averages or averages.get("wonCorners", 0) == 0:
+        # Fallback: use corners_with_shots if total corners not available
+        if "corners_with_shots" in averages:
+            averages["wonCorners"] = averages.get("corners_with_shots", 0)
     
     # NOTA: No usamos fallback para duelos específicos (defensive/offensive/aerial)
     # porque los exports simplificados solo tienen "Duels Won %" general.
@@ -1010,8 +1022,12 @@ def calculate_competition_averages(df: pd.DataFrame) -> Dict[str, float]:
                 competition_averages[normalized_name] = float(avg_value)
     
     # Calcular métricas derivadas para competencia también
-    if "corners_with_shots" in competition_averages:
-        competition_averages["wonCorners"] = competition_averages.get("corners_with_shots", 0)
+    # Don't overwrite wonCorners - it should already be set from "Corners" column
+    # Only set it from corners_with_shots if wonCorners is not already set
+    if "wonCorners" not in competition_averages or competition_averages.get("wonCorners", 0) == 0:
+        # Fallback: use corners_with_shots if total corners not available
+        if "corners_with_shots" in competition_averages:
+            competition_averages["wonCorners"] = competition_averages.get("corners_with_shots", 0)
     
     # NOTA: No usamos fallback para duelos específicos (igual que en team averages)
     # para evitar mostrar valores idénticos engañosos
