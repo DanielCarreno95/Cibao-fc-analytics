@@ -579,9 +579,30 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
         
         # Si es formato TeamStats, crear archivos JSON individuales por equipo
         # After headers cleaned and per90 conversion, create individual JSON files
+        # BUT: Only process the team(s) from the filename, not ALL teams in the sheet
         if has_teamstats_sheet and "TeamStats" in processed_data:
             df_teamstats = processed_data["TeamStats"]
-            for team in all_teams_found:
+            
+            # Determine which team(s) to process based on filename
+            # If filename contains a team name, only process that team
+            # Otherwise, process all teams found (for consolidated files)
+            teams_to_process = set()
+            
+            if filename_team_name and filename_team_name != uploaded_file.name:
+                # File is named after a specific team - only process that team
+                teams_to_process.add(filename_team_name)
+                # Also try flexible matching in case team name varies slightly
+                for team in all_teams_found:
+                    team_lower = str(team).lower().strip()
+                    filename_lower = filename_team_name.lower().strip()
+                    if filename_lower in team_lower or team_lower in filename_lower:
+                        teams_to_process.add(team)
+            else:
+                # No specific team in filename - process all teams (for consolidated files)
+                teams_to_process = all_teams_found
+            
+            # Create JSON files only for the team(s) we want to process
+            for team in teams_to_process:
                 team_df = df_teamstats[df_teamstats["Team"] == team].copy()
                 if not team_df.empty:
                     team_name_normalized = normalize_string(team)
