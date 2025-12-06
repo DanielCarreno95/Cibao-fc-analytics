@@ -3,6 +3,24 @@ import json
 import pandas as pd
 import streamlit as st
 from pathlib import Path
+import sys
+
+# Try to import fix_team_headers at module level for better reliability
+try:
+    from src.data_processing.fix_wyscout_headers import fix_team_headers
+    FIX_TEAM_HEADERS_AVAILABLE = True
+except ImportError:
+    try:
+        # Add src/data_processing to path
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        src_data_processing = os.path.join(BASE_DIR, "src", "data_processing")
+        if src_data_processing not in sys.path:
+            sys.path.insert(0, src_data_processing)
+        from fix_wyscout_headers import fix_team_headers
+        FIX_TEAM_HEADERS_AVAILABLE = True
+    except ImportError:
+        FIX_TEAM_HEADERS_AVAILABLE = False
+        fix_team_headers = None
 
 
 # ==============================
