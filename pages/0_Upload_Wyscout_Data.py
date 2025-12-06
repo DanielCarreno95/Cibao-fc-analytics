@@ -14,10 +14,28 @@ import sys
 REPO_ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-# Import required functions
-from src.data_processing.fix_wyscout_headers import fix_team_headers
-from src.data_processing.convert_to_per90_stats import convert_df_to_per90
-from src.utils.global_dark_theme import inject_dark_theme
+# Import required functions with fallbacks for Streamlit Cloud
+try:
+    from src.data_processing.fix_wyscout_headers import fix_team_headers
+except ImportError:
+    # Fallback: add src/data_processing to path
+    src_data_processing = REPO_ROOT / "src" / "data_processing"
+    if str(src_data_processing) not in sys.path:
+        sys.path.insert(0, str(src_data_processing))
+    from fix_wyscout_headers import fix_team_headers
+
+try:
+    from src.data_processing.convert_to_per90_stats import convert_df_to_per90
+except ImportError:
+    # Fallback: should already be in path from above
+    from convert_to_per90_stats import convert_df_to_per90
+
+try:
+    from src.utils.global_dark_theme import inject_dark_theme
+except ImportError:
+    # Fallback for theme
+    def inject_dark_theme():
+        pass  # No theme if can't import
 
 # Directories
 PROCESSED_DIR = REPO_ROOT / "data" / "processed" / "Wyscout"
