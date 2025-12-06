@@ -153,7 +153,30 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
         print(f"⚠️ Skipped {len(skipped_old_format)} OLD format JSON files. Please delete them and re-upload Excel files to generate NEW format JSON files.")
 
     if not all_data:
-        raise ValueError("No se encontraron archivos JSON en data/processed/Wyscout/")
+        json_files_count = len([f for f in files_in_folder if f.endswith('.json')])
+        consolidated_count = len([f for f in files_in_folder if any(cf in f for cf in consolidated_files)])
+        
+        error_msg = f"No se encontraron archivos JSON válidos en {folder}.\n"
+        error_msg += f"  - Total archivos en carpeta: {len(files_in_folder)}\n"
+        error_msg += f"  - Archivos JSON encontrados: {json_files_count}\n"
+        error_msg += f"  - Archivos consolidados excluidos: {consolidated_count}\n"
+        error_msg += f"  - Archivos OLD format excluidos: {len(skipped_old_format)}\n"
+        error_msg += f"  - Archivos válidos cargados: {len(all_data)}\n"
+        
+        if json_files_count > 0:
+            error_msg += f"\n  Archivos JSON en carpeta:\n"
+            for f in [f for f in files_in_folder if f.endswith('.json')][:10]:
+                error_msg += f"    - {f}\n"
+            if json_files_count > 10:
+                error_msg += f"    ... y {json_files_count - 10} más\n"
+        
+        if skipped_old_format:
+            error_msg += f"\n  Archivos OLD format excluidos:\n"
+            for f in skipped_old_format[:5]:
+                error_msg += f"    - {f}\n"
+        
+        print(f"❌ {error_msg}")
+        raise ValueError(error_msg)
 
     # Concatenate all DataFrames, preserving ALL columns (even if some files don't have all columns)
     # This ensures we get the full set of columns from files with 181 columns, not just the common 110
