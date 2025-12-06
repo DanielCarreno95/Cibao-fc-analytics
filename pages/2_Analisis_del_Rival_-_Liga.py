@@ -489,7 +489,17 @@ def load_liga_data() -> pd.DataFrame:
     """Carga todos los datos de Liga Mayor desde Wyscout."""
     try:
         # Get cache key based on file modification time
-        from src.data_processing.loaders import get_data_cache_key
+        try:
+            from src.data_processing.loaders import get_data_cache_key
+        except ImportError:
+            # Fallback: add path to sys.path
+            import sys
+            from pathlib import Path
+            src_path = Path(__file__).parents[1] / "src" / "data_processing"
+            if str(src_path) not in sys.path:
+                sys.path.insert(0, str(src_path))
+            from loaders import get_data_cache_key
+        
         cache_key = get_data_cache_key()
         
         # Load per 90 data from processed JSON files (cache key auto-invalidates when files change)
