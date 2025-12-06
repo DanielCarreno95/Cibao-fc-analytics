@@ -142,31 +142,24 @@ if uploaded_files:
                 else:
                     st.warning("  ⚠️ No 'Duration' column - skipping per90 conversion")
                 
-                # Step 6: Save JSON (Team column is now guaranteed to exist)
-                if "Team" in df.columns:
-                    # Process each team separately
-                    for team in df["Team"].unique():
-                        if pd.notna(team) and str(team).strip():
-                            team_df = df[df["Team"] == team].copy()
-                            
-                            # Verify it has required columns
-                            if "Passes" not in team_df.columns or "Shots" not in team_df.columns:
-                                st.error(f"  ❌ {team}: Missing 'Passes' or 'Shots' columns after processing")
-                                results["errors"].append(f"{team}: Missing required columns")
-                                continue
-                            
-                            # Save JSON
-                            team_name_clean = str(team).strip().replace(" ", "_").replace("/", "_").replace("\\", "_")
-                            json_path = PROCESSED_DIR / f"{team_name_clean}_per_90.json"
-                            
-                            with open(json_path, "w", encoding="utf-8") as f:
-                                json.dump(team_df.to_dict(orient="records"), f, indent=2, ensure_ascii=False, default=str)
-                            
-                            st.success(f"  ✅ Saved: `{json_path.name}` ({len(team_df)} rows, {len(team_df.columns)} columns)")
-                            results["success"] += 1
+                # Step 6: Save JSON (Team column is now guaranteed to exist from filename)
+                # All rows are for the same team (from filename)
+                team_df = df.copy()
+                
+                # Verify it has required columns
+                if "Passes" not in team_df.columns or "Shots" not in team_df.columns:
+                    st.error(f"  ❌ {team_name}: Missing 'Passes' or 'Shots' columns after processing")
+                    results["errors"].append(f"{team_name}: Missing required columns")
                 else:
-                    st.error(f"  ❌ No 'Team' column found in {uploaded_file.name}")
-                    results["errors"].append(f"{uploaded_file.name}: No 'Team' column")
+                    # Save JSON
+                    team_name_clean = team_name.replace(" ", "_").replace("/", "_").replace("\\", "_")
+                    json_path = PROCESSED_DIR / f"{team_name_clean}_per_90.json"
+                    
+                    with open(json_path, "w", encoding="utf-8") as f:
+                        json.dump(team_df.to_dict(orient="records"), f, indent=2, ensure_ascii=False, default=str)
+                    
+                    st.success(f"  ✅ Saved: `{json_path.name}` ({len(team_df)} rows, {len(team_df.columns)} columns)")
+                    results["success"] += 1
                     
             except Exception as e:
                 st.error(f"  ❌ Error processing {uploaded_file.name}: {str(e)}")
