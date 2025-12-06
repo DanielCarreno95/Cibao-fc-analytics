@@ -623,18 +623,8 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
         #         json.dump(df_consolidated_dict, f, indent=2, ensure_ascii=False, default=str)
         #     results["files_created"].append(f"Consolidated: {json_consolidated_path.name}")
         
-        # Guardar archivo Excel procesado (reemplazar el existente)
-        excel_output_path = RAW_WYSCOUT_DIR / "Liga_Mayor_Clean_Per_90.xlsx"
-        with pd.ExcelWriter(excel_output_path, engine="openpyxl") as writer:
-            # Si es formato TeamStats, preservar como una sola hoja consolidada
-            if has_teamstats_sheet and "TeamStats" in processed_data:
-                df_teamstats = processed_data["TeamStats"]
-                df_teamstats.to_excel(writer, sheet_name="TeamStats", index=False)
-            else:
-                # Formato individual: una hoja por equipo
-                for sheet_name, df in processed_data.items():
-                    df.to_excel(writer, sheet_name=sheet_name, index=False)
-        results["files_created"].append(f"Excel processed: {excel_output_path.name}")
+        # No longer saving Excel file - JSON files are the only source of truth
+        # Excel files were causing confusion and data inconsistencies
         
         # Crear resumen de exportación
         export_summary = {
