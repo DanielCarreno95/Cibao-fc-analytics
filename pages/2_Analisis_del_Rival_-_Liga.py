@@ -5623,7 +5623,13 @@ def main():
     
     # Cargar datos
     with st.spinner("Cargando datos de Liga Mayor..."):
-        df_liga = load_liga_data()
+        # Get cache key to ensure cache invalidates when files change
+        try:
+            from src.data_processing.loaders import get_data_cache_key
+            cache_key = get_data_cache_key()
+        except ImportError:
+            cache_key = None
+        df_liga = load_liga_data(_cache_key=cache_key)
         
         # Try to load Cibao data, but handle if sheet doesn't exist
         try:
