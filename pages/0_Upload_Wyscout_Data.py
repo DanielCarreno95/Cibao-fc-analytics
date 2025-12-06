@@ -982,9 +982,15 @@ def main():
             st.markdown("#### Archivos Procesados (JSON)")
             if PROCESSED_WYSCOUT_DIR.exists():
                 json_files = list(PROCESSED_WYSCOUT_DIR.glob("*.json"))
+                # Filter out export_summary.json from display (it's just metadata)
+                json_files = [f for f in json_files if f.name != "export_summary.json"]
                 if json_files:
-                    for file in sorted(json_files, key=lambda x: x.stat().st_mtime, reverse=True)[:5]:
+                    # Sort by modification time (newest first) and show only recent ones
+                    sorted_files = sorted(json_files, key=lambda x: x.stat().st_mtime, reverse=True)
+                    for file in sorted_files[:5]:
                         st.markdown(f"- `{file.name}`")
+                    if len(sorted_files) > 5:
+                        st.markdown(f"*... y {len(sorted_files) - 5} más*")
                 else:
                     st.markdown("*No hay archivos JSON*")
             else:
