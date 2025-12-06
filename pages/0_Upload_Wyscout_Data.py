@@ -103,7 +103,13 @@ if uploaded_files:
                 progress_bar.progress((idx + 1) / len(uploaded_files))
                 st.write(f"📄 **Processing:** {uploaded_file.name}")
                 
-                # Step 1: Load Excel (handle multiple sheets)
+                # Step 1: Extract team name from filename
+                # Format: "Team Stats Cibao.xlsx" → "Cibao"
+                filename = uploaded_file.name
+                team_name = filename.replace("Team Stats ", "").replace(".xlsx", "").replace(".xls", "").strip()
+                st.write(f"  📋 Team from filename: {team_name}")
+                
+                # Step 2: Load Excel (handle multiple sheets)
                 xls = pd.ExcelFile(uploaded_file)
                 
                 # Check if it's TeamStats format (single sheet with all teams)
@@ -114,23 +120,29 @@ if uploaded_files:
                     all_sheets = []
                     for sheet_name in xls.sheet_names:
                         df_sheet = pd.read_excel(xls, sheet_name=sheet_name)
-                        if "Team" not in df_sheet.columns:
-                            df_sheet["Team"] = sheet_name
                         all_sheets.append(df_sheet)
                     df = pd.concat(all_sheets, ignore_index=True)
                 
-                # Step 2: Clean headers
+                # Step 3: Add Team column from filename (if not already present)
+                if "Team" not in df.columns:
+                    df["Team"] = team_name
+                else:
+                    # If Team column exists but is empty or has wrong values, use filename
+                    if df["Team"].isna().all() or (df["Team"].iloc[0] if len(df) > 0 else None) in ["TeamStats", "Team", ""]:
+                        df["Team"] = team_name
+                
+                # Step 4: Clean headers
                 df = fix_team_headers(df)
                 st.write("  ✅ Headers cleaned")
                 
-                # Step 3: Convert to per90 (if Duration exists)
+                # Step 5: Convert to per90 (if Duration exists)
                 if "Duration" in df.columns:
                     df = convert_df_to_per90(df)
                     st.write("  ✅ Converted to per90")
                 else:
                     st.warning("  ⚠️ No 'Duration' column - skipping per90 conversion")
                 
-                # Step 4: Extract team name and save JSON
+                # Step 6: Save JSON (Team column is now guaranteed to exist)
                 if "Team" in df.columns:
                     # Process each team separately
                     for team in df["Team"].unique():
