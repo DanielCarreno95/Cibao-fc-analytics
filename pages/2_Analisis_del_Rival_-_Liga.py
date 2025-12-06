@@ -493,7 +493,7 @@ def extract_team_from_match(match_str: str, is_home: bool = True) -> str:
     return ""
 
 @st.cache_data(ttl=60)  # Short TTL - cache invalidates when files change
-def load_liga_data() -> pd.DataFrame:
+def load_liga_data(_cache_key: int = None) -> pd.DataFrame:
     """Carga todos los datos de Liga Mayor desde Wyscout."""
     try:
         # Get cache key based on file modification time
