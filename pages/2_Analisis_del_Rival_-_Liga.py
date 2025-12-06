@@ -6986,49 +6986,70 @@ def main():
             filtered_cibao_averages = cibao_averages.copy() if cibao_averages else {}
             
             # Check if we're using Wyscout DataFrame data
-            if isinstance(df_liga, pd.DataFrame) and not df_liga.empty:
-                # Filter Cibao matches from DataFrame
-                cibao_matches_list = []
-                cibao_name_lower = CIBAO_TEAM_NAME.lower()
-                for _, row in df_liga.iterrows():
-                    match_str = str(row.get("Match", "")).lower()
-                    if cibao_name_lower in match_str:
-                        cibao_matches_list.append(row.to_dict())
+            if isinstance(df_liga, pd.DataFrame) and not df_liga.empty and "Team" in df_liga.columns:
+                # Filter Cibao matches from DataFrame directly (same approach as opponent)
+                cibao_name_normalized = CIBAO_TEAM_NAME.lower().strip().replace(' fc', '').replace(' fc', '').strip()
                 
-                # Apply filters to Cibao matches
+                # Initial filter for Cibao
+                filtered_cibao_df_base = df_liga[df_liga["Team"].str.lower().str.strip() == cibao_name_normalized].copy()
+                if filtered_cibao_df_base.empty:
+                    # Fallback to flexible matching if exact fails
+                    filtered_cibao_df_base = df_liga[df_liga["Team"].apply(lambda x: cibao_name_normalized in str(x).lower().strip().replace(' fc', '') or str(x).lower().strip().replace(' fc', '') in cibao_name_normalized)].copy()
+                
+                # Apply UI filter to the DataFrame (same logic as opponent filtering)
                 if comparison_filter == "Últimos 3 partidos":
-                    # Sort by date and take last 3 - create a copy to avoid modifying original
-                    sorted_matches = sorted(cibao_matches_list, key=lambda x: (
-                        pd.to_datetime(x.get("Date") or x.get("date") or "1900-01-01", errors='coerce')
-                    ), reverse=True)
-                    filtered_cibao_matches = sorted_matches[:3] if len(sorted_matches) >= 3 else sorted_matches
+                    if "Date" in filtered_cibao_df_base.columns:
+                        filtered_cibao_df = filtered_cibao_df_base.sort_values("Date", ascending=False).head(3).copy()
+                    else:
+                        filtered_cibao_df = filtered_cibao_df_base.copy()
                 elif comparison_filter == "Últimos 5 partidos":
-                    # Sort by date and take last 5 - create a copy to avoid modifying original
-                    sorted_matches = sorted(cibao_matches_list, key=lambda x: (
-                        pd.to_datetime(x.get("Date") or x.get("date") or "1900-01-01", errors='coerce')
-                    ), reverse=True)
-                    filtered_cibao_matches = sorted_matches[:5] if len(sorted_matches) >= 5 else sorted_matches
+                    if "Date" in filtered_cibao_df_base.columns:
+                        filtered_cibao_df = filtered_cibao_df_base.sort_values("Date", ascending=False).head(5).copy()
+                    else:
+                        filtered_cibao_df = filtered_cibao_df_base.copy()
                 elif comparison_filter == "En Casa":
-                    filtered_cibao_matches = filter_matches_by_type(cibao_matches_list, CIBAO_TEAM_NAME, "home", all_matches)
+                    # Filter for home matches
+                    if "is_home" in filtered_cibao_df_base.columns:
+                        filtered_cibao_df = filtered_cibao_df_base[filtered_cibao_df_base["is_home"] == True].copy()
+                    elif "Match" in filtered_cibao_df_base.columns:
+                        # Derive is_home from Match string
+                        def is_home_match(row):
+                            match_str = str(row.get("Match", ""))
+                            team_name = str(row.get("Team", "")).strip()
+                            if match_str and team_name:
+                                parts = match_str.split(" - ")
+                                if len(parts) >= 2:
+                                    home_team = parts[0].strip()
+                                    return team_name.lower() in home_team.lower() or home_team.lower() in team_name.lower()
+                            return False
+                        filtered_cibao_df = filtered_cibao_df_base[filtered_cibao_df_base.apply(is_home_match, axis=1)].copy()
+                    else:
+                        filtered_cibao_df = filtered_cibao_df_base.copy()
                 elif comparison_filter == "Fuera":
-                    filtered_cibao_matches = filter_matches_by_type(cibao_matches_list, CIBAO_TEAM_NAME, "away", all_matches)
+                    # Filter for away matches
+                    if "is_home" in filtered_cibao_df_base.columns:
+                        filtered_cibao_df = filtered_cibao_df_base[filtered_cibao_df_base["is_home"] == False].copy()
+                    elif "Match" in filtered_cibao_df_base.columns:
+                        # Derive is_home from Match string
+                        def is_away_match(row):
+                            match_str = str(row.get("Match", ""))
+                            team_name = str(row.get("Team", "")).strip()
+                            if match_str and team_name:
+                                parts = match_str.split(" - ")
+                                if len(parts) >= 2:
+                                    home_team = parts[0].strip()
+                                    return not (team_name.lower() in home_team.lower() or home_team.lower() in team_name.lower())
+                            return True
+                        filtered_cibao_df = filtered_cibao_df_base[filtered_cibao_df_base.apply(is_away_match, axis=1)].copy()
+                    else:
+                        filtered_cibao_df = filtered_cibao_df_base.copy()
                 else:  # Todos los partidos
-                    filtered_cibao_matches = cibao_matches_list
+                    filtered_cibao_df = filtered_cibao_df_base.copy()
                 
-                # Calculate Cibao averages from filtered DataFrame matches
-                if filtered_cibao_matches:
-                    filtered_cibao_df = pd.DataFrame(filtered_cibao_matches)
-                    if not filtered_cibao_df.empty:
-                        # Always recalculate from filtered matches, don't fall back to cibao_averages
-                        # Ensure Team column exists and is set correctly
-                        if "Team" not in filtered_cibao_df.columns:
-                            filtered_cibao_df["Team"] = CIBAO_TEAM_NAME
-                        # filtered_cibao_df already contains only Cibao matches, so already_filtered=True
-                        filtered_cibao_averages = calculate_team_averages_from_df(filtered_cibao_df, CIBAO_TEAM_NAME, already_filtered=True)
-                        # If calculation returns empty, it means no valid data, so keep initialized value
-                        if not filtered_cibao_averages:
-                            filtered_cibao_averages = cibao_averages.copy() if cibao_averages else {}
-                    # If empty, keep the initialized value (which is a copy of cibao_averages)
+                # Calculate averages from filtered DataFrame
+                filtered_cibao_averages = calculate_team_averages_from_df(filtered_cibao_df, CIBAO_TEAM_NAME, already_filtered=True) if not filtered_cibao_df.empty else {}
+                if not filtered_cibao_averages:
+                    filtered_cibao_averages = cibao_averages.copy() if cibao_averages else {}
             else:
                 # Fallback: old Scoresway structure
                 cibao_matches_with_stats = []
