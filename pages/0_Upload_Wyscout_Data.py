@@ -563,13 +563,13 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                     processed_data[sheet_name] = df
                     consolidated_data.append(df)
                     
-                    # Crear archivo JSON individual
-                    json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
-                    df_dict = df.to_dict(orient="records")
-                    with open(json_file_path, "w", encoding="utf-8") as f:
-                        json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
-                    
-                    results["files_created"].append(f"JSON: {json_file_path.name}")
+                    # Skip creating individual JSON files - only use consolidated file
+                    # This prevents creating duplicate/old format files
+                    # json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
+                    # df_dict = df.to_dict(orient="records")
+                    # with open(json_file_path, "w", encoding="utf-8") as f:
+                    #     json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
+                    # results["files_created"].append(f"JSON: {json_file_path.name}")
                     results["teams_processed"] += 1
                 
             except Exception as e:
