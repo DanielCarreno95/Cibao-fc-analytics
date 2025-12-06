@@ -931,6 +931,32 @@ def main():
                 st.success("✅ **Cache limpiado exitosamente!**")
                 st.info("💡 Los datos se recargarán automáticamente cuando visites las páginas de análisis.")
         
+        # Botón para eliminar archivos JSON antiguos (con formato OLD)
+        st.markdown("---")
+        st.markdown("### 🗑️ Limpieza de Archivos Antiguos")
+        st.markdown("""
+        **⚠️ Importante:** Si has subido nuevos archivos pero los gráficos aún muestran datos antiguos, 
+        es posible que el app esté cargando archivos JSON antiguos con formato OLD (columnas como "Passes / accurate").
+        
+        **Solución:** Elimina los archivos JSON antiguos y vuelve a subir tus archivos Excel para crear nuevos JSON con formato NEW.
+        """)
+        col_del1, col_del2, col_del3 = st.columns([1, 2, 1])
+        with col_del2:
+            if st.button("🗑️ Eliminar Archivos JSON Antiguos", use_container_width=True, key="delete_old_json", 
+                        help="Elimina todos los archivos JSON en data/processed/Wyscout/ para forzar regeneración"):
+                import shutil
+                deleted_count = 0
+                try:
+                    if PROCESSED_WYSCOUT_DIR.exists():
+                        for json_file in PROCESSED_WYSCOUT_DIR.glob("*.json"):
+                            json_file.unlink()
+                            deleted_count += 1
+                    st.success(f"✅ **{deleted_count} archivo(s) JSON eliminado(s)!**")
+                    st.info("💡 Ahora sube tus archivos Excel nuevamente para crear nuevos JSON con formato NEW.")
+                    st.cache_data.clear()
+                except Exception as e:
+                    st.error(f"❌ Error eliminando archivos: {str(e)}")
+        
         st.markdown("---")
         
         # Mostrar archivos existentes
