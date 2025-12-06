@@ -137,12 +137,18 @@ except ImportError as e:
     pass
 
 try:
-    from convert_to_per90_stats import convert_df_to_per90
+    from src.data_processing.convert_to_per90_stats import convert_df_to_per90
     PER90_CONVERSION_AVAILABLE = True
-except ImportError as e:
-    PER90_CONVERSION_AVAILABLE = False
-    # Don't show warning on page load, only when processing files
-    pass
+except ImportError:
+    try:
+        # Try adding to sys.path first
+        if str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+        from convert_to_per90_stats import convert_df_to_per90
+        PER90_CONVERSION_AVAILABLE = True
+    except ImportError:
+        PER90_CONVERSION_AVAILABLE = False
+        convert_df_to_per90 = None
 
 # ===========================================
 # FUNCIONES DE PROCESAMIENTO
