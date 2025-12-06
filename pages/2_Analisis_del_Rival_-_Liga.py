@@ -493,6 +493,13 @@ def load_liga_data() -> pd.DataFrame:
         if not df.empty and "Team" in df.columns:
             # Verify Team column has actual team names
             if df["Team"].nunique() > 1 or df["Team"].iloc[0] not in ["TeamStats", "teamstats"]:
+                # Apply fix_wyscout_headers if available (headers might not have been cleaned when JSON was created)
+                try:
+                    from src.data_processing.fix_wyscout_headers import fix_team_headers
+                    df = fix_team_headers(df)
+                except (ImportError, Exception) as e:
+                    # If fix_wyscout_headers is not available, continue without it
+                    pass
                 return df
     except Exception as e:
         pass  # Fall through to Excel loading
@@ -767,9 +774,9 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         # Ofensivas (usar nombres después de fix_wyscout_headers)
         "Goals": "goals",
         "xG": "xg",
-        "Shots / on target": "ontargetScoringAtt",  # Antes de fix
-        "Shots On Target": "ontargetScoringAtt",  # Después de fix
-        "Shots": "totalScoringAtt",  # Después de fix (total shots)
+        "Shots / on target": "ontargetScoringAtt",  # Antes de fix (OLD FORMAT - before fix_wyscout_headers)
+        "Shots On Target": "ontargetScoringAtt",  # Después de fix (NEW FORMAT - after fix_wyscout_headers)
+        "Shots": "totalScoringAtt",  # Después de fix (total shots) (NEW FORMAT - after fix_wyscout_headers splits "Shots / on target")
         "Shots from outside penalty area / on target": "shots_outside_box",
         "Shots From Outside Penalty Area On Target": "shots_outside_box",  # Después de fix
         
@@ -783,9 +790,9 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         # Posesión y Pases
         "Possession, %": "possessionPercentage",
         "Possession %": "possessionPercentage",  # Alternative format without comma
-        "Passes / accurate": "accuratePass",  # Antes de fix (count) - this is accurate passes count
-        "Passes Accurate": "accuratePass",  # Después de fix (count) - this is accurate passes count, NOT percentage
-        "Passes": "totalPass",  # Después de fix (total passes)
+        "Passes / accurate": "accuratePass",  # Antes de fix (count) - this is accurate passes count (OLD FORMAT)
+        "Passes Accurate": "accuratePass",  # Después de fix (count) - this is accurate passes count, NOT percentage (NEW FORMAT)
+        "Passes": "totalPass",  # Después de fix (total passes) (NEW FORMAT - after fix_wyscout_headers splits "Passes / accurate")
         "Passes Accurate %": "passes_accurate_pct",  # Pass accuracy percentage (after fix_wyscout_headers)
         "Forward passes / accurate": "forward_passes_accurate",
         "Forward Passes Accurate": "forward_passes_accurate",  # Después de fix
@@ -932,6 +939,22 @@ def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_fi
                 # Y un nombre normalizado (convertir % a _pct)
                 normalized_name = col.lower().replace(" ", "_").replace("/", "_").replace(",", "").replace("(", "").replace(")", "").replace("%", "_pct")
                 averages[normalized_name] = float(avg_value)
+    
+    # Handle OLD FORMAT columns (before fix_wyscout_headers)
+    # If we have "Passes / accurate" but not "Passes", we can't calculate totalPass
+    # But we can at least set accuratePass from "Passes / accurate"
+    if "Passes / accurate" in averages and "Passes" not in averages:
+        # In old format, "Passes / accurate" is the accurate passes count
+        # We don't have total passes, so we can't calculate passAccuracy
+        # But we already mapped "Passes / accurate" -> "accuratePass" above
+        pass  # Already handled by mapping
+    
+    # Handle "Shots / on target" -> need to derive "Shots" if missing
+    if "Shots / on target" in averages and "Shots" not in averages:
+        # In old format, we only have "Shots / on target", not total shots
+        # We can't derive total shots from this, so totalScoringAtt will be missing
+        # But ontargetScoringAtt is already mapped from "Shots / on target"
+        pass  # Already handled by mapping
     
     # Calcular métricas derivadas que no están directamente en Wyscout
     # Total shots: aproximar desde shots on target (Wyscout no tiene total shots directamente)
@@ -7018,7 +7041,16 @@ def main():
                         st.write(f"**Direct filter check: {len(filtered_check)} records**")
                         if len(filtered_check) > 0:
                             st.write(f"  - Has 'Passes' column: {'Passes' in filtered_check.columns}")
+                            st.write(f"  - Has 'Passes / accurate' column: {'Passes / accurate' in filtered_check.columns}")
+                            st.write(f"  - Has 'Passes Accurate' column: {'Passes Accurate' in filtered_check.columns}")
                             st.write(f"  - Passes mean: {filtered_check['Passes'].mean() if 'Passes' in filtered_check.columns else 'N/A'}")
+                            st.write(f"  - Sample Team values: {filtered_check['Team'].unique()[:3].tolist()}")
+                            st.write(f"  - Sample columns: {list(filtered_check.columns)[:10]}")
+                        else:
+                            st.write(f"  ⚠️ NO RECORDS FOUND!")
+                            st.write(f"  - Available teams in df_liga: {df_liga['Team'].unique()[:10].tolist() if 'Team' in df_liga.columns else 'NO TEAM COLUMN'}")
+                            st.write(f"  - Searching for: '{selected_opponent}'")
+                            st.write(f"  - df_liga shape: {df_liga.shape}")
                     
                     # Check specific keys we're looking for
                     st.write("**Key checks in comparison_team_averages:**")
@@ -7251,8 +7283,24 @@ def main():
                             unit = metric_def.get("unit", "")
                             
                             # Obtener valores de las métricas filtradas
+                            # Handle both OLD and NEW format column names
                             opponent_val = comparison_team_averages.get(metric_key, 0)
+                            if opponent_val == 0 and metric_key == "totalScoringAtt":
+                                # Try OLD format: "Shots / on target" doesn't give us total shots
+                                # In OLD format, we don't have total shots, so this will be 0
+                                pass
+                            if opponent_val == 0 and metric_key == "totalPass":
+                                # Try OLD format: "Passes / accurate" doesn't give us total passes
+                                # In OLD format, we don't have total passes, so this will be 0
+                                pass
+                            
                             cibao_val = comparison_cibao_averages.get(metric_key, 0)
+                            if cibao_val == 0 and metric_key == "totalScoringAtt":
+                                # Try OLD format
+                                pass
+                            if cibao_val == 0 and metric_key == "totalPass":
+                                # Try OLD format
+                                pass
                             
                             # Crear gráfico de barras
                             fig = go.Figure()
@@ -7881,15 +7929,17 @@ def main():
                 if opp_total_passes > 0 and opp_accurate_passes > 0:
                     opp_pass_accuracy = (opp_accurate_passes / opp_total_passes * 100)
             
-            # Same for Cibao
+            # Same for Cibao - check both NEW and OLD formats
             cibao_total_passes = (comparison_cibao_averages.get("totalPass") or 
                                  comparison_cibao_averages.get("Passes") or 0)
             if cibao_total_passes == 0:
                 cibao_total_passes = comparison_cibao_averages.get("passes", 0)
+            # Note: In OLD format, we don't have total passes, so this will be 0
             
-            # For accurate passes, check mapped key "accuratePass" (from "Passes Accurate") - FIXED!
+            # For accurate passes, check both NEW and OLD formats
             cibao_accurate_passes = (comparison_cibao_averages.get("accuratePass") or 
-                                    comparison_cibao_averages.get("Passes Accurate") or 0)
+                                    comparison_cibao_averages.get("Passes Accurate") or 
+                                    comparison_cibao_averages.get("Passes / accurate") or 0)
             if cibao_accurate_passes == 0:
                 cibao_accurate_passes = comparison_cibao_averages.get("passes_accurate", 0)
             
