@@ -8,8 +8,16 @@ from pathlib import Path
 # ==============================
 # CONFIGURACIÓN DE RUTAS
 # ==============================
+# Try multiple methods to find the data directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
+
+# Fallback: if the above doesn't work, try relative to current working directory
+if not os.path.exists(DATA_DIR):
+    # Try relative to current working directory
+    cwd_data_dir = os.path.join(os.getcwd(), "data")
+    if os.path.exists(cwd_data_dir):
+        DATA_DIR = cwd_data_dir
 
 
 # ==============================
@@ -74,9 +82,25 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
                     Changing this invalidates the cache automatically.
     """
     folder = os.path.join(DATA_DIR, "processed", "Wyscout")
+    
+    # Try to resolve absolute path if relative doesn't work
+    if not os.path.exists(folder):
+        # Try absolute path
+        abs_folder = os.path.abspath(folder)
+        if os.path.exists(abs_folder):
+            folder = abs_folder
+        else:
+            # Try relative to current working directory
+            cwd_folder = os.path.join(os.getcwd(), "data", "processed", "Wyscout")
+            if os.path.exists(cwd_folder):
+                folder = cwd_folder
+            else:
+                error_msg = f"La carpeta no existe: {folder} (tried: {abs_folder}, {cwd_folder})"
+                print(f"❌ {error_msg}")
+                raise FileNotFoundError(error_msg)
 
     if not os.path.exists(folder):
-        raise FileNotFoundError(f"La carpeta no existe: {folder}")
+        raise FileNotFoundError(f"La carpeta no existe: {folder} (absolute: {os.path.abspath(folder)})")
 
     # Load individual JSON files per team (no consolidated file - removed to prevent stale data issues)
     consolidated_files = [
@@ -86,7 +110,20 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
     ]
     all_data = []
     skipped_old_format = []
-    for file in os.listdir(folder):
+    
+    # Check if folder has any files
+    if not os.path.exists(folder):
+        raise FileNotFoundError(f"La carpeta no existe: {folder}")
+    
+    try:
+        files_in_folder = os.listdir(folder)
+    except Exception as e:
+        raise FileNotFoundError(f"No se puede leer la carpeta {folder}: {e}")
+    
+    print(f"🔍 Checking folder: {folder}")
+    print(f"   Files found: {len(files_in_folder)}")
+    
+    for file in files_in_folder:
         # Excluir archivos consolidados ya intentados y archivos temporales
         if file.endswith(".json") and not any(cf in file for cf in consolidated_files):
             path = os.path.join(folder, file)
