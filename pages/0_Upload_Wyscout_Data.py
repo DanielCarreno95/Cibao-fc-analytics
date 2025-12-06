@@ -30,8 +30,21 @@ except ImportError:
     try:
         from fix_wyscout_headers import fix_team_headers
     except ImportError:
-        st.error("❌ Could not import fix_team_headers. Please check the file exists.")
-        st.stop()
+        # Last resort: use importlib to load directly
+        try:
+            import importlib.util
+            fix_path = src_data_processing / "fix_wyscout_headers.py"
+            if fix_path.exists():
+                spec = importlib.util.spec_from_file_location("fix_wyscout_headers", fix_path)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    fix_team_headers = module.fix_team_headers
+            else:
+                raise ImportError(f"File not found: {fix_path}")
+        except Exception as e:
+            st.error(f"❌ CRITICAL: Could not import fix_team_headers: {e}")
+            st.stop()
 
 # Try importing convert_df_to_per90
 try:
@@ -40,8 +53,21 @@ except ImportError:
     try:
         from convert_to_per90_stats import convert_df_to_per90
     except ImportError:
-        st.error("❌ Could not import convert_df_to_per90. Please check the file exists.")
-        st.stop()
+        # Last resort: use importlib to load directly
+        try:
+            import importlib.util
+            convert_path = src_data_processing / "convert_to_per90_stats.py"
+            if convert_path.exists():
+                spec = importlib.util.spec_from_file_location("convert_to_per90_stats", convert_path)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    convert_df_to_per90 = module.convert_df_to_per90
+            else:
+                raise ImportError(f"File not found: {convert_path}")
+        except Exception as e:
+            st.error(f"❌ CRITICAL: Could not import convert_df_to_per90: {e}")
+            st.stop()
 
 # Try importing theme
 try:
