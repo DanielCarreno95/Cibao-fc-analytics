@@ -6932,8 +6932,8 @@ def main():
                 comparison_cibao_averages = cibao_averages
             
             # DEBUG: Check what keys are in the averages and DataFrame info
-            if selected_opponent == "Delfines Del Este":  # Only show for this team to avoid spam
-                with st.expander("🔍 DEBUG: Data Flow Check", expanded=True):
+            # Show for all teams to help debug
+            with st.expander("🔍 DEBUG: Data Flow Check", expanded=True):
                     st.write(f"**filtered_team_averages keys ({len(filtered_team_averages)}):**")
                     if filtered_team_averages:
                         st.write(sorted(list(filtered_team_averages.keys()))[:30])
