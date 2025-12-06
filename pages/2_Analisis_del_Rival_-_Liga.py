@@ -578,9 +578,9 @@ def load_liga_data() -> pd.DataFrame:
         if excel_path.exists():
             xls = pd.ExcelFile(excel_path)
             
-            # Check if we have TeamStats sheet (new format) or individual team sheets (old format)
+            # Check if we have TeamStats sheet (standard format) or individual team sheets
             if "TeamStats" in xls.sheet_names:
-                # New format: single sheet with all teams
+                # Standard format: single sheet with all teams
                 df = pd.read_excel(xls, sheet_name="TeamStats")
                 
                 # Extract team names from Match column if Team column is not valid
@@ -614,7 +614,7 @@ def load_liga_data() -> pd.DataFrame:
                 
                 return df
             else:
-                # Old format: one sheet per team
+                # Alternative format: one sheet per team
                 all_data = []
                 for sheet_name in xls.sheet_names:
                     df_sheet = pd.read_excel(xls, sheet_name=sheet_name)
