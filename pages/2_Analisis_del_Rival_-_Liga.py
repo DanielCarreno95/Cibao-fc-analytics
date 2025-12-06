@@ -1025,7 +1025,28 @@ def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_fi
                 normalized_name = col.lower().replace(" ", "_").replace("/", "_").replace(",", "").replace("(", "").replace(")", "").replace("%", "_pct")
                 averages[normalized_name] = float(avg_value)
     
-    # Handle OLD FORMAT columns (before fix_wyscout_headers)
+    # PRIORITIZE NEW FORMAT over OLD FORMAT columns
+    # When both exist (from concatenated files), use NEW format and ignore OLD format
+    # Check if we have both old and new format - if so, remove old format from averages
+    
+    # Passes: Prioritize "Passes" over "Passes / accurate"
+    if "Passes" in averages and "Passes / accurate" in averages:
+        # We have both - remove old format, keep new format
+        if "Passes / accurate" in averages:
+            del averages["Passes / accurate"]
+        # Also remove the mapped version if it came from old format
+        # But keep "accuratePass" if it came from "Passes Accurate"
+        if "Passes Accurate" in averages:
+            # "Passes Accurate" is correct, keep it
+            pass
+    
+    # Shots: Prioritize "Shots" over "Shots / on target"
+    if "Shots" in averages and "Shots / on target" in averages:
+        # We have both - remove old format, keep new format
+        if "Shots / on target" in averages:
+            del averages["Shots / on target"]
+    
+    # Handle OLD FORMAT columns (before fix_wyscout_headers) - only if NEW format doesn't exist
     # If we have "Passes / accurate" but not "Passes", we can't calculate totalPass
     # But we can at least set accuratePass from "Passes / accurate"
     if "Passes / accurate" in averages and "Passes" not in averages:
