@@ -493,12 +493,13 @@ def load_liga_data() -> pd.DataFrame:
         if not df.empty and "Team" in df.columns:
             # Verify Team column has actual team names
             if df["Team"].nunique() > 1 or df["Team"].iloc[0] not in ["TeamStats", "teamstats"]:
-                # Apply fix_wyscout_headers if available (headers might not have been cleaned when JSON was created)
-                # Check if we have OLD format columns that need fixing
-                # OLD format has columns like "Passes / accurate", "Shots / on target", etc.
+                # Check data source and format
+                data_source = "JSON (via load_per90_data)"
                 old_format_cols = [col for col in df.columns if " / " in str(col)]
                 has_old_format = len(old_format_cols) > 0
+                has_new_format = "Passes" in df.columns or "Passes Accurate" in df.columns
                 
+                # Apply fix_wyscout_headers if available (headers might not have been cleaned when JSON was created)
                 if has_old_format:
                     try:
                         from src.data_processing.fix_wyscout_headers import fix_team_headers
@@ -508,17 +509,30 @@ def load_liga_data() -> pd.DataFrame:
                         df = fix_team_headers(df)
                         df_after_cols = set(df.columns)
                         # Verify the fix worked
-                        has_new_format = "Passes" in df.columns or "Passes Accurate" in df.columns
-                        if not has_new_format:
+                        has_new_format_after = "Passes" in df.columns or "Passes Accurate" in df.columns
+                        if not has_new_format_after:
                             # Fix didn't work - this shouldn't happen, but log it
                             st.warning(f"⚠️ fix_wyscout_headers was applied but NEW format columns not found. "
                                      f"OLD format cols found: {old_format_cols[:3]}. "
                                      f"Columns before: {len(df_before_cols)}, after: {len(df_after_cols)}")
+                        else:
+                            # Fix worked
+                            data_source += " (fixed from OLD to NEW format)"
                     except (ImportError, Exception) as e:
                         # If fix_wyscout_headers is not available, show error
                         st.error(f"❌ Error applying fix_wyscout_headers: {str(e)}")
                         import traceback
                         st.code(traceback.format_exc())
+                elif has_new_format:
+                    data_source += " (already NEW format)"
+                else:
+                    data_source += " (unknown format)"
+                
+                # Store source info for debugging
+                df.attrs['data_source'] = data_source
+                df.attrs['has_old_format'] = has_old_format
+                df.attrs['has_new_format'] = has_new_format
+                
                 return df
     except Exception as e:
         pass  # Fall through to Excel loading
