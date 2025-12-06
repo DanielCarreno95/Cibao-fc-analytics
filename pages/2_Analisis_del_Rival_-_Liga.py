@@ -847,6 +847,8 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         "Shots": "totalScoringAtt",  # Después de fix (total shots) (NEW FORMAT - after fix_wyscout_headers splits "Shots / on target")
         "Shots Per 90": "totalScoringAtt",  # Per 90 version
         "Shots On Target Per 90": "ontargetScoringAtt",  # Per 90 version
+        "Shots Per 90": "totalScoringAtt",  # Per 90 version
+        "Shots On Target Per 90": "ontargetScoringAtt",  # Per 90 version
         "Shots from outside penalty area / on target": "shots_outside_box",
         "Shots From Outside Penalty Area On Target": "shots_outside_box",  # Después de fix
         
