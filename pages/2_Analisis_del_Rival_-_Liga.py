@@ -978,16 +978,23 @@ def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_fi
     column_mapping = get_wyscout_to_scoresway_mapping()
     
     # Calcular promedios
+    # SKIP OLD FORMAT columns - they should not exist, but if they do, ignore them
+    old_format_patterns = [" / ", " /accurate", " /won", " / with", " /on target"]
+    
     averages = {}
     for col in numeric_cols:
         if col not in ["Match", "Date", "Team"]:  # Excluir columnas no numéricas
+            # Skip OLD format columns (should not exist, but check just in case)
+            if any(pattern in str(col) for pattern in old_format_patterns):
+                continue  # Skip OLD format columns entirely
+            
             avg_value = team_df[col].mean()
             if pd.notna(avg_value):
                 # Usar nombre mapeado si existe (para compatibilidad con Scoresway)
                 metric_key = column_mapping.get(col)
                 if metric_key:
                     averages[metric_key] = float(avg_value)
-                # También mantener el nombre original para compatibilidad
+                # También mantener el nombre original para compatibilidad (NEW format only)
                 averages[col] = float(avg_value)
                 # Y un nombre normalizado (convertir % a _pct)
                 normalized_name = col.lower().replace(" ", "_").replace("/", "_").replace(",", "").replace("(", "").replace(")", "").replace("%", "_pct")
