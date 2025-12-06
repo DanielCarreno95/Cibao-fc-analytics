@@ -5723,8 +5723,25 @@ def main():
             team_df_info = cibao_matches
             is_cibao = True
         else:
-            # Buscar partidos del equipo seleccionado
+            # Buscar partidos del equipo seleccionado (use flexible matching)
+            # Try exact match first
             team_df_info = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
+            
+            # If no exact match, try flexible matching (substring match)
+            if team_df_info.empty and not df_liga.empty:
+                selected_opponent_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                
+                def team_name_match(team_name):
+                    if pd.isna(team_name):
+                        return False
+                    team_name_normalized = str(team_name).lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                    # Check if selected opponent name is in team name or vice versa
+                    return (selected_opponent_normalized in team_name_normalized or 
+                           team_name_normalized in selected_opponent_normalized or
+                           selected_opponent_normalized.replace(' del ', ' de ') in team_name_normalized.replace(' del ', ' de ') or
+                           team_name_normalized.replace(' del ', ' de ') in selected_opponent_normalized.replace(' del ', ' de '))
+                
+                team_df_info = df_liga[df_liga["Team"].apply(team_name_match)].copy()
             is_cibao = False
         
         if not team_df_info.empty:
@@ -5826,7 +5843,30 @@ def main():
             # para evitar mostrar valores idénticos engañosos
     
     # Preparar datos del equipo seleccionado
-    team_df = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy() if not df_liga.empty else pd.DataFrame()
+    # Use flexible matching to handle name variations (e.g., "Delfines De Este" vs "Delfines Del Este")
+    if not df_liga.empty:
+        # Normalize team names for flexible matching
+        selected_opponent_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
+        
+        # Try exact match first
+        team_df = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
+        
+        # If no exact match, try flexible matching (substring match)
+        if team_df.empty:
+            def team_name_match(team_name):
+                if pd.isna(team_name):
+                    return False
+                team_name_normalized = str(team_name).lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                # Check if selected opponent name is in team name or vice versa
+                return (selected_opponent_normalized in team_name_normalized or 
+                       team_name_normalized in selected_opponent_normalized or
+                       selected_opponent_normalized.replace(' del ', ' de ') in team_name_normalized.replace(' del ', ' de ') or
+                       team_name_normalized.replace(' del ', ' de ') in selected_opponent_normalized.replace(' del ', ' de '))
+            
+            team_df = df_liga[df_liga["Team"].apply(team_name_match)].copy()
+    else:
+        team_df = pd.DataFrame()
+    
     cibao_df = df_liga[df_liga["Team"].str.lower() == CIBAO_TEAM_NAME.lower()].copy() if not df_liga.empty else pd.DataFrame()
     
     # Convert team_df to list of dicts for compatibility with existing functions
@@ -6009,11 +6049,28 @@ def main():
                 # For Wyscout data, all rows are played matches (they're statistics)
                 # For Scoresway data, check status field
                 played_count = 0
+                seen_matches = set()  # Track unique matches to avoid double counting
+                
                 for m in filtered_matches:
+                    # For Wyscout DataFrame rows, create unique match identifier
+                    match_id = None
+                    if "Match" in m and "Date" in m:
+                        match_str = str(m.get("Match", ""))
+                        date_str = str(m.get("Date", ""))
+                        match_id = f"{match_str}_{date_str}"
+                    elif "match_id" in m:
+                        match_id = str(m.get("match_id", ""))
+                    
+                    # Skip if we've already counted this match
+                    if match_id and match_id in seen_matches:
+                        continue
+                    
                     status = m.get("status", "")
                     # Verificar status
                     if isinstance(status, str) and status.lower() in ["played", "finished", "ft", "jugado", "finalizado"]:
                         played_count += 1
+                        if match_id:
+                            seen_matches.add(match_id)
                     # Si no tiene status válido, verificar si tiene score (indica que fue jugado)
                     elif m.get("match_data"):
                         match_data = m.get("match_data", {})
@@ -6022,6 +6079,8 @@ def main():
                         scores = match_details.get("scores", {})
                         if scores and (scores.get("ft") or scores.get("total")):
                             played_count += 1
+                            if match_id:
+                                seen_matches.add(match_id)
                         # También verificar por fecha pasada (si no hay score pero la fecha pasó, probablemente fue jugado)
                         elif m.get("date"):
                             from datetime import datetime
@@ -6035,9 +6094,19 @@ def main():
                                 today = datetime.now()
                                 if match_date < today:
                                     played_count += 1
+                                    if match_id:
+                                        seen_matches.add(match_id)
                     # For Wyscout DataFrame rows, if they have Goals or other stats, they're played
                     elif "Goals" in m or "xG" in m:
                         played_count += 1
+                        if match_id:
+                            seen_matches.add(match_id)
+                    # If no other check passed but it's in filtered_matches and has a Match field, count it
+                    elif "Match" in m and m.get("Match"):
+                        played_count += 1
+                        if match_id:
+                            seen_matches.add(match_id)
+                
                 st.metric("Partidos Jugados", played_count)
             with col_info2:
                 if selected_opponent != CIBAO_TEAM_NAME:
