@@ -292,14 +292,13 @@ def process_wyscout_csv(uploaded_file, save_raw: bool = True) -> dict:
                 team_name_normalized = normalize_string(str(team))
                 processed_data[team] = team_df
                 
-                # Crear archivo JSON individual (only if not using consolidated format)
-                # Skip individual JSON files - we only use the consolidated file
-                # This prevents creating duplicate/old format files
-                # json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
-                # df_dict = team_df.to_dict(orient="records")
-                # with open(json_file_path, "w", encoding="utf-8") as f:
-                #     json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
-                # results["files_created"].append(f"JSON: {json_file_path.name}")
+                # Create individual JSON file per team (after headers cleaned and per90 conversion)
+                # This ensures each team has its own JSON file with NEW format data
+                json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
+                df_dict = team_df.to_dict(orient="records")
+                with open(json_file_path, "w", encoding="utf-8") as f:
+                    json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
+                results["files_created"].append(f"JSON: {json_file_path.name}")
                 results["teams_processed"] += 1
         else:
             # Si no hay columna Team, tratar todo como un solo conjunto (overwrite existing)
@@ -563,13 +562,13 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                     processed_data[sheet_name] = df
                     consolidated_data.append(df)
                     
-                    # Skip creating individual JSON files - only use consolidated file
-                    # This prevents creating duplicate/old format files
-                    # json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
-                    # df_dict = df.to_dict(orient="records")
-                    # with open(json_file_path, "w", encoding="utf-8") as f:
-                    #     json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
-                    # results["files_created"].append(f"JSON: {json_file_path.name}")
+                    # Create individual JSON file per team (after headers cleaned and per90 conversion)
+                    # This ensures each team has its own JSON file with NEW format data
+                    json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
+                    df_dict = df.to_dict(orient="records")
+                    with open(json_file_path, "w", encoding="utf-8") as f:
+                        json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
+                    results["files_created"].append(f"JSON: {json_file_path.name}")
                     results["teams_processed"] += 1
                 
             except Exception as e:
@@ -578,24 +577,20 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                 st.error(error_msg)
                 continue
         
-        # Si es formato TeamStats, NO crear archivos JSON individuales
-        # Solo usar el archivo consolidado para evitar duplicados y archivos con formato OLD
+        # Si es formato TeamStats, crear archivos JSON individuales por equipo
+        # After headers cleaned and per90 conversion, create individual JSON files
         if has_teamstats_sheet and "TeamStats" in processed_data:
-            # Count teams but don't create individual files
-            # Individual files cause confusion and aren't needed (app uses consolidated file)
-            results["teams_processed"] = len(all_teams_found)
-            # Skip creating individual JSON files:
-            # df_teamstats = processed_data["TeamStats"]
-            # for team in all_teams_found:
-            #     team_df = df_teamstats[df_teamstats["Team"] == team].copy()
-            #     if not team_df.empty:
-            #         team_name_normalized = normalize_string(team)
-            #         json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
-            #         df_dict = team_df.to_dict(orient="records")
-            #         with open(json_file_path, "w", encoding="utf-8") as f:
-            #             json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
-            #         results["files_created"].append(f"JSON: {json_file_path.name}")
-            #         results["teams_processed"] += 1
+            df_teamstats = processed_data["TeamStats"]
+            for team in all_teams_found:
+                team_df = df_teamstats[df_teamstats["Team"] == team].copy()
+                if not team_df.empty:
+                    team_name_normalized = normalize_string(team)
+                    json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
+                    df_dict = team_df.to_dict(orient="records")
+                    with open(json_file_path, "w", encoding="utf-8") as f:
+                        json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
+                    results["files_created"].append(f"JSON: {json_file_path.name}")
+                    results["teams_processed"] += 1
         
         # Crear archivo consolidado
         if consolidated_data:
