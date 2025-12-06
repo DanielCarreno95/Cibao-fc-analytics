@@ -6931,15 +6931,31 @@ def main():
             if not comparison_cibao_averages or (isinstance(comparison_cibao_averages, dict) and len(comparison_cibao_averages) == 0):
                 comparison_cibao_averages = cibao_averages
             
-            # DEBUG: Check what keys are in the averages (temporary, remove after debugging)
+            # DEBUG: Check what keys are in the averages and DataFrame info
             if selected_opponent == "Delfines Del Este":  # Only show for this team to avoid spam
-                with st.expander("🔍 DEBUG: Available Keys in Averages", expanded=False):
-                    st.write(f"**Team averages keys ({len(comparison_team_averages)}):**")
-                    st.write(sorted(list(comparison_team_averages.keys()))[:30])  # First 30 keys
-                    st.write(f"**Cibao averages keys ({len(comparison_cibao_averages)}):**")
-                    st.write(sorted(list(comparison_cibao_averages.keys()))[:30])  # First 30 keys
+                with st.expander("🔍 DEBUG: Data Flow Check", expanded=True):
+                    st.write(f"**filtered_team_averages keys ({len(filtered_team_averages)}):**")
+                    if filtered_team_averages:
+                        st.write(sorted(list(filtered_team_averages.keys()))[:30])
+                    else:
+                        st.write("⚠️ EMPTY DICT!")
+                    
+                    st.write(f"**comparison_team_averages keys ({len(comparison_team_averages)}):**")
+                    if comparison_team_averages:
+                        st.write(sorted(list(comparison_team_averages.keys()))[:30])
+                    else:
+                        st.write("⚠️ EMPTY DICT!")
+                    
+                    # Check if filtered_team_df exists and has data
+                    if isinstance(df_liga, pd.DataFrame) and not df_liga.empty:
+                        filtered_check = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
+                        st.write(f"**Direct filter check: {len(filtered_check)} records**")
+                        if len(filtered_check) > 0:
+                            st.write(f"  - Has 'Passes' column: {'Passes' in filtered_check.columns}")
+                            st.write(f"  - Passes mean: {filtered_check['Passes'].mean() if 'Passes' in filtered_check.columns else 'N/A'}")
+                    
                     # Check specific keys we're looking for
-                    st.write("**Key checks:**")
+                    st.write("**Key checks in comparison_team_averages:**")
                     st.write(f"- totalPass: {comparison_team_averages.get('totalPass', 'NOT FOUND')}")
                     st.write(f"- accuratePass: {comparison_team_averages.get('accuratePass', 'NOT FOUND')}")
                     st.write(f"- Passes: {comparison_team_averages.get('Passes', 'NOT FOUND')}")
