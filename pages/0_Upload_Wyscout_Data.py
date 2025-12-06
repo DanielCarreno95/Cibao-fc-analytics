@@ -208,12 +208,13 @@ def process_wyscout_csv(uploaded_file, save_raw: bool = True) -> dict:
             results["errors"].append("El archivo CSV está vacío.")
             return results
         
-        # Guardar archivo raw si se solicita
+        # Guardar archivo raw si se solicita (overwrite existing, don't create timestamped copies)
         if save_raw:
-            raw_file_path = RAW_WYSCOUT_DIR / f"Wyscout_Data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            # Overwrite the main raw file instead of creating timestamped copies
+            raw_file_path = RAW_WYSCOUT_DIR / "Wyscout_Data.csv"
             with open(raw_file_path, "wb") as f:
                 f.write(uploaded_file.getvalue())
-            results["files_created"].append(f"Raw file: {raw_file_path.name}")
+            results["files_created"].append(f"Raw file: {raw_file_path.name} (overwritten)")
         
         # Limpiar nombres de columnas básicos primero
         df = clean_column_names(df)
@@ -278,20 +279,20 @@ def process_wyscout_csv(uploaded_file, save_raw: bool = True) -> dict:
                 results["files_created"].append(f"JSON: {json_file_path.name}")
                 results["teams_processed"] += 1
         else:
-            # Si no hay columna Team, tratar todo como un solo conjunto
-            json_file_path = PROCESSED_WYSCOUT_DIR / f"Wyscout_Data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            # Si no hay columna Team, tratar todo como un solo conjunto (overwrite existing)
+            json_file_path = PROCESSED_WYSCOUT_DIR / "Wyscout_Data.json"
             df_dict = df.to_dict(orient="records")
             with open(json_file_path, "w", encoding="utf-8") as f:
                 json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
-            results["files_created"].append(f"JSON: {json_file_path.name}")
+            results["files_created"].append(f"JSON: {json_file_path.name} (overwritten)")
             results["teams_processed"] = 1
         
-        # Crear archivo consolidado
-        json_consolidated_path = PROCESSED_WYSCOUT_DIR / f"Wyscout_Data_Consolidated_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        # Crear archivo consolidado (overwrite existing, don't create timestamped copies)
+        json_consolidated_path = PROCESSED_WYSCOUT_DIR / "Wyscout_Data_Consolidated.json"
         df_dict = df.to_dict(orient="records")
         with open(json_consolidated_path, "w", encoding="utf-8") as f:
             json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
-        results["files_created"].append(f"Consolidated: {json_consolidated_path.name}")
+        results["files_created"].append(f"Consolidated: {json_consolidated_path.name} (overwritten)")
         
         results["success"] = True
         
@@ -317,12 +318,13 @@ def process_wyscout_pdf(uploaded_file, save_raw: bool = True) -> dict:
     }
     
     try:
-        # Guardar archivo raw
+        # Guardar archivo raw (overwrite existing, don't create timestamped copies)
         if save_raw:
-            raw_file_path = RAW_WYSCOUT_DIR / f"Wyscout_Data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            # Overwrite the main raw file instead of creating timestamped copies
+            raw_file_path = RAW_WYSCOUT_DIR / "Wyscout_Data.pdf"
             with open(raw_file_path, "wb") as f:
                 f.write(uploaded_file.getvalue())
-            results["files_created"].append(f"PDF saved: {raw_file_path.name}")
+            results["files_created"].append(f"PDF saved: {raw_file_path.name} (overwritten)")
             results["success"] = True
         else:
             results["errors"].append("No se guardó el archivo PDF.")
@@ -371,13 +373,14 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
             results["errors"].append("El archivo Excel no contiene hojas.")
             return results
         
-        # Guardar archivo raw si se solicita
+        # Guardar archivo raw si se solicita (overwrite existing, don't create timestamped copies)
         if save_raw:
-            raw_file_path = RAW_WYSCOUT_DIR / f"Liga_Mayor_Clean_Per_90_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            # Guardar el archivo subido
+            # Overwrite the main raw file instead of creating timestamped copies
+            raw_file_path = RAW_WYSCOUT_DIR / "Liga_Mayor_Clean_Per_90.xlsx"
+            # Guardar el archivo subido (overwrites existing)
             with open(raw_file_path, "wb") as f:
                 f.write(uploaded_file.getvalue())
-            results["files_created"].append(f"Raw file: {raw_file_path.name}")
+            results["files_created"].append(f"Raw file: {raw_file_path.name} (overwritten)")
         
         # Detectar si el archivo tiene formato TeamStats (consolidado)
         has_teamstats_sheet = "TeamStats" in sheet_names
@@ -675,8 +678,8 @@ def main():
             with col1:
                 save_raw = st.checkbox(
                     "Guardar archivo original",
-                    value=True,
-                    help="Guarda una copia del archivo original con timestamp"
+                    value=False,
+                    help="Guarda el archivo original (sobrescribe el existente, no crea copias con timestamp)"
                 )
             
             # Botón de procesamiento
@@ -768,8 +771,8 @@ def main():
             with col1:
                 save_raw = st.checkbox(
                     "Guardar archivos originales",
-                    value=True,
-                    help="Guarda una copia de cada archivo original con timestamp"
+                    value=False,
+                    help="Guarda los archivos originales (sobrescribe los existentes, no crea copias con timestamp)"
                 )
             
             # Botón de procesamiento
