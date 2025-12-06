@@ -5721,7 +5721,7 @@ def main():
         opponent_map = {}
         
         for name, match_info in upcoming_opponents:
-            display_name = f"{name} (Próximo)"
+            display_name = name
             opponent_options.append(display_name)
             opponent_map[display_name] = name
         
