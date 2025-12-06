@@ -262,8 +262,8 @@ def get_metric(df: pd.DataFrame, config_entry: Optional[tuple]):
     
     # Try mapping common variations
     column_mappings = {
-        "goals": ["Goals", "Goles", "goal", "gol", "Goles A Favor"],
-        "conceded_goals": ["Conceded goals", "Goles en contra", "Goles En Contra", "conceded", "goles_concedidos", "Goals Against", "Goals conceded"],
+        "goals": ["Goals", "Goles", "goal", "gol", "Goles A Favor", "goals"],  # Added lowercase
+        "conceded_goals": ["Conceded goals", "Goles en contra", "Goles En Contra", "conceded", "goles_concedidos", "Goals Against", "Goals conceded", "goalsConceded", "Goals Conceded"],  # Added camelCase and title case
         "xg": ["xG", "Expected Goals", "expected_goals"],
         "shots": ["Shots", "Tiros", "shot", "tiro", "Shots / on target"],  # May need to calculate total shots
         "shots_on_target": ["Shots / on target", "Tiros a puerta", "shots_on_target", "on_target"],
@@ -281,7 +281,17 @@ def get_metric(df: pd.DataFrame, config_entry: Optional[tuple]):
                 if str(df_col).lower() == mapped_col.lower():
                     return label, df_col
     
-    raise KeyError(f"Column '{column}' not found for metric '{label}'. Available columns: {list(df.columns)[:10]}...")
+    # Last resort: try partial matching for common terms
+    if "conceded" in column_lower or "against" in column_lower:
+        for df_col in df.columns:
+            col_lower = str(df_col).lower()
+            if "conceded" in col_lower or "against" in col_lower or "recibidos" in col_lower:
+                return label, df_col
+    
+    # Show more columns in error message for debugging
+    available_cols = list(df.columns)
+    cols_preview = available_cols[:20] if len(available_cols) > 20 else available_cols
+    raise KeyError(f"Column '{column}' not found for metric '{label}'. Available columns ({len(available_cols)} total): {cols_preview}...")
 
 
 # ---------------------------------------------------------------------------
