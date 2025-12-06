@@ -961,7 +961,7 @@ def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_fi
     column_mapping = get_wyscout_to_scoresway_mapping()
     
     # Calcular promedios
-    # SKIP OLD FORMAT columns - they should not exist, but if they do, ignore them
+    # SKIP OLD FORMAT columns and UNNAMED columns - they should not exist, but if they do, ignore them
     old_format_patterns = [" / ", " /accurate", " /won", " / with", " /on target"]
     
     averages = {}
@@ -970,6 +970,10 @@ def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_fi
             # Skip OLD format columns (should not exist, but check just in case)
             if any(pattern in str(col) for pattern in old_format_patterns):
                 continue  # Skip OLD format columns entirely
+            
+            # Skip "Unnamed" columns (these are artifacts from Excel processing that should have been fixed)
+            if "Unnamed" in str(col):
+                continue  # Skip Unnamed columns entirely
             
             avg_value = team_df[col].mean()
             if pd.notna(avg_value):
