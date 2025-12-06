@@ -982,44 +982,8 @@ def main():
                     import traceback
                     st.code(traceback.format_exc())
         
-        st.markdown("---")
-        
-        # Mostrar archivos existentes
-        st.markdown("### 📂 Archivos Existentes")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("#### Archivos Raw")
-            if RAW_WYSCOUT_DIR.exists():
-                raw_files = list(RAW_WYSCOUT_DIR.glob("*.*"))
-                # Filtrar solo archivos relevantes
-                raw_files = [f for f in raw_files if f.suffix.lower() in ['.xlsx', '.xls', '.csv', '.pdf']]
-                if raw_files:
-                    for file in sorted(raw_files, key=lambda x: x.stat().st_mtime, reverse=True)[:5]:
-                        st.markdown(f"- `{file.name}`")
-                else:
-                    st.markdown("*No hay archivos raw*")
-            else:
-                st.markdown("*Directorio no existe*")
-        
-        with col2:
-            st.markdown("#### Archivos Procesados (JSON)")
-            if PROCESSED_WYSCOUT_DIR.exists():
-                json_files = list(PROCESSED_WYSCOUT_DIR.glob("*.json"))
-                # Filter out export_summary.json from display (it's just metadata)
-                json_files = [f for f in json_files if f.name != "export_summary.json"]
-                if json_files:
-                    # Sort by modification time (newest first) and show only recent ones
-                    sorted_files = sorted(json_files, key=lambda x: x.stat().st_mtime, reverse=True)
-                    for file in sorted_files[:5]:
-                        st.markdown(f"- `{file.name}`")
-                    if len(sorted_files) > 5:
-                        st.markdown(f"*... y {len(sorted_files) - 5} más*")
-                else:
-                    st.markdown("*No hay archivos JSON*")
-            else:
-                st.markdown("*Directorio no existe*")
+        # Removed "Archivos Existentes" section - Excel files are no longer displayed
+        # JSON files are the source of truth and are managed automatically
 
 if __name__ == "__main__":
     main()
