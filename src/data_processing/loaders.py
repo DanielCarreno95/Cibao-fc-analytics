@@ -2,6 +2,7 @@ import os
 import json
 import pandas as pd
 import streamlit as st
+from pathlib import Path
 
 
 # ==============================
@@ -9,6 +10,41 @@ import streamlit as st
 # ==============================
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
+
+
+# ==============================
+# FUNCIÓN: OBTENER CACHE KEY BASADO EN MODIFICACIÓN DE ARCHIVOS
+# ==============================
+def get_data_cache_key() -> int:
+    """
+    Genera una clave de cache basada en el tiempo de modificación de los archivos JSON.
+    Cuando los archivos cambian, la clave cambia, invalidando automáticamente el cache.
+    """
+    folder = Path(DATA_DIR) / "processed" / "Wyscout"
+    if not folder.exists():
+        return 0
+    
+    # Buscar archivos consolidados primero
+    consolidated_files = [
+        "Liga_Mayor_Clean_Per_90_Consolidated.json",
+        "Wyscout_Data_Consolidated.json"
+    ]
+    
+    max_mtime = 0
+    for consolidated_file in consolidated_files:
+        file_path = folder / consolidated_file
+        if file_path.exists():
+            max_mtime = max(max_mtime, file_path.stat().st_mtime)
+            break
+    
+    # Si no hay consolidado, usar el más reciente de los individuales
+    if max_mtime == 0:
+        for json_file in folder.glob("*.json"):
+            if json_file.name not in consolidated_files:
+                max_mtime = max(max_mtime, json_file.stat().st_mtime)
+    
+    # Convertir a int para usar como cache key
+    return int(max_mtime * 1000)  # Multiply by 1000 to preserve precision
 
 
 # ==============================
