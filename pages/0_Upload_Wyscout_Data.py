@@ -542,7 +542,7 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                 
                 # STEP 2: ALWAYS convert to per90 if Duration column exists
                 if "Duration" in df.columns:
-                    if PER90_CONVERSION_AVAILABLE:
+                    if PER90_CONVERSION_AVAILABLE and convert_df_to_per90 is not None:
                         try:
                             df = convert_df_to_per90(df)
                             results["warnings"].append(f"✅ Converted to per90 for '{sheet_name}'")
@@ -554,6 +554,7 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                             continue
                     else:
                         results["errors"].append(f"❌ CRITICAL: Per90 conversion not available. Cannot process '{sheet_name}'.")
+                        results["errors"].append(f"   PER90_CONVERSION_AVAILABLE={PER90_CONVERSION_AVAILABLE}, convert_df_to_per90={convert_df_to_per90 is not None}")
                         continue
                 
                 # Si es formato TeamStats, guardar como una sola hoja consolidada
