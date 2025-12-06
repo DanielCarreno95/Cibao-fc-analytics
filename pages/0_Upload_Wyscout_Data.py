@@ -395,14 +395,8 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
             results["errors"].append("El archivo Excel no contiene hojas.")
             return results
         
-        # Guardar archivo raw si se solicita (overwrite existing, don't create timestamped copies)
-        if save_raw:
-            # Overwrite the main raw file instead of creating timestamped copies
-            raw_file_path = RAW_WYSCOUT_DIR / "Liga_Mayor_Clean_Per_90.xlsx"
-            # Guardar el archivo subido (overwrites existing)
-            with open(raw_file_path, "wb") as f:
-                f.write(uploaded_file.getvalue())
-            results["files_created"].append(f"Raw file: {raw_file_path.name} (overwritten)")
+        # No longer saving raw Excel files - they cause confusion and aren't needed
+        # JSON files are the only source of truth
         
         # Detectar si el archivo tiene formato TeamStats (consolidado)
         has_teamstats_sheet = "TeamStats" in sheet_names
