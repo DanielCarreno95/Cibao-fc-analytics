@@ -494,12 +494,15 @@ def load_liga_data() -> pd.DataFrame:
             # Verify Team column has actual team names
             if df["Team"].nunique() > 1 or df["Team"].iloc[0] not in ["TeamStats", "teamstats"]:
                 # Apply fix_wyscout_headers if available (headers might not have been cleaned when JSON was created)
-                try:
-                    from src.data_processing.fix_wyscout_headers import fix_team_headers
-                    df = fix_team_headers(df)
-                except (ImportError, Exception) as e:
-                    # If fix_wyscout_headers is not available, continue without it
-                    pass
+                # Check if we need to apply it (if we have OLD format columns)
+                has_old_format = any(" / " in str(col) for col in df.columns if col in ["Passes / accurate", "Shots / on target", "Duels / won"])
+                if has_old_format:
+                    try:
+                        from src.data_processing.fix_wyscout_headers import fix_team_headers
+                        df = fix_team_headers(df)
+                    except (ImportError, Exception) as e:
+                        # If fix_wyscout_headers is not available, continue without it
+                        pass
                 return df
     except Exception as e:
         pass  # Fall through to Excel loading
@@ -6833,19 +6836,27 @@ def main():
                 # Filter DataFrame directly for better accuracy (same approach as Resumen tab)
                 selected_opponent_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
                 
-                # Try exact match first
-                filtered_team_df = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
+                # Try exact match first (case-insensitive, strip whitespace)
+                filtered_team_df = df_liga[df_liga["Team"].str.lower().str.strip() == selected_opponent.lower().strip()].copy()
                 
-                # If no exact match, try flexible matching
+                # If no exact match, try flexible matching (partial match)
                 if filtered_team_df.empty:
                     def team_name_match(team_name):
                         if pd.isna(team_name):
                             return False
                         team_name_normalized = str(team_name).lower().strip().replace(' fc', '').replace(' fc', '').strip()
-                        return (selected_opponent_normalized in team_name_normalized or 
-                               team_name_normalized in selected_opponent_normalized or
-                               selected_opponent_normalized.replace(' del ', ' de ') in team_name_normalized.replace(' del ', ' de ') or
-                               team_name_normalized.replace(' del ', ' de ') in selected_opponent_normalized.replace(' del ', ' de '))
+                        selected_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                        # Try various matching strategies
+                        # 1. Exact match (already tried above)
+                        # 2. Selected name is contained in team name (e.g., "Delfines" in "Delfines Del Este")
+                        # 3. Team name is contained in selected name
+                        # 4. Handle "Del" vs "De" variations
+                        return (selected_normalized in team_name_normalized or 
+                               team_name_normalized in selected_normalized or
+                               selected_normalized.replace(' del ', ' de ') in team_name_normalized.replace(' del ', ' de ') or
+                               team_name_normalized.replace(' del ', ' de ') in selected_normalized.replace(' del ', ' de ') or
+                               # Special case: "Delfines" should match "Delfines Del Este"
+                               (selected_normalized == "delfines" and "delfines" in team_name_normalized and "del este" in team_name_normalized))
                     
                     filtered_team_df = df_liga[df_liga["Team"].apply(team_name_match)].copy()
                 
@@ -7967,10 +7978,12 @@ def main():
                 cibao_accurate_passes = comparison_cibao_averages.get("passes_accurate", 0)
             
             cibao_pass_accuracy = (comparison_cibao_averages.get("passes_accurate_pct") or
-                                   comparison_cibao_averages.get("Passes Accurate %") or 0)
+                                   comparison_cibao_averages.get("Passes Accurate %") or
+                                   comparison_cibao_averages.get("Pass Accuracy %") or 0)
             if not cibao_pass_accuracy or cibao_pass_accuracy == 0:
                 if cibao_total_passes > 0 and cibao_accurate_passes > 0:
                     cibao_pass_accuracy = (cibao_accurate_passes / cibao_total_passes * 100)
+                # In OLD format, we might not have totalPass, so pass_accuracy will be 0
             
             # KPI Cards for Passing
             col1, col2, col3, col4 = st.columns(4)
