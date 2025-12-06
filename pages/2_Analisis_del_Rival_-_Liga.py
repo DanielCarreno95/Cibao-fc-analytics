@@ -5734,6 +5734,9 @@ def main():
             opponent_options.append(CIBAO_TEAM_NAME)
             opponent_map[CIBAO_TEAM_NAME] = CIBAO_TEAM_NAME
         
+        # Sort options alphabetically
+        opponent_options = sorted(opponent_options, key=lambda x: x.lower())
+        
         default_index = 0
         for i, opt in enumerate(opponent_options):
             mapped_name = opponent_map.get(opt, opt)
@@ -5757,8 +5760,11 @@ def main():
         st.session_state.opponent_selector_index = current_index
         selected_opponent = opponent_map[selected_display]
     else:
+        # Sort teams alphabetically
+        sorted_teams_list = sorted(all_teams_list, key=lambda x: x.lower())
+        
         default_index = 0
-        for i, team in enumerate(all_teams_list):
+        for i, team in enumerate(sorted_teams_list):
             if team == "Defence Force":
                 default_index = i
                 break
@@ -5768,7 +5774,7 @@ def main():
         
         selected_opponent = st.selectbox(
             "Seleccionar Equipo",
-            options=all_teams_list,
+            options=sorted_teams_list,
             index=st.session_state.opponent_selector_index,
             key="opponent_selector_main",
             help="Selecciona el equipo que deseas analizar",
