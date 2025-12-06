@@ -537,22 +537,21 @@ def load_liga_data() -> pd.DataFrame:
                 if has_old_format:
                     if FIX_WYSCOUT_HEADERS_AVAILABLE and fix_team_headers is not None:
                         try:
-                        
-                        # Make a copy to avoid modifying cached data
-                        df = df.copy()
-                        df_before_cols = set(df.columns)
-                        df = fix_team_headers(df)
-                        df_after_cols = set(df.columns)
-                        # Verify the fix worked
-                        has_new_format_after = "Passes" in df.columns or "Passes Accurate" in df.columns
-                        if not has_new_format_after:
-                            # Fix didn't work - this shouldn't happen, but log it
-                            st.warning(f"⚠️ fix_wyscout_headers was applied but NEW format columns not found. "
-                                     f"OLD format cols found: {old_format_cols[:3]}. "
-                                     f"Columns before: {len(df_before_cols)}, after: {len(df_after_cols)}")
-                        else:
-                            # Fix worked
-                            data_source += " (fixed from OLD to NEW format)"
+                            # Make a copy to avoid modifying cached data
+                            df = df.copy()
+                            df_before_cols = set(df.columns)
+                            df = fix_team_headers(df)
+                            df_after_cols = set(df.columns)
+                            # Verify the fix worked
+                            has_new_format_after = "Passes" in df.columns or "Passes Accurate" in df.columns
+                            if not has_new_format_after:
+                                # Fix didn't work - this shouldn't happen, but log it
+                                st.warning(f"⚠️ fix_wyscout_headers was applied but NEW format columns not found. "
+                                         f"OLD format cols found: {old_format_cols[:3]}. "
+                                         f"Columns before: {len(df_before_cols)}, after: {len(df_after_cols)}")
+                            else:
+                                # Fix worked
+                                data_source += " (fixed from OLD to NEW format)"
                         except Exception as e:
                             # If fix_wyscout_headers fails during execution, show warning but continue
                             st.warning(f"⚠️ Error applying fix_wyscout_headers: {str(e)}. Continuing with OLD format data.")
