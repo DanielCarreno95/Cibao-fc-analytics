@@ -538,7 +538,14 @@ def load_liga_data() -> pd.DataFrame:
                 
                 return df
     except Exception as e:
-        pass  # Fall through to Excel loading
+        # Log the error - JSON loading should work, so this is unexpected
+        import traceback
+        error_msg = f"⚠️ Error loading JSON files: {e}"
+        print(error_msg)
+        print(f"Traceback: {traceback.format_exc()}")
+        # Show warning to user that JSON loading failed
+        st.warning(f"⚠️ Could not load JSON files. Error: {str(e)}. Falling back to Excel file (may have incomplete data).")
+        # Fall through to Excel loading
     
     # Fallback: try loading from Excel
     try:
@@ -595,6 +602,10 @@ def load_liga_data() -> pd.DataFrame:
                 # Alternative format: one sheet per team
                 all_data = []
                 for sheet_name in xls.sheet_names:
+                    # Skip summary sheets
+                    if sheet_name in ["All_Teams_Combined", "TeamStats", "Summary"]:
+                        continue
+                    
                     df_sheet = pd.read_excel(xls, sheet_name=sheet_name)
                     
                     # Apply fix_wyscout_headers to remove "Unnamed" columns and fix OLD format
@@ -602,7 +613,8 @@ def load_liga_data() -> pd.DataFrame:
                         try:
                             df_sheet = fix_team_headers(df_sheet)
                         except Exception as e:
-                            pass  # Continue without fixing if error
+                            print(f"⚠️ Error applying fix_wyscout_headers to {sheet_name}: {e}")
+                            # Continue without fixing if error
                     
                     # Filter out "Unnamed" columns (should have been fixed by fix_wyscout_headers, but just in case)
                     df_sheet = df_sheet.loc[:, ~df_sheet.columns.str.contains('Unnamed', case=False)]
@@ -611,7 +623,10 @@ def load_liga_data() -> pd.DataFrame:
                         df_sheet["Team"] = sheet_name
                     all_data.append(df_sheet)
                 if all_data:
-                    return pd.concat(all_data, ignore_index=True)
+                    df_combined = pd.concat(all_data, ignore_index=True)
+                    # Store source info
+                    df_combined.attrs['data_source'] = "Excel fallback (individual sheets)"
+                    return df_combined
     except Exception as e2:
         pass
     
