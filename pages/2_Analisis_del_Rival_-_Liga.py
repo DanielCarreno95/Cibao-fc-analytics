@@ -494,33 +494,41 @@ def extract_team_from_match(match_str: str, is_home: bool = True) -> str:
 
 @st.cache_data(ttl=60)  # Short TTL - cache invalidates when files change
 def load_liga_data(_cache_key: int = None) -> pd.DataFrame:
-    """Carga todos los datos de Liga Mayor desde Wyscout."""
+    """Carga todos los datos de Liga Mayor desde Wyscout.
+    
+    Args:
+        _cache_key: Cache key based on file modification time. When files change, 
+                    this key changes, invalidating the cache automatically.
+    """
     try:
-        # Get cache key based on file modification time
-        get_data_cache_key = None
-        try:
-            from src.data_processing.loaders import get_data_cache_key
-        except ImportError:
-            # Fallback 1: add src/data_processing to sys.path
-            import sys
-            from pathlib import Path
-            repo_root = Path(__file__).parents[1]
-            src_data_processing_path = repo_root / "src" / "data_processing"
-            if src_data_processing_path.exists() and str(src_data_processing_path) not in sys.path:
-                sys.path.insert(0, str(src_data_processing_path))
+        # Get cache key based on file modification time (if not provided)
+        if _cache_key is None:
+            get_data_cache_key = None
             try:
-                from loaders import get_data_cache_key
-            except ImportError:
-                # Fallback 2: add repo root to sys.path and import with full path
-                if str(repo_root) not in sys.path:
-                    sys.path.insert(0, str(repo_root))
                 from src.data_processing.loaders import get_data_cache_key
-        
-        if get_data_cache_key is None:
-            # If we can't import, just use 0 as cache key (cache will still work, just won't auto-invalidate)
-            cache_key = 0
+            except ImportError:
+                # Fallback 1: add src/data_processing to sys.path
+                import sys
+                from pathlib import Path
+                repo_root = Path(__file__).parents[1]
+                src_data_processing_path = repo_root / "src" / "data_processing"
+                if src_data_processing_path.exists() and str(src_data_processing_path) not in sys.path:
+                    sys.path.insert(0, str(src_data_processing_path))
+                try:
+                    from loaders import get_data_cache_key
+                except ImportError:
+                    # Fallback 2: add repo root to sys.path and import with full path
+                    if str(repo_root) not in sys.path:
+                        sys.path.insert(0, str(repo_root))
+                    from src.data_processing.loaders import get_data_cache_key
+            
+            if get_data_cache_key is None:
+                # If we can't import, just use 0 as cache key (cache will still work, just won't auto-invalidate)
+                cache_key = 0
+            else:
+                cache_key = get_data_cache_key()
         else:
-            cache_key = get_data_cache_key()
+            cache_key = _cache_key
         
         # Load per 90 data from processed JSON files (cache key auto-invalidates when files change)
         df = load_per90_data(_cache_key=cache_key)
