@@ -7023,43 +7023,66 @@ def main():
             # DEBUG: Check what keys are in the averages and DataFrame info
             # Show for all teams to help debug
             with st.expander("🔍 DEBUG: Data Flow Check", expanded=True):
-                    st.write(f"**filtered_team_averages keys ({len(filtered_team_averages)}):**")
-                    if filtered_team_averages:
-                        st.write(sorted(list(filtered_team_averages.keys()))[:30])
+                st.write(f"**df_liga info:**")
+                st.write(f"  - Type: {type(df_liga)}")
+                st.write(f"  - Empty: {df_liga.empty if isinstance(df_liga, pd.DataFrame) else 'N/A'}")
+                st.write(f"  - Shape: {df_liga.shape if isinstance(df_liga, pd.DataFrame) else 'N/A'}")
+                if isinstance(df_liga, pd.DataFrame) and not df_liga.empty:
+                    st.write(f"  - Has 'Team' column: {'Team' in df_liga.columns}")
+                    if 'Team' in df_liga.columns:
+                        st.write(f"  - Unique teams: {df_liga['Team'].nunique()}")
+                        st.write(f"  - Sample teams: {df_liga['Team'].unique()[:5].tolist()}")
+                        st.write(f"  - Has 'Passes' column: {'Passes' in df_liga.columns}")
+                        st.write(f"  - Has 'Passes / accurate' column: {'Passes / accurate' in df_liga.columns}")
+                
+                st.write(f"**filtered_team_averages keys ({len(filtered_team_averages)}):**")
+                if filtered_team_averages:
+                    # Show OLD vs NEW format columns
+                    old_format_keys = [k for k in filtered_team_averages.keys() if " / " in str(k)]
+                    new_format_keys = [k for k in filtered_team_averages.keys() if k in ["Passes", "Passes Accurate", "Shots", "Shots On Target"]]
+                    st.write(f"  - OLD format keys (with ' / '): {len(old_format_keys)}")
+                    if old_format_keys:
+                        st.write(f"    Examples: {old_format_keys[:5]}")
+                    st.write(f"  - NEW format keys: {len(new_format_keys)}")
+                    if new_format_keys:
+                        st.write(f"    Found: {new_format_keys}")
+                    st.write(f"  - First 30 keys: {sorted(list(filtered_team_averages.keys()))[:30]}")
+                else:
+                    st.write("⚠️ EMPTY DICT!")
+                
+                st.write(f"**comparison_team_averages keys ({len(comparison_team_averages)}):**")
+                if comparison_team_averages:
+                    st.write(sorted(list(comparison_team_averages.keys()))[:30])
+                else:
+                    st.write("⚠️ EMPTY DICT!")
+                
+                # Check if filtered_team_df exists and has data
+                if isinstance(df_liga, pd.DataFrame) and not df_liga.empty:
+                    filtered_check = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
+                    st.write(f"**Direct filter check: {len(filtered_check)} records**")
+                    if len(filtered_check) > 0:
+                        st.write(f"  - Has 'Passes' column: {'Passes' in filtered_check.columns}")
+                        st.write(f"  - Has 'Passes / accurate' column: {'Passes / accurate' in filtered_check.columns}")
+                        st.write(f"  - Has 'Passes Accurate' column: {'Passes Accurate' in filtered_check.columns}")
+                        st.write(f"  - Passes mean: {filtered_check['Passes'].mean() if 'Passes' in filtered_check.columns else 'N/A'}")
+                        st.write(f"  - Sample Team values: {filtered_check['Team'].unique()[:3].tolist()}")
+                        st.write(f"  - Sample columns: {list(filtered_check.columns)[:10]}")
                     else:
-                        st.write("⚠️ EMPTY DICT!")
-                    
-                    st.write(f"**comparison_team_averages keys ({len(comparison_team_averages)}):**")
-                    if comparison_team_averages:
-                        st.write(sorted(list(comparison_team_averages.keys()))[:30])
-                    else:
-                        st.write("⚠️ EMPTY DICT!")
-                    
-                    # Check if filtered_team_df exists and has data
-                    if isinstance(df_liga, pd.DataFrame) and not df_liga.empty:
-                        filtered_check = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
-                        st.write(f"**Direct filter check: {len(filtered_check)} records**")
-                        if len(filtered_check) > 0:
-                            st.write(f"  - Has 'Passes' column: {'Passes' in filtered_check.columns}")
-                            st.write(f"  - Has 'Passes / accurate' column: {'Passes / accurate' in filtered_check.columns}")
-                            st.write(f"  - Has 'Passes Accurate' column: {'Passes Accurate' in filtered_check.columns}")
-                            st.write(f"  - Passes mean: {filtered_check['Passes'].mean() if 'Passes' in filtered_check.columns else 'N/A'}")
-                            st.write(f"  - Sample Team values: {filtered_check['Team'].unique()[:3].tolist()}")
-                            st.write(f"  - Sample columns: {list(filtered_check.columns)[:10]}")
-                        else:
-                            st.write(f"  ⚠️ NO RECORDS FOUND!")
-                            st.write(f"  - Available teams in df_liga: {df_liga['Team'].unique()[:10].tolist() if 'Team' in df_liga.columns else 'NO TEAM COLUMN'}")
-                            st.write(f"  - Searching for: '{selected_opponent}'")
-                            st.write(f"  - df_liga shape: {df_liga.shape}")
-                    
-                    # Check specific keys we're looking for
-                    st.write("**Key checks in comparison_team_averages:**")
-                    st.write(f"- totalPass: {comparison_team_averages.get('totalPass', 'NOT FOUND')}")
-                    st.write(f"- accuratePass: {comparison_team_averages.get('accuratePass', 'NOT FOUND')}")
-                    st.write(f"- Passes: {comparison_team_averages.get('Passes', 'NOT FOUND')}")
-                    st.write(f"- Passes Accurate: {comparison_team_averages.get('Passes Accurate', 'NOT FOUND')}")
-                    st.write(f"- totalScoringAtt: {comparison_team_averages.get('totalScoringAtt', 'NOT FOUND')}")
-                    st.write(f"- Shots: {comparison_team_averages.get('Shots', 'NOT FOUND')}")
+                        st.write(f"  ⚠️ NO RECORDS FOUND!")
+                        st.write(f"  - Available teams in df_liga: {df_liga['Team'].unique()[:10].tolist() if 'Team' in df_liga.columns else 'NO TEAM COLUMN'}")
+                        st.write(f"  - Searching for: '{selected_opponent}'")
+                        st.write(f"  - df_liga shape: {df_liga.shape}")
+                
+                # Check specific keys we're looking for
+                st.write("**Key checks in comparison_team_averages:**")
+                st.write(f"- totalPass: {comparison_team_averages.get('totalPass', 'NOT FOUND')}")
+                st.write(f"- accuratePass: {comparison_team_averages.get('accuratePass', 'NOT FOUND')}")
+                st.write(f"- Passes: {comparison_team_averages.get('Passes', 'NOT FOUND')}")
+                st.write(f"- Passes Accurate: {comparison_team_averages.get('Passes Accurate', 'NOT FOUND')}")
+                st.write(f"- 'Passes / accurate': {comparison_team_averages.get('Passes / accurate', 'NOT FOUND')}")
+                st.write(f"- totalScoringAtt: {comparison_team_averages.get('totalScoringAtt', 'NOT FOUND')}")
+                st.write(f"- Shots: {comparison_team_averages.get('Shots', 'NOT FOUND')}")
+                st.write(f"- 'Shots / on target': {comparison_team_averages.get('Shots / on target', 'NOT FOUND')}")
             
             st.markdown("<br>", unsafe_allow_html=True)
             
