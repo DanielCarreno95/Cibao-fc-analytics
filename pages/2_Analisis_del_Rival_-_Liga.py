@@ -529,35 +529,12 @@ def load_liga_data() -> pd.DataFrame:
             if df["Team"].nunique() > 1 or df["Team"].iloc[0] not in ["TeamStats", "teamstats"]:
                 # Check data source and format
                 data_source = "JSON (via load_per90_data)"
-                # All data should be in NEW FORMAT (fix_wyscout_headers is always applied during upload)
-                has_new_format = "Passes" in df.columns or "Passes Accurate" in df.columns
-                has_old_format = "Passes / accurate" in df.columns or "Shots / on target" in df.columns
-                
-                # If OLD format detected, automatically fix it
-                if has_old_format:
-                    if FIX_WYSCOUT_HEADERS_AVAILABLE and fix_team_headers is not None:
-                        try:
-                            df = df.copy()
-                            df = fix_team_headers(df)
-                            has_new_format_after = "Passes" in df.columns or "Passes Accurate" in df.columns
-                            if has_new_format_after:
-                                data_source += " (fix_wyscout_headers applied - OLD format detected and fixed)"
-                                st.info("ℹ️ OLD format columns detected and automatically converted to NEW format. Consider re-uploading files to regenerate JSON files.")
-                            else:
-                                st.error("❌ Could not convert OLD format to NEW format. Please re-upload files.")
-                        except Exception as e:
-                            st.error(f"❌ Error applying fix_wyscout_headers: {str(e)}")
-                    else:
-                        st.warning("⚠️ OLD format columns detected but fix_wyscout_headers not available. Please re-upload files.")
-                elif has_new_format:
-                    data_source += " (NEW format)"
-                else:
-                    # Unknown format - might be empty or different structure
-                    data_source += " (unknown format)"
+                # All data is in NEW FORMAT (fix_wyscout_headers is always applied during upload)
+                # No OLD format detection - assume all data is correct
+                data_source += " (NEW format)"
                 
                 # Store source info for debugging
                 df.attrs['data_source'] = data_source
-                df.attrs['has_old_format'] = has_old_format
                 df.attrs['has_new_format'] = has_new_format
                 
                 return df
