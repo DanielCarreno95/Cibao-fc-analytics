@@ -642,13 +642,15 @@ grupos = {
     "Patrones de ataque": {
         "Ataques posicionales con disparo (%)": "Positional Attacks With Shot %",
         "Contraataques con disparo (%)": "Counterattacks With Shot %",
+        "Ataques posicionales": "Positional Attacks",
+        "Contraataques": "Counterattacks",
     },
 
     "Balón parado y definición": {
-        "Balones parados con disparo (%)": "Set Pieces With Shot %",
-        "Corners con disparo (%)": "Corners With Shot %",
-        "Faltas directas con disparo (%)": "Free Kicks With Shot %",
-        "Conversión de penaltis (%)": "Penalties Conversion %",
+        "Corners con disparo": "Corners With Shot",
+        "Faltas directas con disparo": "Free Kicks With Shot",
+        "Corners": "Corners",
+        "Free Kicks": "Free Kicks",
     },
 
     "Juego interior y profundidad": {
