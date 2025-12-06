@@ -24,24 +24,18 @@ def get_data_cache_key() -> int:
     if not folder.exists():
         return 0
     
-    # Buscar archivos consolidados primero
+    # Use individual JSON files (no consolidated file)
     consolidated_files = [
         "Liga_Mayor_Clean_Per_90_Consolidated.json",
-        "Wyscout_Data_Consolidated.json"
+        "Wyscout_Data_Consolidated.json",
+        "export_summary.json"
     ]
     
+    # Find the most recent individual JSON file
     max_mtime = 0
-    for consolidated_file in consolidated_files:
-        file_path = folder / consolidated_file
-        if file_path.exists():
-            max_mtime = max(max_mtime, file_path.stat().st_mtime)
-            break
-    
-    # Si no hay consolidado, usar el más reciente de los individuales
-    if max_mtime == 0:
-        for json_file in folder.glob("*.json"):
-            if json_file.name not in consolidated_files:
-                max_mtime = max(max_mtime, json_file.stat().st_mtime)
+    for json_file in folder.glob("*.json"):
+        if json_file.name not in consolidated_files:
+            max_mtime = max(max_mtime, json_file.stat().st_mtime)
     
     # Convertir a int para usar como cache key
     return int(max_mtime * 1000)  # Multiply by 1000 to preserve precision
@@ -84,49 +78,12 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
     if not os.path.exists(folder):
         raise FileNotFoundError(f"La carpeta no existe: {folder}")
 
-    # PRIORIDAD 1: Buscar archivo consolidado (tiene todos los datos en un solo archivo)
-    # BUT: Check if individual files are newer - if so, prefer them (they might have more recent data)
+    # Load individual JSON files per team (no consolidated file - removed to prevent stale data issues)
     consolidated_files = [
         "Liga_Mayor_Clean_Per_90_Consolidated.json",
-        "Wyscout_Data_Consolidated.json"
+        "Wyscout_Data_Consolidated.json",
+        "export_summary.json"  # Also exclude summary file
     ]
-    
-    # Check modification times
-    consolidated_mtime = 0
-    consolidated_path = None
-    for consolidated_file in consolidated_files:
-        path = os.path.join(folder, consolidated_file)
-        if os.path.exists(path):
-            mtime = os.path.getmtime(path)
-            if mtime > consolidated_mtime:
-                consolidated_mtime = mtime
-                consolidated_path = path
-    
-    # Check if individual files are newer
-    individual_files_mtime = 0
-    for file in os.listdir(folder):
-        if file.endswith(".json") and not any(cf in file for cf in consolidated_files):
-            path = os.path.join(folder, file)
-            mtime = os.path.getmtime(path)
-            individual_files_mtime = max(individual_files_mtime, mtime)
-    
-    # If individual files are newer, use them instead (they might have been regenerated)
-    if consolidated_path and consolidated_mtime > 0:
-        if individual_files_mtime > consolidated_mtime:
-            print(f"⚠️ Individual files are newer ({individual_files_mtime} > {consolidated_mtime}). Using individual files instead of consolidated.")
-            # Fall through to individual files loading
-        else:
-            # Use consolidated file
-            try:
-                df = load_json(consolidated_path)
-                df["source_file"] = os.path.basename(consolidated_path)
-                print(f"✓ Cargado archivo consolidado: {os.path.basename(consolidated_path)} ({len(df)} filas, {len(df.columns) if not df.empty else 0} columnas)")
-                return df
-            except Exception as e:
-                print(f"⚠️ Error cargando archivo consolidado {os.path.basename(consolidated_path)}: {e}")
-                # Continuar y buscar archivos individuales
-    
-    # PRIORIDAD 2: Cargar archivos individuales (fallback)
     all_data = []
     for file in os.listdir(folder):
         # Excluir archivos consolidados ya intentados y archivos temporales

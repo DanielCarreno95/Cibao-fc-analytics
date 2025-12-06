@@ -592,14 +592,15 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                     results["files_created"].append(f"JSON: {json_file_path.name}")
                     results["teams_processed"] += 1
         
-        # Crear archivo consolidado
-        if consolidated_data:
-            df_consolidated = pd.concat(consolidated_data, ignore_index=True)
-            json_consolidated_path = PROCESSED_WYSCOUT_DIR / "Liga_Mayor_Clean_Per_90_Consolidated.json"
-            df_consolidated_dict = df_consolidated.to_dict(orient="records")
-            with open(json_consolidated_path, "w", encoding="utf-8") as f:
-                json.dump(df_consolidated_dict, f, indent=2, ensure_ascii=False, default=str)
-            results["files_created"].append(f"Consolidated: {json_consolidated_path.name}")
+        # Skip creating consolidated file - we only use individual JSON files per team
+        # This prevents stale data issues and makes updates simpler
+        # if consolidated_data:
+        #     df_consolidated = pd.concat(consolidated_data, ignore_index=True)
+        #     json_consolidated_path = PROCESSED_WYSCOUT_DIR / "Liga_Mayor_Clean_Per_90_Consolidated.json"
+        #     df_consolidated_dict = df_consolidated.to_dict(orient="records")
+        #     with open(json_consolidated_path, "w", encoding="utf-8") as f:
+        #         json.dump(df_consolidated_dict, f, indent=2, ensure_ascii=False, default=str)
+        #     results["files_created"].append(f"Consolidated: {json_consolidated_path.name}")
         
         # Guardar archivo Excel procesado (reemplazar el existente)
         excel_output_path = RAW_WYSCOUT_DIR / "Liga_Mayor_Clean_Per_90.xlsx"
