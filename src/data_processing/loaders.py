@@ -148,46 +148,21 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
             try:
                 df = load_json(path)
                 
-                # Check if file has OLD format columns (e.g., "Passes / accurate")
-                has_old_format = any(" / " in str(col) or " /accurate" in str(col) or " /on target" in str(col) 
-                                     for col in df.columns)
-                
-                # Check if file has NEW format columns (e.g., "Passes", "Shots")
+                # SIMPLE CHECK: File must have NEW format columns ("Passes" and "Shots")
+                # If it doesn't, it's an old/invalid file - skip it
                 has_new_format = "Passes" in df.columns and "Shots" in df.columns
                 
-                # If file has OLD format but not NEW format, try to fix it on-the-fly
-                if has_old_format and not has_new_format:
-                    if FIX_TEAM_HEADERS_AVAILABLE and fix_team_headers is not None:
-                        try:
-                            print(f"🔧 Attempting to fix OLD format file on-the-fly: {file}")
-                            df = fix_team_headers(df)
-                            # Verify the fix worked
-                            has_new_format_after = "Passes" in df.columns and "Shots" in df.columns
-                            if has_new_format_after:
-                                print(f"✅ Fixed OLD format file on-the-fly: {file}")
-                                # Update has_new_format so file is not skipped
-                                has_new_format = True
-                            else:
-                                # Still OLD format after fix - skip it
-                                skipped_old_format.append(file)
-                                print(f"⚠️ Skipping OLD format file: {file} (fix applied but still OLD format)")
-                                print(f"   Columns after fix: {list(df.columns)[:10]}...")
-                                continue
-                        except Exception as fix_error:
-                            # Couldn't fix it - skip it
-                            skipped_old_format.append(file)
-                            import traceback
-                            print(f"⚠️ Skipping OLD format file: {file} (error fixing: {fix_error})")
-                            print(f"   Traceback: {traceback.format_exc()}")
-                            continue
-                    else:
-                        # Couldn't import fix function - skip it
-                        skipped_old_format.append(file)
-                        print(f"⚠️ Skipping OLD format file: {file} (fix_team_headers not available: FIX_TEAM_HEADERS_AVAILABLE={FIX_TEAM_HEADERS_AVAILABLE})")
-                        continue
+                if not has_new_format:
+                    # This is an OLD or invalid format file
+                    skipped_old_format.append(file)
+                    print(f"⚠️ Skipping invalid file: {file} (missing 'Passes' or 'Shots' columns)")
+                    print(f"   Please re-upload Excel files to generate correct JSON files.")
+                    continue
                 
+                # File is valid - add it
                 df["source_file"] = file
                 all_data.append(df)
+                print(f"✅ Loaded: {file} ({len(df.columns)} columns)")
             except Exception as e:
                 print(f"⚠️ Error cargando {file}: {e}")
     

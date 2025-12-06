@@ -534,22 +534,21 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                 # Limpiar datos
                 df = df.dropna(subset=["Team"])
                 
-                # Convertir a per 90 si está disponible y hay columna Duration
-                if PER90_CONVERSION_AVAILABLE and "Duration" in df.columns:
-                    try:
-                        df_before_per90 = df.copy()
-                        df = convert_df_to_per90(df)
-                        # Verify conversion worked (check if we have per 90 columns)
-                        has_per90 = any("Per 90" in str(col) or "per 90" in str(col).lower() for col in df.columns)
-                        if has_per90:
-                            results["warnings"].append(f"✅ Métricas convertidas a per 90 para hoja '{sheet_name}'")
-                        else:
-                            results["warnings"].append(f"⚠️ Conversión a per 90 aplicada pero no se detectaron columnas 'Per 90'")
-                    except Exception as per90_error:
-                        results["errors"].append(f"❌ Error al convertir a per 90 en '{sheet_name}': {str(per90_error)}")
-                        # Continue without conversion if there's an error
-                        import traceback
-                        results["errors"].append(f"Traceback: {traceback.format_exc()}")
+                # STEP 2: ALWAYS convert to per90 if Duration column exists
+                if "Duration" in df.columns:
+                    if PER90_CONVERSION_AVAILABLE:
+                        try:
+                            df = convert_df_to_per90(df)
+                            results["warnings"].append(f"✅ Converted to per90 for '{sheet_name}'")
+                        except Exception as per90_error:
+                            results["errors"].append(f"❌ CRITICAL: Failed to convert to per90 for '{sheet_name}': {str(per90_error)}")
+                            # Don't continue - this is critical
+                            import traceback
+                            results["errors"].append(f"Traceback: {traceback.format_exc()}")
+                            continue
+                    else:
+                        results["errors"].append(f"❌ CRITICAL: Per90 conversion not available. Cannot process '{sheet_name}'.")
+                        continue
                 
                 # Si es formato TeamStats, guardar como una sola hoja consolidada
                 if has_teamstats_sheet and sheet_name == "TeamStats":
