@@ -1918,17 +1918,39 @@ def get_recent_form(matches: List[Dict], team_name: str, num_matches: Optional[i
             else:
                 date_str = ""
             
-            recent_matches.append({
-                "match_id": match_id,
-                "date": date_str,
-                "opponent": opponent_name,
-                "result": result,
-                "result_emoji": result_emoji,
-                "score": f"{goals_for}-{goals_against}",
-                "goals_for": goals_for,
-                "goals_against": goals_against,
-                "is_home": is_home
-            })
+            # Validate match data before appending - skip invalid rows
+            # Check if opponent_name is valid (not empty, None, nan, or just whitespace)
+            opponent_valid = (
+                opponent_name and 
+                str(opponent_name).strip().lower() not in ["", "nan", "none", "n/a", "null"] and
+                not pd.isna(opponent_name) if isinstance(opponent_name, (int, float)) else True
+            )
+            
+            # Check if match_str is valid (not empty or just team name)
+            match_str_valid = (
+                match_str and 
+                str(match_str).strip() != "" and
+                str(match_str).strip() != str(team_name).strip() and
+                "-" in str(match_str)  # Should contain " - " separator
+            )
+            
+            # Check if date_str is valid
+            date_valid = date_str and str(date_str).strip() != "" and str(date_str).strip().lower() not in ["nan", "none", "n/a"]
+            
+            # Only append if all validations pass
+            if opponent_valid and match_str_valid and date_valid:
+                recent_matches.append({
+                    "match_id": match_id,
+                    "date": date_str,
+                    "opponent": opponent_name,
+                    "result": result,
+                    "result_emoji": result_emoji,
+                    "score": f"{goals_for}-{goals_against}",
+                    "goals_for": goals_for,
+                    "goals_against": goals_against,
+                    "is_home": is_home
+                })
+            # Skip invalid matches silently (they're likely data quality issues)
             
             if num_matches is not None and len(recent_matches) >= num_matches:
                 break
