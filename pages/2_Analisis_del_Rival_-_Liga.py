@@ -850,8 +850,14 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         "Shots Against On Target": "shots_against_on_target",  # Después de fix
     }
 
-def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str) -> Dict[str, float]:
-    """Calcula promedios de métricas para un equipo desde DataFrame de Liga Mayor."""
+def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_filtered: bool = False) -> Dict[str, float]:
+    """Calcula promedios de métricas para un equipo desde DataFrame de Liga Mayor.
+    
+    Args:
+        df: DataFrame con datos de partidos
+        team_name: Nombre del equipo
+        already_filtered: Si True, asume que el DataFrame ya está filtrado por equipo y no filtra de nuevo
+    """
     if df.empty:
         return {}
     
@@ -859,20 +865,28 @@ def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str) -> Dict[st
     if "Team" not in df.columns:
         return {}
     
-    # Intentar matching flexible del nombre del equipo
-    team_name_lower = team_name.lower().strip()
-    team_df = df[df["Team"].str.lower().str.strip() == team_name_lower].copy()
-    
-    # Si no hay coincidencia exacta, intentar matching parcial
-    if team_df.empty:
-        # Buscar coincidencias parciales (el nombre del equipo contiene el nombre buscado o viceversa)
-        for col_team in df["Team"].unique():
-            if pd.notna(col_team):
-                col_team_lower = str(col_team).lower().strip()
-                # Coincidencia parcial
-                if team_name_lower in col_team_lower or col_team_lower in team_name_lower:
-                    team_df = df[df["Team"].str.lower().str.strip() == col_team_lower].copy()
-                    break
+    # Si el DataFrame ya está filtrado, verificar que tiene datos antes de usarlo
+    if already_filtered:
+        # Verify DataFrame is not empty and has Team column
+        if df.empty or "Team" not in df.columns:
+            return {}
+        # Use the DataFrame directly (assume it's already filtered by team)
+        team_df = df.copy()
+    else:
+        # Intentar matching flexible del nombre del equipo
+        team_name_lower = team_name.lower().strip()
+        team_df = df[df["Team"].str.lower().str.strip() == team_name_lower].copy()
+        
+        # Si no hay coincidencia exacta, intentar matching parcial
+        if team_df.empty:
+            # Buscar coincidencias parciales (el nombre del equipo contiene el nombre buscado o viceversa)
+            for col_team in df["Team"].unique():
+                if pd.notna(col_team):
+                    col_team_lower = str(col_team).lower().strip()
+                    # Coincidencia parcial
+                    if team_name_lower in col_team_lower or col_team_lower in team_name_lower:
+                        team_df = df[df["Team"].str.lower().str.strip() == col_team_lower].copy()
+                        break
     
     if team_df.empty:
         return {}
@@ -6357,15 +6371,16 @@ def main():
                                 return True
                             filtered_team_df = filtered_team_df[filtered_team_df.apply(is_away_match, axis=1)].copy()
                 
-                # Calculate averages from filtered DataFrame
-                filtered_averages_ui = calculate_team_averages_from_df(filtered_team_df, selected_opponent) if not filtered_team_df.empty else {}
+                # Calculate averages from filtered DataFrame (already filtered by team, so pass already_filtered=True)
+                filtered_averages_ui = calculate_team_averages_from_df(filtered_team_df, selected_opponent, already_filtered=True) if not filtered_team_df.empty else {}
             elif filtered_matches_ui:
                 # Fallback: convert dicts to DataFrame (less reliable)
                 filtered_df = pd.DataFrame(filtered_matches_ui)
                 # Ensure Team column exists
                 if "Team" not in filtered_df.columns and selected_opponent:
                     filtered_df["Team"] = selected_opponent
-                filtered_averages_ui = calculate_team_averages_from_df(filtered_df, selected_opponent) if not filtered_df.empty else {}
+                # filtered_matches_ui already contains only matches for selected_opponent, so already_filtered=True
+                filtered_averages_ui = calculate_team_averages_from_df(filtered_df, selected_opponent, already_filtered=True) if not filtered_df.empty else {}
             else:
                 filtered_averages_ui = {}
             display_averages_ui = filtered_averages_ui if filtered_averages_ui else team_averages
@@ -6778,7 +6793,10 @@ def main():
             if filtered_team_matches:
                 filtered_team_df = pd.DataFrame(filtered_team_matches)
                 if not filtered_team_df.empty:
-                    filtered_team_averages = calculate_team_averages_from_df(filtered_team_df, selected_opponent) if not filtered_team_df.empty else team_averages
+                    # Ensure Team column exists (filtered_team_matches already contains only selected_opponent matches)
+                    if "Team" not in filtered_team_df.columns and selected_opponent:
+                        filtered_team_df["Team"] = selected_opponent
+                    filtered_team_averages = calculate_team_averages_from_df(filtered_team_df, selected_opponent, already_filtered=True)
                 else:
                     filtered_team_averages = team_averages
             else:
@@ -6826,7 +6844,8 @@ def main():
                         # Ensure Team column exists and is set correctly
                         if "Team" not in filtered_cibao_df.columns:
                             filtered_cibao_df["Team"] = CIBAO_TEAM_NAME
-                        filtered_cibao_averages = calculate_team_averages_from_df(filtered_cibao_df, CIBAO_TEAM_NAME)
+                        # filtered_cibao_df already contains only Cibao matches, so already_filtered=True
+                        filtered_cibao_averages = calculate_team_averages_from_df(filtered_cibao_df, CIBAO_TEAM_NAME, already_filtered=True)
                         # If calculation returns empty, it means no valid data, so keep initialized value
                         if not filtered_cibao_averages:
                             filtered_cibao_averages = cibao_averages.copy() if cibao_averages else {}
