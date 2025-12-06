@@ -535,7 +535,6 @@ def load_liga_data() -> pd.DataFrame:
                 
                 # Store source info for debugging
                 df.attrs['data_source'] = data_source
-                df.attrs['has_new_format'] = has_new_format
                 
                 return df
     except Exception as e:
@@ -587,6 +586,17 @@ def load_liga_data() -> pd.DataFrame:
                 all_data = []
                 for sheet_name in xls.sheet_names:
                     df_sheet = pd.read_excel(xls, sheet_name=sheet_name)
+                    
+                    # Apply fix_wyscout_headers to remove "Unnamed" columns and fix OLD format
+                    if FIX_WYSCOUT_HEADERS_AVAILABLE and fix_team_headers is not None:
+                        try:
+                            df_sheet = fix_team_headers(df_sheet)
+                        except Exception as e:
+                            pass  # Continue without fixing if error
+                    
+                    # Filter out "Unnamed" columns (should have been fixed by fix_wyscout_headers, but just in case)
+                    df_sheet = df_sheet.loc[:, ~df_sheet.columns.str.contains('Unnamed', case=False)]
+                    
                     if "Team" not in df_sheet.columns:
                         df_sheet["Team"] = sheet_name
                     all_data.append(df_sheet)
