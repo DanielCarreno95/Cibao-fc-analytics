@@ -6931,6 +6931,22 @@ def main():
             if not comparison_cibao_averages or (isinstance(comparison_cibao_averages, dict) and len(comparison_cibao_averages) == 0):
                 comparison_cibao_averages = cibao_averages
             
+            # DEBUG: Check what keys are in the averages (temporary, remove after debugging)
+            if selected_opponent == "Delfines Del Este":  # Only show for this team to avoid spam
+                with st.expander("🔍 DEBUG: Available Keys in Averages", expanded=False):
+                    st.write(f"**Team averages keys ({len(comparison_team_averages)}):**")
+                    st.write(sorted(list(comparison_team_averages.keys()))[:30])  # First 30 keys
+                    st.write(f"**Cibao averages keys ({len(comparison_cibao_averages)}):**")
+                    st.write(sorted(list(comparison_cibao_averages.keys()))[:30])  # First 30 keys
+                    # Check specific keys we're looking for
+                    st.write("**Key checks:**")
+                    st.write(f"- totalPass: {comparison_team_averages.get('totalPass', 'NOT FOUND')}")
+                    st.write(f"- accuratePass: {comparison_team_averages.get('accuratePass', 'NOT FOUND')}")
+                    st.write(f"- Passes: {comparison_team_averages.get('Passes', 'NOT FOUND')}")
+                    st.write(f"- Passes Accurate: {comparison_team_averages.get('Passes Accurate', 'NOT FOUND')}")
+                    st.write(f"- totalScoringAtt: {comparison_team_averages.get('totalScoringAtt', 'NOT FOUND')}")
+                    st.write(f"- Shots: {comparison_team_averages.get('Shots', 'NOT FOUND')}")
+            
             st.markdown("<br>", unsafe_allow_html=True)
             
             # Radar Chart: Fortalezas y Debilidades (movido desde Resumen)
@@ -7758,7 +7774,7 @@ def main():
             # Get passing data from processed columns:
             # After header cleaning: "Passes / accurate" → "Passes", "Passes Accurate", "Passes Accurate %"
             # Column 1: "Passes" → maps to "totalPass" (total passes)
-            # Column 2: "Passes Accurate" → maps to "passAccuracy" (accurate passes count)
+            # Column 2: "Passes Accurate" → maps to "accuratePass" (accurate passes count) - FIXED!
             # Column 3: "Passes Accurate %" → maps to "passes_accurate_pct" (pass accuracy percentage)
             
             # Try multiple key variations to find the data (mapped, original, normalized)
@@ -7768,8 +7784,8 @@ def main():
                 # Try normalized name
                 opp_total_passes = comparison_team_averages.get("passes", 0)
             
-            # For accurate passes, check mapped key "passAccuracy" (from "Passes Accurate")
-            opp_accurate_passes = (comparison_team_averages.get("passAccuracy") or 
+            # For accurate passes, check mapped key "accuratePass" (from "Passes Accurate") - FIXED!
+            opp_accurate_passes = (comparison_team_averages.get("accuratePass") or 
                                   comparison_team_averages.get("Passes Accurate") or 0)
             if opp_accurate_passes == 0:
                 # Try normalized name
@@ -7789,7 +7805,8 @@ def main():
             if cibao_total_passes == 0:
                 cibao_total_passes = comparison_cibao_averages.get("passes", 0)
             
-            cibao_accurate_passes = (comparison_cibao_averages.get("passAccuracy") or 
+            # For accurate passes, check mapped key "accuratePass" (from "Passes Accurate") - FIXED!
+            cibao_accurate_passes = (comparison_cibao_averages.get("accuratePass") or 
                                     comparison_cibao_averages.get("Passes Accurate") or 0)
             if cibao_accurate_passes == 0:
                 cibao_accurate_passes = comparison_cibao_averages.get("passes_accurate", 0)
