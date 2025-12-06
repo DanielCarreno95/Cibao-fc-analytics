@@ -7067,10 +7067,22 @@ def main():
                 else:
                     st.write("⚠️ EMPTY DICT!")
                 
-                # Check if filtered_team_df exists and has data
-                if isinstance(df_liga, pd.DataFrame) and not df_liga.empty:
-                    filtered_check = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
-                    st.write(f"**Direct filter check: {len(filtered_check)} records**")
+                    # Check if filtered_team_df exists and has data
+                    if isinstance(df_liga, pd.DataFrame) and not df_liga.empty:
+                        # Try exact match first
+                        filtered_check = df_liga[df_liga["Team"].str.lower().str.strip() == selected_opponent.lower().strip()].copy()
+                        # If no exact match, try flexible matching
+                        if filtered_check.empty:
+                            def team_name_match_debug(team_name):
+                                if pd.isna(team_name):
+                                    return False
+                                team_name_normalized = str(team_name).lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                                selected_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                                return (selected_normalized in team_name_normalized or 
+                                       team_name_normalized in selected_normalized or
+                                       (selected_normalized == "delfines" and "delfines" in team_name_normalized and "del este" in team_name_normalized))
+                            filtered_check = df_liga[df_liga["Team"].apply(team_name_match_debug)].copy()
+                        st.write(f"**Direct filter check: {len(filtered_check)} records**")
                     if len(filtered_check) > 0:
                         st.write(f"  - Has 'Passes' column: {'Passes' in filtered_check.columns}")
                         st.write(f"  - Has 'Passes / accurate' column: {'Passes / accurate' in filtered_check.columns}")
