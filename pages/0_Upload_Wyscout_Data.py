@@ -560,13 +560,16 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                     processed_data[sheet_name] = df
                     consolidated_data.append(df)
                     
-                    # Create individual JSON file per team (after headers cleaned and per90 conversion)
-                    # This ensures each team has its own JSON file with NEW format data
+                    # STEP 3: Save as JSON - VERIFY it has correct columns first
+                    if "Passes" not in df.columns or "Shots" not in df.columns:
+                        results["errors"].append(f"❌ Cannot save '{sheet_name}' - missing 'Passes' or 'Shots' columns after processing")
+                        continue
+                    
                     json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
                     df_dict = df.to_dict(orient="records")
                     with open(json_file_path, "w", encoding="utf-8") as f:
                         json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
-                    results["files_created"].append(f"JSON: {json_file_path.name}")
+                    results["files_created"].append(f"✅ JSON: {json_file_path.name} ({len(df.columns)} columns)")
                     results["teams_processed"] += 1
                 
             except Exception as e:
@@ -603,12 +606,17 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
             for team in teams_to_process:
                 team_df = df_teamstats[df_teamstats["Team"] == team].copy()
                 if not team_df.empty:
+                    # VERIFY: Must have "Passes" and "Shots" before saving
+                    if "Passes" not in team_df.columns or "Shots" not in team_df.columns:
+                        results["errors"].append(f"❌ Cannot save '{team}' - missing 'Passes' or 'Shots' columns after processing")
+                        continue
+                    
                     team_name_normalized = normalize_string(team)
                     json_file_path = PROCESSED_WYSCOUT_DIR / f"{team_name_normalized}_per_90.json"
                     df_dict = team_df.to_dict(orient="records")
                     with open(json_file_path, "w", encoding="utf-8") as f:
                         json.dump(df_dict, f, indent=2, ensure_ascii=False, default=str)
-                    results["files_created"].append(f"JSON: {json_file_path.name}")
+                    results["files_created"].append(f"✅ JSON: {json_file_path.name} ({len(team_df.columns)} columns)")
                     results["teams_processed"] += 1
         
         # Skip creating consolidated file - we only use individual JSON files per team
