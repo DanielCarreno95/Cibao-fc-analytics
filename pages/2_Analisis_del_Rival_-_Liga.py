@@ -878,8 +878,7 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         "Passes Accurate %": "passes_accurate_pct",
         "Long pass %": "long_pass_pct",
         "Shots Against": "shots_against",  # Total shots against (después de fix)
-        "Shots against / on target": "shots_against_on_target",  # Antes de fix
-        "Shots Against On Target": "shots_against_on_target",  # Después de fix
+        "Shots Against On Target": "shots_against_on_target",  # NEW FORMAT
     }
 
 def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_filtered: bool = False) -> Dict[str, float]:
@@ -6696,7 +6695,7 @@ def main():
                                filtered_competition_averages.get("Counterattacks With Shots") if filtered_competition_averages and filtered_competition_averages.get("Counterattacks With Shots") is not None else 0) if filtered_competition_averages else 0
                 cibao_counter = (filtered_cibao_averages.get("counter_attacks") if filtered_cibao_averages and filtered_cibao_averages.get("counter_attacks") is not None else
                                 filtered_cibao_averages.get("Counter Attacks") if filtered_cibao_averages and filtered_cibao_averages.get("Counter Attacks") is not None else
-                                filtered_cibao_averages.get("Counterattacks / with shots") if filtered_cibao_averages and filtered_cibao_averages.get("Counterattacks / with shots") is not None else 0) if filtered_cibao_averages else 0
+                                filtered_cibao_averages.get("Counterattacks With Shots") if filtered_cibao_averages and filtered_cibao_averages.get("Counterattacks With Shots") is not None else 0) if filtered_cibao_averages else 0
                 counter_display = f"{counter_attacks:.1f}" if counter_attacks > 0 else "N/A"
                 comp_counter_display = f"{comp_counter:.1f}" if comp_counter > 0 else "N/A"
                 cibao_counter_display = f"{cibao_counter:.1f}" if cibao_counter > 0 else "N/A"
