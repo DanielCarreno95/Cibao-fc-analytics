@@ -6434,13 +6434,20 @@ def main():
             with col1:
                 # 5. Defensive Duels Won %
                 # Try multiple key variations (check for None explicitly, not just falsy)
-                def_duels_won_pct = (display_averages_ui.get("defensive_duels_won_pct") if display_averages_ui.get("defensive_duels_won_pct") is not None else
+                # Note: Data uses "Win %" not "Won %"
+                def_duels_won_pct = (display_averages_ui.get("defensive_duels_win__pct") if display_averages_ui.get("defensive_duels_win__pct") is not None else
+                                    display_averages_ui.get("Defensive Duels Win %") if display_averages_ui.get("Defensive Duels Win %") is not None else
+                                    display_averages_ui.get("defensive_duels_won_pct") if display_averages_ui.get("defensive_duels_won_pct") is not None else
                                     display_averages_ui.get("Defensive Duels Won %") if display_averages_ui.get("Defensive Duels Won %") is not None else
                                     display_averages_ui.get("defensive_duels_won__pct") if display_averages_ui.get("defensive_duels_won__pct") is not None else 0)
-                comp_def_pct = (filtered_competition_averages.get("defensive_duels_won_pct") if filtered_competition_averages and filtered_competition_averages.get("defensive_duels_won_pct") is not None else
+                comp_def_pct = (filtered_competition_averages.get("defensive_duels_win__pct") if filtered_competition_averages and filtered_competition_averages.get("defensive_duels_win__pct") is not None else
+                               filtered_competition_averages.get("Defensive Duels Win %") if filtered_competition_averages and filtered_competition_averages.get("Defensive Duels Win %") is not None else
+                               filtered_competition_averages.get("defensive_duels_won_pct") if filtered_competition_averages and filtered_competition_averages.get("defensive_duels_won_pct") is not None else
                                filtered_competition_averages.get("Defensive Duels Won %") if filtered_competition_averages and filtered_competition_averages.get("Defensive Duels Won %") is not None else
                                filtered_competition_averages.get("defensive_duels_won__pct") if filtered_competition_averages and filtered_competition_averages.get("defensive_duels_won__pct") is not None else 0) if filtered_competition_averages else 0
-                cibao_def_pct = (filtered_cibao_averages.get("defensive_duels_won_pct") if filtered_cibao_averages and filtered_cibao_averages.get("defensive_duels_won_pct") is not None else
+                cibao_def_pct = (filtered_cibao_averages.get("defensive_duels_win__pct") if filtered_cibao_averages and filtered_cibao_averages.get("defensive_duels_win__pct") is not None else
+                                filtered_cibao_averages.get("Defensive Duels Win %") if filtered_cibao_averages and filtered_cibao_averages.get("Defensive Duels Win %") is not None else
+                                filtered_cibao_averages.get("defensive_duels_won_pct") if filtered_cibao_averages and filtered_cibao_averages.get("defensive_duels_won_pct") is not None else
                                 filtered_cibao_averages.get("Defensive Duels Won %") if filtered_cibao_averages and filtered_cibao_averages.get("Defensive Duels Won %") is not None else
                                 filtered_cibao_averages.get("defensive_duels_won__pct") if filtered_cibao_averages and filtered_cibao_averages.get("defensive_duels_won__pct") is not None else 0) if filtered_cibao_averages else 0
                 def_pct_display = f"{def_duels_won_pct:.1f}%" if def_duels_won_pct > 0 else "N/A"
@@ -6458,13 +6465,20 @@ def main():
             with col2:
                 # 6. Offensive Duels Won %
                 # Try multiple key variations (check for None explicitly)
-                off_duels_won_pct = (display_averages_ui.get("offensive_duels_won_pct") if display_averages_ui.get("offensive_duels_won_pct") is not None else
+                # Note: Data uses "Win %" not "Won %"
+                off_duels_won_pct = (display_averages_ui.get("offensive_duels_win__pct") if display_averages_ui.get("offensive_duels_win__pct") is not None else
+                                    display_averages_ui.get("Offensive Duels Win %") if display_averages_ui.get("Offensive Duels Win %") is not None else
+                                    display_averages_ui.get("offensive_duels_won_pct") if display_averages_ui.get("offensive_duels_won_pct") is not None else
                                     display_averages_ui.get("Offensive Duels Won %") if display_averages_ui.get("Offensive Duels Won %") is not None else
                                     display_averages_ui.get("offensive_duels_won__pct") if display_averages_ui.get("offensive_duels_won__pct") is not None else 0)
-                comp_off_pct = (filtered_competition_averages.get("offensive_duels_won_pct") if filtered_competition_averages and filtered_competition_averages.get("offensive_duels_won_pct") is not None else
+                comp_off_pct = (filtered_competition_averages.get("offensive_duels_win__pct") if filtered_competition_averages and filtered_competition_averages.get("offensive_duels_win__pct") is not None else
+                               filtered_competition_averages.get("Offensive Duels Win %") if filtered_competition_averages and filtered_competition_averages.get("Offensive Duels Win %") is not None else
+                               filtered_competition_averages.get("offensive_duels_won_pct") if filtered_competition_averages and filtered_competition_averages.get("offensive_duels_won_pct") is not None else
                                filtered_competition_averages.get("Offensive Duels Won %") if filtered_competition_averages and filtered_competition_averages.get("Offensive Duels Won %") is not None else
                                filtered_competition_averages.get("offensive_duels_won__pct") if filtered_competition_averages and filtered_competition_averages.get("offensive_duels_won__pct") is not None else 0) if filtered_competition_averages else 0
-                cibao_off_pct = (filtered_cibao_averages.get("offensive_duels_won_pct") if filtered_cibao_averages and filtered_cibao_averages.get("offensive_duels_won_pct") is not None else
+                cibao_off_pct = (filtered_cibao_averages.get("offensive_duels_win__pct") if filtered_cibao_averages and filtered_cibao_averages.get("offensive_duels_win__pct") is not None else
+                                filtered_cibao_averages.get("Offensive Duels Win %") if filtered_cibao_averages and filtered_cibao_averages.get("Offensive Duels Win %") is not None else
+                                filtered_cibao_averages.get("offensive_duels_won_pct") if filtered_cibao_averages and filtered_cibao_averages.get("offensive_duels_won_pct") is not None else
                                 filtered_cibao_averages.get("Offensive Duels Won %") if filtered_cibao_averages and filtered_cibao_averages.get("Offensive Duels Won %") is not None else
                                 filtered_cibao_averages.get("offensive_duels_won__pct") if filtered_cibao_averages and filtered_cibao_averages.get("offensive_duels_won__pct") is not None else 0) if filtered_cibao_averages else 0
                 off_pct_display = f"{off_duels_won_pct:.1f}%" if off_duels_won_pct > 0 else "N/A"
@@ -6482,13 +6496,20 @@ def main():
             with col3:
                 # 7. Aerial Duels Won %
                 # Try multiple key variations (check for None explicitly)
-                aerial_duels_won_pct = (display_averages_ui.get("aerial_duels_won_pct") if display_averages_ui.get("aerial_duels_won_pct") is not None else
+                # Note: Data uses "Win %" not "Won %"
+                aerial_duels_won_pct = (display_averages_ui.get("aerial_duels_win__pct") if display_averages_ui.get("aerial_duels_win__pct") is not None else
+                                       display_averages_ui.get("Aerial Duels Win %") if display_averages_ui.get("Aerial Duels Win %") is not None else
+                                       display_averages_ui.get("aerial_duels_won_pct") if display_averages_ui.get("aerial_duels_won_pct") is not None else
                                        display_averages_ui.get("Aerial Duels Won %") if display_averages_ui.get("Aerial Duels Won %") is not None else
                                        display_averages_ui.get("aerial_duels_won__pct") if display_averages_ui.get("aerial_duels_won__pct") is not None else 0)
-                comp_aerial_pct = (filtered_competition_averages.get("aerial_duels_won_pct") if filtered_competition_averages and filtered_competition_averages.get("aerial_duels_won_pct") is not None else
+                comp_aerial_pct = (filtered_competition_averages.get("aerial_duels_win__pct") if filtered_competition_averages and filtered_competition_averages.get("aerial_duels_win__pct") is not None else
+                                  filtered_competition_averages.get("Aerial Duels Win %") if filtered_competition_averages and filtered_competition_averages.get("Aerial Duels Win %") is not None else
+                                  filtered_competition_averages.get("aerial_duels_won_pct") if filtered_competition_averages and filtered_competition_averages.get("aerial_duels_won_pct") is not None else
                                   filtered_competition_averages.get("Aerial Duels Won %") if filtered_competition_averages and filtered_competition_averages.get("Aerial Duels Won %") is not None else
                                   filtered_competition_averages.get("aerial_duels_won__pct") if filtered_competition_averages and filtered_competition_averages.get("aerial_duels_won__pct") is not None else 0) if filtered_competition_averages else 0
-                cibao_aerial_pct = (filtered_cibao_averages.get("aerial_duels_won_pct") if filtered_cibao_averages and filtered_cibao_averages.get("aerial_duels_won_pct") is not None else
+                cibao_aerial_pct = (filtered_cibao_averages.get("aerial_duels_win__pct") if filtered_cibao_averages and filtered_cibao_averages.get("aerial_duels_win__pct") is not None else
+                                   filtered_cibao_averages.get("Aerial Duels Win %") if filtered_cibao_averages and filtered_cibao_averages.get("Aerial Duels Win %") is not None else
+                                   filtered_cibao_averages.get("aerial_duels_won_pct") if filtered_cibao_averages and filtered_cibao_averages.get("aerial_duels_won_pct") is not None else
                                    filtered_cibao_averages.get("Aerial Duels Won %") if filtered_cibao_averages and filtered_cibao_averages.get("Aerial Duels Won %") is not None else
                                    filtered_cibao_averages.get("aerial_duels_won__pct") if filtered_cibao_averages and filtered_cibao_averages.get("aerial_duels_won__pct") is not None else 0) if filtered_cibao_averages else 0
                 aerial_pct_display = f"{aerial_duels_won_pct:.1f}%" if aerial_duels_won_pct > 0 else "N/A"
@@ -6534,9 +6555,16 @@ def main():
             
             with col1:
                 # 9. Passes Accurate %
-                passes_accurate_pct = display_averages_ui.get("passes_accurate_pct", 0)
-                comp_pa_pct = filtered_competition_averages.get("passes_accurate_pct", 0) if filtered_competition_averages else 0
-                cibao_pa_pct = filtered_cibao_averages.get("passes_accurate_pct", 0) if filtered_cibao_averages else 0
+                # Try multiple key variations
+                passes_accurate_pct = (display_averages_ui.get("pass_accuracy__pct") if display_averages_ui.get("pass_accuracy__pct") is not None else
+                                      display_averages_ui.get("Pass Accuracy %") if display_averages_ui.get("Pass Accuracy %") is not None else
+                                      display_averages_ui.get("passes_accurate_pct") if display_averages_ui.get("passes_accurate_pct") is not None else 0)
+                comp_pa_pct = (filtered_competition_averages.get("pass_accuracy__pct") if filtered_competition_averages and filtered_competition_averages.get("pass_accuracy__pct") is not None else
+                              filtered_competition_averages.get("Pass Accuracy %") if filtered_competition_averages and filtered_competition_averages.get("Pass Accuracy %") is not None else
+                              filtered_competition_averages.get("passes_accurate_pct") if filtered_competition_averages and filtered_competition_averages.get("passes_accurate_pct") is not None else 0) if filtered_competition_averages else 0
+                cibao_pa_pct = (filtered_cibao_averages.get("pass_accuracy__pct") if filtered_cibao_averages and filtered_cibao_averages.get("pass_accuracy__pct") is not None else
+                               filtered_cibao_averages.get("Pass Accuracy %") if filtered_cibao_averages and filtered_cibao_averages.get("Pass Accuracy %") is not None else
+                               filtered_cibao_averages.get("passes_accurate_pct") if filtered_cibao_averages and filtered_cibao_averages.get("passes_accurate_pct") is not None else 0) if filtered_cibao_averages else 0
                 pa_pct_display = f"{passes_accurate_pct:.1f}%" if passes_accurate_pct > 0 else "N/A"
                 comp_pa_pct_display = f"{comp_pa_pct:.1f}%" if comp_pa_pct > 0 else "N/A"
                 cibao_pa_pct_display = f"{cibao_pa_pct:.1f}%" if cibao_pa_pct > 0 else "N/A"
@@ -6589,9 +6617,13 @@ def main():
             
             with col4:
                 # 12. Shots Against
-                shots_against = display_averages_ui.get("shots_against", 0)
-                comp_shots_against = filtered_competition_averages.get("shots_against", 0) if filtered_competition_averages else 0
-                cibao_shots_against = filtered_cibao_averages.get("shots_against", 0) if filtered_cibao_averages else 0
+                # Try multiple key variations
+                shots_against = (display_averages_ui.get("Shots Against") if display_averages_ui.get("Shots Against") is not None else
+                                display_averages_ui.get("shots_against") if display_averages_ui.get("shots_against") is not None else 0)
+                comp_shots_against = (filtered_competition_averages.get("Shots Against") if filtered_competition_averages and filtered_competition_averages.get("Shots Against") is not None else
+                                     filtered_competition_averages.get("shots_against") if filtered_competition_averages and filtered_competition_averages.get("shots_against") is not None else 0) if filtered_competition_averages else 0
+                cibao_shots_against = (filtered_cibao_averages.get("Shots Against") if filtered_cibao_averages and filtered_cibao_averages.get("Shots Against") is not None else
+                                      filtered_cibao_averages.get("shots_against") if filtered_cibao_averages and filtered_cibao_averages.get("shots_against") is not None else 0) if filtered_cibao_averages else 0
                 shots_against_display = f"{shots_against:.1f}" if shots_against > 0 else "N/A"
                 comp_shots_against_display = f"{comp_shots_against:.1f}" if comp_shots_against > 0 else "N/A"
                 cibao_shots_against_display = f"{cibao_shots_against:.1f}" if cibao_shots_against > 0 else "N/A"
