@@ -333,6 +333,17 @@ def process_wyscout_pdf(uploaded_file, save_raw: bool = True) -> dict:
     
     return results
 
+def extract_team_name_from_filename(filename: str) -> str:
+    """Extract team name from filename like 'Team Stats Delfines Del Este.xlsx'"""
+    if not filename:
+        return ""
+    # Remove extension
+    name_without_ext = filename.rsplit('.', 1)[0] if '.' in filename else filename
+    # Remove "Team Stats" prefix if present
+    if name_without_ext.startswith("Team Stats "):
+        return name_without_ext.replace("Team Stats ", "").strip()
+    return name_without_ext.strip()
+
 def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
     """
     Procesa un archivo Excel de Wyscout y lo convierte al formato esperado.
@@ -349,6 +360,9 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
     }
     
     try:
+        # Extract team name from filename (for single-team files)
+        filename_team_name = extract_team_name_from_filename(uploaded_file.name)
+        
         # Leer el archivo Excel
         xls = pd.ExcelFile(uploaded_file)
         sheet_names = xls.sheet_names
@@ -445,8 +459,32 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                 
                 # Asegurar que hay columnas esenciales
                 if "Team" not in df.columns:
-                    df["Team"] = sheet_name
-                    all_teams_found.add(sheet_name)
+                    # Try to extract team name from filename first (for single-team files)
+                    if filename_team_name and filename_team_name != uploaded_file.name:
+                        df["Team"] = filename_team_name
+                        all_teams_found.add(filename_team_name)
+                    else:
+                        # Fallback to sheet name
+                        df["Team"] = sheet_name
+                        all_teams_found.add(sheet_name)
+                
+                # Handle single-team files where first row might be team name in Date column
+                # Check if first row has team name in Date or Match column
+                if len(df) > 0 and "Date" in df.columns:
+                    first_row_date = str(df.iloc[0]["Date"]) if pd.notna(df.iloc[0]["Date"]) else ""
+                    # If first row Date contains a team name (not a date), remove it
+                    if first_row_date and not any(char.isdigit() for char in first_row_date[:4]):
+                        # Likely a header row with team name, remove it
+                        df = df.iloc[1:].copy()
+                        results["warnings"].append(f"Removed header row from sheet '{sheet_name}'")
+                
+                # Also check Match column for header rows
+                if len(df) > 0 and "Match" in df.columns:
+                    first_row_match = str(df.iloc[0]["Match"]) if pd.notna(df.iloc[0]["Match"]) else ""
+                    # If first row Match is the team name (not a match string), remove it
+                    if first_row_match and " - " not in first_row_match and first_row_match == filename_team_name:
+                        df = df.iloc[1:].copy()
+                        results["warnings"].append(f"Removed team name header row from sheet '{sheet_name}'")
                 
                 # Limpiar y convertir fechas
                 if "Date" in df.columns:
@@ -695,16 +733,11 @@ def main():
                         for error in results["errors"]:
                             st.markdown(f"- {error}")
                     
-                    # Limpiar cache para que los nuevos datos se carguen
-                    st.info("💡 **Nota:** Los datos están listos. Puedes refrescar las páginas de análisis para ver los datos actualizados.")
-                    
-                    # Botón para limpiar cache
-                    if st.button("🔄 Limpiar Cache y Recargar", use_container_width=True, key="clear_cache_single"):
-                        st.cache_data.clear()
-                        st.success("✅ Cache limpiado. Los datos se recargarán automáticamente.")
-                        st.info("💡 **Nota:** Ve a las páginas de análisis para ver los datos actualizados.")
-                        # Don't rerun immediately - let user see the success message
-                        # The cache is cleared, so next page load will use fresh data
+                    # Limpiar cache automáticamente y recargar
+                    st.cache_data.clear()
+                    st.success("✅ Cache limpiado. Recargando aplicación para mostrar datos actualizados...")
+                    # Automatically rerun to refresh the app with new data
+                    st.rerun()
                 
                 else:
                     st.error("❌ Error procesando el archivo. Revisa los errores arriba.")
@@ -832,15 +865,11 @@ def main():
                 # Success message
                 if all_results["successful"] > 0:
                     st.success(f"✅ {all_results['successful']} archivo(s) procesado(s) exitosamente!")
-                    st.info("💡 **Nota:** Los datos están listos. Puedes refrescar las páginas de análisis para ver los datos actualizados.")
-                    
-                    # Botón para limpiar cache
-                    if st.button("🔄 Limpiar Cache y Recargar", use_container_width=True, key="clear_cache_batch"):
-                        st.cache_data.clear()
-                        st.success("✅ Cache limpiado. Los datos se recargarán automáticamente.")
-                        st.info("💡 **Nota:** Ve a las páginas de análisis para ver los datos actualizados.")
-                        # Don't rerun immediately - let user see the success message
-                        # The cache is cleared, so next page load will use fresh data
+                    # Limpiar cache automáticamente y recargar
+                    st.cache_data.clear()
+                    st.success("✅ Cache limpiado. Recargando aplicación para mostrar datos actualizados...")
+                    # Automatically rerun to refresh the app with new data
+                    st.rerun()
                 else:
                     st.error("❌ No se pudo procesar ningún archivo. Revisa los errores arriba.")
     
