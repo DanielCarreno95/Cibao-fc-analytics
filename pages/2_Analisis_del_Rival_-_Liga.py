@@ -845,6 +845,8 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         "Shots / on target": "ontargetScoringAtt",  # Antes de fix (OLD FORMAT - before fix_wyscout_headers)
         "Shots On Target": "ontargetScoringAtt",  # Después de fix (NEW FORMAT - after fix_wyscout_headers)
         "Shots": "totalScoringAtt",  # Después de fix (total shots) (NEW FORMAT - after fix_wyscout_headers splits "Shots / on target")
+        "Shots Per 90": "totalScoringAtt",  # Per 90 version
+        "Shots On Target Per 90": "ontargetScoringAtt",  # Per 90 version
         "Shots from outside penalty area / on target": "shots_outside_box",
         "Shots From Outside Penalty Area On Target": "shots_outside_box",  # Después de fix
         
@@ -988,6 +990,19 @@ def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_fi
                     numeric_cols.append(col)
             except (ValueError, TypeError):
                 pass  # No es numérica, omitir
+    
+    # CRITICAL FIX: Also try to convert object/string columns that look numeric
+    # This handles cases where JSON loaded numbers as strings
+    for col in team_df.columns:
+        if col not in numeric_cols and col not in ["Match", "Date", "Team", "Competition", "Scheme"]:
+            # Try to convert to numeric
+            try:
+                converted = pd.to_numeric(team_df[col], errors='coerce')
+                # If at least 50% of values are numeric, include it
+                if converted.notna().sum() / len(team_df) > 0.5:
+                    numeric_cols.append(col)
+            except (ValueError, TypeError):
+                pass
     
     # Obtener mapeo completo
     column_mapping = get_wyscout_to_scoresway_mapping()
