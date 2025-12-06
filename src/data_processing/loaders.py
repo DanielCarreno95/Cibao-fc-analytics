@@ -130,7 +130,6 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
             try:
                 df = load_json(path)
                 
-                # Skip OLD format files - they cause data inconsistencies
                 # Check if file has OLD format columns (e.g., "Passes / accurate")
                 has_old_format = any(" / " in str(col) or " /accurate" in str(col) or " /on target" in str(col) 
                                      for col in df.columns)
@@ -138,11 +137,26 @@ def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
                 # Check if file has NEW format columns (e.g., "Passes", "Shots")
                 has_new_format = "Passes" in df.columns and "Shots" in df.columns
                 
+                # If file has OLD format but not NEW format, try to fix it on-the-fly
                 if has_old_format and not has_new_format:
-                    # This is an OLD format file - skip it
-                    skipped_old_format.append(file)
-                    print(f"⚠️ Skipping OLD format file: {file} (contains ' / ' columns)")
-                    continue
+                    try:
+                        # Try to apply fix_wyscout_headers on-the-fly
+                        from fix_wyscout_headers import fix_team_headers
+                        df = fix_team_headers(df)
+                        # Verify the fix worked
+                        has_new_format_after = "Passes" in df.columns and "Shots" in df.columns
+                        if has_new_format_after:
+                            print(f"✅ Fixed OLD format file on-the-fly: {file}")
+                        else:
+                            # Still OLD format after fix - skip it
+                            skipped_old_format.append(file)
+                            print(f"⚠️ Skipping OLD format file: {file} (could not fix on-the-fly)")
+                            continue
+                    except Exception as fix_error:
+                        # Couldn't fix it - skip it
+                        skipped_old_format.append(file)
+                        print(f"⚠️ Skipping OLD format file: {file} (error fixing: {fix_error})")
+                        continue
                 
                 df["source_file"] = file
                 all_data.append(df)

@@ -418,7 +418,8 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                 # Limpiar nombres de columnas básicos primero
                 df = clean_column_names(df)
                 
-                # Aplicar fix_wyscout_headers para limpiar headers complejos
+                # ALWAYS aplicar fix_wyscout_headers para limpiar headers complejos
+                # This ensures we always have NEW format, even if the check doesn't detect OLD format
                 if HEADER_CLEANING_AVAILABLE:
                     try:
                         # Determinar si es team stats o player stats basado en columnas
@@ -426,23 +427,27 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                         is_team_stats = "Match" in df.columns or "Competition" in df.columns
                         
                         # Check if we have OLD format columns before applying fix
-                        has_old_format = any(" / " in str(col) for col in df.columns)
+                        has_old_format = any(" / " in str(col) or " /accurate" in str(col) or " /on target" in str(col) 
+                                            for col in df.columns)
                         
-                        if has_old_format:
-                            if is_team_stats:
-                                df_before = df.copy()
-                                df = fix_team_headers(df)
-                                # Verify the fix worked
-                                has_new_format = "Passes" in df.columns or "Passes Accurate" in df.columns
+                        # ALWAYS apply fix, even if we don't detect OLD format
+                        # This ensures consistency and handles edge cases
+                        if is_team_stats:
+                            df_before = df.copy()
+                            df = fix_team_headers(df)
+                            # Verify the fix worked
+                            has_new_format = "Passes" in df.columns and "Shots" in df.columns
+                            if has_old_format:
                                 if has_new_format:
                                     results["warnings"].append(f"✅ Headers limpiados para hoja '{sheet_name}' (Team Stats) - OLD → NEW format")
                                 else:
                                     results["warnings"].append(f"⚠️ Headers limpiados para hoja '{sheet_name}' (Team Stats) pero aún tiene formato OLD")
                             else:
-                                df = fix_player_headers(df)
-                                results["warnings"].append(f"✅ Headers limpiados para hoja '{sheet_name}' (Player Stats)")
+                                if has_new_format:
+                                    results["warnings"].append(f"ℹ️ Headers verificados para hoja '{sheet_name}' (Team Stats) - formato NEW confirmado")
                         else:
-                            results["warnings"].append(f"ℹ️ Hoja '{sheet_name}' ya tiene formato NEW (no necesita limpieza)")
+                            df = fix_player_headers(df)
+                            results["warnings"].append(f"✅ Headers limpiados para hoja '{sheet_name}' (Player Stats)")
                     except Exception as header_error:
                         results["errors"].append(f"❌ Error al limpiar headers en '{sheet_name}': {str(header_error)}")
                         # Continue without cleaning headers if there's an error
