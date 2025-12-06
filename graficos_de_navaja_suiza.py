@@ -92,7 +92,7 @@ METRIC_OPTIONS = {
     "Goles por 90": "Goals",  # Updated to match actual column name
     "Goles en contra por 90": "Conceded goals",  # Updated to match actual column name
     "xG por 90": "xG",
-    "Tiros a puerta por 90": "Shots / on target",  # Updated to match actual column name
+    "Tiros a puerta por 90": "Shots On Target",  # NEW FORMAT
     "Posesión (%)": "Possession, %",  # Updated to match actual column name
     # Note: "Tiros por 90" removed as there's no total shots column in the data
 }
@@ -265,8 +265,8 @@ def get_metric(df: pd.DataFrame, config_entry: Optional[tuple]):
         "goals": ["Goals", "Goles", "goal", "gol", "Goles A Favor", "goals"],  # Added lowercase
         "conceded_goals": ["Conceded goals", "Goles en contra", "Goles En Contra", "conceded", "goles_concedidos", "Goals Against", "Goals conceded", "goalsConceded", "Goals Conceded"],  # Added camelCase and title case
         "xg": ["xG", "Expected Goals", "expected_goals"],
-        "shots": ["Shots", "Tiros", "shot", "tiro", "Shots / on target"],  # May need to calculate total shots
-        "shots_on_target": ["Shots / on target", "Tiros a puerta", "shots_on_target", "on_target"],
+        "shots": ["Shots", "Tiros", "shot", "tiro"],  # NEW FORMAT only
+        "shots_on_target": ["Shots On Target", "Tiros a puerta", "shots_on_target", "on_target"],  # NEW FORMAT
         "possession_percent": ["Possession, %", "Posesión", "possession", "posesion", "Possession, %"]
     }
     

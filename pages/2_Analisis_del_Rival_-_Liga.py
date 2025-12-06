@@ -823,8 +823,7 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         
         # Defensivas
         "Conceded goals": "goalsConceded",
-        "Shots against / on target": "shots_against_on_target",
-        "Shots Against On Target": "shots_against_on_target",  # Después de fix
+        "Shots Against On Target": "shots_against_on_target",  # NEW FORMAT
         "Clearances": "totalClearance",
         "Interceptions": "interception",
         
@@ -834,37 +833,24 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         "Passes Accurate": "accuratePass",  # NEW FORMAT (count) - this is accurate passes count, NOT percentage
         "Passes": "totalPass",  # NEW FORMAT (after fix_wyscout_headers)
         "Passes Accurate %": "passes_accurate_pct",  # Pass accuracy percentage (after fix_wyscout_headers)
-        "Forward passes / accurate": "forward_passes_accurate",
-        "Forward Passes Accurate": "forward_passes_accurate",  # Después de fix
-        "Back passes / accurate": "back_passes_accurate",
-        "Back Passes Accurate": "back_passes_accurate",  # Después de fix
-        "Lateral passes / accurate": "lateral_passes_accurate",
-        "Lateral Passes Accurate": "lateral_passes_accurate",  # Después de fix
-        "Long passes / accurate": "long_passes_accurate",
-        "Long Passes Accurate": "long_passes_accurate",  # Después de fix
-        "Progressive passes / accurate": "progressive_passes_accurate",
-        "Progressive Passes Accurate": "progressive_passes_accurate",  # Después de fix
+        "Forward Passes Accurate": "forward_passes_accurate",  # NEW FORMAT
+        "Back Passes Accurate": "back_passes_accurate",  # NEW FORMAT
+        "Lateral Passes Accurate": "lateral_passes_accurate",  # NEW FORMAT
+        "Long Passes Accurate": "long_passes_accurate",  # NEW FORMAT
+        "Progressive Passes Accurate": "progressive_passes_accurate",  # NEW FORMAT
         
         # Duelos y Tackles
-        "Duels / won": "duels_won",
-        "Duels Won": "duels_won",  # Después de fix
-        "Offensive duels / won": "offensive_duels_won",
-        "Offensive Duels Won": "offensive_duels_won",  # Después de fix
-        "Defensive duels / won": "defensive_duels_won",
-        "Defensive Duels Won": "defensive_duels_won",  # Después de fix
-        "Aerial duels / won": "aerial_duels_won",
-        "Aerial Duels Won": "aerial_duels_won",  # Después de fix
-        "Sliding tackles / successful": "wonTackle",
-        "Sliding Tackles Successful": "wonTackle",  # Después de fix
+        "Duels Won": "duels_won",  # NEW FORMAT
+        "Offensive Duels Won": "offensive_duels_won",  # NEW FORMAT
+        "Defensive Duels Won": "defensive_duels_won",  # NEW FORMAT
+        "Aerial Duels Won": "aerial_duels_won",  # NEW FORMAT
+        "Sliding Tackles Successful": "wonTackle",  # NEW FORMAT
         
         # Set Pieces
-        "Corners / with shots": "corners_with_shots",
-        "Corners With Shots": "corners_with_shots",  # Después de fix
-        "Corners": "wonCorners",  # Después de fix (total corners)
-        "Free kicks / with shots": "free_kicks_with_shots",
-        "Free Kicks With Shots": "free_kicks_with_shots",  # Después de fix
-        "Penalties / converted": "penalties_converted",
-        "Penalties Converted": "penalties_converted",  # Después de fix
+        "Corners With Shots": "corners_with_shots",  # NEW FORMAT
+        "Corners": "wonCorners",  # NEW FORMAT (total corners)
+        "Free Kicks With Shots": "free_kicks_with_shots",  # NEW FORMAT
+        "Penalties Converted": "penalties_converted",  # NEW FORMAT
         
         # Disciplina
         "Fouls": "fkFoulLost",
@@ -879,13 +865,12 @@ def get_wyscout_to_scoresway_mapping() -> Dict[str, str]:
         # Otras
         "Touches in penalty area": "touches_in_penalty_area",
         "Deep completed passes": "deep_passes",
-        "Crosses / accurate": "crosses_accurate",
-        "Crosses Accurate": "crosses_accurate",  # Después de fix
+        "Crosses Accurate": "crosses_accurate",  # NEW FORMAT
         
         # Métricas adicionales
         "PPDA": "ppda",
         "Match Tempo": "match_tempo",  # Wyscout tempo metric
-        "Counterattacks / with shots": "counter_attacks",
+        "Counterattacks With Shots": "counter_attacks",  # NEW FORMAT
         "Counter Attacks": "counter_attacks",  # Después de fix (total counter attacks)
         "Counter Attacks With Shots": "counter_attacks_with_shots",  # Después de fix (con disparos)
         "Defensive Duels Won %": "defensive_duels_won_pct",
@@ -6709,7 +6694,7 @@ def main():
                                   display_averages_ui.get("Counterattacks / with shots") if display_averages_ui.get("Counterattacks / with shots") is not None else 0)
                 comp_counter = (filtered_competition_averages.get("counter_attacks") if filtered_competition_averages and filtered_competition_averages.get("counter_attacks") is not None else
                                filtered_competition_averages.get("Counter Attacks") if filtered_competition_averages and filtered_competition_averages.get("Counter Attacks") is not None else
-                               filtered_competition_averages.get("Counterattacks / with shots") if filtered_competition_averages and filtered_competition_averages.get("Counterattacks / with shots") is not None else 0) if filtered_competition_averages else 0
+                               filtered_competition_averages.get("Counterattacks With Shots") if filtered_competition_averages and filtered_competition_averages.get("Counterattacks With Shots") is not None else 0) if filtered_competition_averages else 0
                 cibao_counter = (filtered_cibao_averages.get("counter_attacks") if filtered_cibao_averages and filtered_cibao_averages.get("counter_attacks") is not None else
                                 filtered_cibao_averages.get("Counter Attacks") if filtered_cibao_averages and filtered_cibao_averages.get("Counter Attacks") is not None else
                                 filtered_cibao_averages.get("Counterattacks / with shots") if filtered_cibao_averages and filtered_cibao_averages.get("Counterattacks / with shots") is not None else 0) if filtered_cibao_averages else 0
