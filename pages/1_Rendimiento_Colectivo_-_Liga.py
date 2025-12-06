@@ -715,6 +715,16 @@ def plot_group(nombre_grupo, mapping, opponent=None):
         if found_col:
             columnas.append(found_col)
             etiquetas[found_col] = k
+    
+    # Special handling for "Shot Accuracy %" - calculate if not found but we have Shots and Shots On Target
+    if "Shot Accuracy %" in mapping.values() and not any("Shot Accuracy" in str(col) or "shot.*accuracy" in str(col).lower() for col in columnas):
+        shots_col = find_column("Shots") or find_column("totalScoringAtt")
+        shots_on_target_col = find_column("Shots On Target") or find_column("ontargetScoringAtt")
+        if shots_col and shots_on_target_col:
+            # Calculate shot accuracy percentage
+            df_plot["Shot Accuracy %"] = (df_plot[shots_on_target_col] / df_plot[shots_col] * 100).fillna(0)
+            columnas.append("Shot Accuracy %")
+            etiquetas["Shot Accuracy %"] = "Porcentaje de disparos a puerta (%)"
 
     if len(columnas) == 0:
         st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
