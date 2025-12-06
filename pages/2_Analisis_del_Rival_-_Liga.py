@@ -531,24 +531,29 @@ def load_liga_data() -> pd.DataFrame:
                 data_source = "JSON (via load_per90_data)"
                 # All data should be in NEW FORMAT (fix_wyscout_headers is always applied during upload)
                 has_new_format = "Passes" in df.columns or "Passes Accurate" in df.columns
+                has_old_format = "Passes / accurate" in df.columns or "Shots / on target" in df.columns
                 
-                # Verify we have NEW format (should always be true)
-                if not has_new_format:
-                    st.warning("⚠️ Data appears to be in OLD format. This shouldn't happen - fix_wyscout_headers should have been applied during upload.")
-                    # Try to apply fix_wyscout_headers as fallback
+                # If OLD format detected, automatically fix it
+                if has_old_format:
                     if FIX_WYSCOUT_HEADERS_AVAILABLE and fix_team_headers is not None:
                         try:
                             df = df.copy()
                             df = fix_team_headers(df)
                             has_new_format_after = "Passes" in df.columns or "Passes Accurate" in df.columns
                             if has_new_format_after:
-                                data_source += " (fix_wyscout_headers applied as fallback)"
+                                data_source += " (fix_wyscout_headers applied - OLD format detected and fixed)"
+                                st.info("ℹ️ OLD format columns detected and automatically converted to NEW format. Consider re-uploading files to regenerate JSON files.")
                             else:
                                 st.error("❌ Could not convert OLD format to NEW format. Please re-upload files.")
                         except Exception as e:
                             st.error(f"❌ Error applying fix_wyscout_headers: {str(e)}")
-                else:
+                    else:
+                        st.warning("⚠️ OLD format columns detected but fix_wyscout_headers not available. Please re-upload files.")
+                elif has_new_format:
                     data_source += " (NEW format)"
+                else:
+                    # Unknown format - might be empty or different structure
+                    data_source += " (unknown format)"
                 
                 # Store source info for debugging
                 df.attrs['data_source'] = data_source
