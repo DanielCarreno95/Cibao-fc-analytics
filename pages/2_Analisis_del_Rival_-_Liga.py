@@ -484,7 +484,7 @@ def extract_team_from_match(match_str: str, is_home: bool = True) -> str:
         return team_part
     return ""
 
-@st.cache_data(ttl=300)  # Cache expires after 5 minutes (auto-refresh)
+@st.cache_data(ttl=60)  # Short TTL - cache invalidates when files change
 def load_liga_data() -> pd.DataFrame:
     """Carga todos los datos de Liga Mayor desde Wyscout."""
     try:

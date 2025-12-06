@@ -31,13 +31,17 @@ def load_excel(path: str) -> pd.DataFrame:
 # ==============================
 # FUNCIÓN: CARGAR ARCHIVOS PER90
 # ==============================
-@st.cache_data
-def load_per90_data() -> pd.DataFrame:
+@st.cache_data(ttl=60)  # Short TTL - cache invalidates when files change
+def load_per90_data(_cache_key: int = None) -> pd.DataFrame:
     """
     Carga todos los archivos JSON de rendimiento (per90)
     desde data/processed/Wyscout/
     
     Prioriza el archivo consolidado si existe, sino carga archivos individuales.
+    
+    Args:
+        _cache_key: Internal cache key based on file modification time.
+                    Changing this invalidates the cache automatically.
     """
     folder = os.path.join(DATA_DIR, "processed", "Wyscout")
 
