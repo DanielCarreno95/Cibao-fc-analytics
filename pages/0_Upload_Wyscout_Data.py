@@ -225,15 +225,29 @@ def process_wyscout_csv(uploaded_file, save_raw: bool = True) -> dict:
                 # Determinar si es team stats o player stats
                 is_team_stats = "Match" in df.columns or "Competition" in df.columns
                 
-                if is_team_stats:
-                    df = fix_team_headers(df)
-                    results["warnings"].append("Headers limpiados (Team Stats)")
+                # Check if we have OLD format columns before applying fix
+                has_old_format = any(" / " in str(col) for col in df.columns)
+                
+                if has_old_format:
+                    if is_team_stats:
+                        df_before = df.copy()
+                        df = fix_team_headers(df)
+                        # Verify the fix worked
+                        has_new_format = "Passes" in df.columns or "Passes Accurate" in df.columns
+                        if has_new_format:
+                            results["warnings"].append("✅ Headers limpiados (Team Stats) - OLD → NEW format")
+                        else:
+                            results["warnings"].append("⚠️ Headers limpiados (Team Stats) pero aún tiene formato OLD")
+                    else:
+                        df = fix_player_headers(df)
+                        results["warnings"].append("✅ Headers limpiados (Player Stats)")
                 else:
-                    df = fix_player_headers(df)
-                    results["warnings"].append("Headers limpiados (Player Stats)")
+                    results["warnings"].append("ℹ️ CSV ya tiene formato NEW (no necesita limpieza)")
             except Exception as header_error:
-                results["warnings"].append(f"Error al limpiar headers: {str(header_error)}")
-                # Continuar sin limpiar headers si hay error
+                results["errors"].append(f"❌ Error al limpiar headers: {str(header_error)}")
+                # Continue without cleaning headers if there's an error
+                import traceback
+                results["errors"].append(f"Traceback: {traceback.format_exc()}")
         
         # Asegurar que hay columna Team
         if "Team" not in df.columns and "team" in df.columns:
@@ -254,11 +268,19 @@ def process_wyscout_csv(uploaded_file, save_raw: bool = True) -> dict:
         # Convertir a per 90 si está disponible y hay columna Duration
         if PER90_CONVERSION_AVAILABLE and "Duration" in df.columns:
             try:
+                df_before_per90 = df.copy()
                 df = convert_df_to_per90(df)
-                results["warnings"].append("Métricas convertidas a per 90")
+                # Verify conversion worked (check if we have per 90 columns)
+                has_per90 = any("Per 90" in str(col) or "per 90" in str(col).lower() for col in df.columns)
+                if has_per90:
+                    results["warnings"].append("✅ Métricas convertidas a per 90")
+                else:
+                    results["warnings"].append("⚠️ Conversión a per 90 aplicada pero no se detectaron columnas 'Per 90'")
             except Exception as per90_error:
-                results["warnings"].append(f"Error al convertir a per 90: {str(per90_error)}")
-                # Continuar sin conversión si hay error
+                results["errors"].append(f"❌ Error al convertir a per 90: {str(per90_error)}")
+                # Continue without conversion if there's an error
+                import traceback
+                results["errors"].append(f"Traceback: {traceback.format_exc()}")
         
         # Agrupar por equipo si hay múltiples filas
         if "Team" in df.columns:
@@ -409,15 +431,29 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                         # Team stats generalmente tienen "Match" o "Competition"
                         is_team_stats = "Match" in df.columns or "Competition" in df.columns
                         
-                        if is_team_stats:
-                            df = fix_team_headers(df)
-                            results["warnings"].append(f"Headers limpiados para hoja '{sheet_name}' (Team Stats)")
+                        # Check if we have OLD format columns before applying fix
+                        has_old_format = any(" / " in str(col) for col in df.columns)
+                        
+                        if has_old_format:
+                            if is_team_stats:
+                                df_before = df.copy()
+                                df = fix_team_headers(df)
+                                # Verify the fix worked
+                                has_new_format = "Passes" in df.columns or "Passes Accurate" in df.columns
+                                if has_new_format:
+                                    results["warnings"].append(f"✅ Headers limpiados para hoja '{sheet_name}' (Team Stats) - OLD → NEW format")
+                                else:
+                                    results["warnings"].append(f"⚠️ Headers limpiados para hoja '{sheet_name}' (Team Stats) pero aún tiene formato OLD")
+                            else:
+                                df = fix_player_headers(df)
+                                results["warnings"].append(f"✅ Headers limpiados para hoja '{sheet_name}' (Player Stats)")
                         else:
-                            df = fix_player_headers(df)
-                            results["warnings"].append(f"Headers limpiados para hoja '{sheet_name}' (Player Stats)")
+                            results["warnings"].append(f"ℹ️ Hoja '{sheet_name}' ya tiene formato NEW (no necesita limpieza)")
                     except Exception as header_error:
-                        results["warnings"].append(f"Error al limpiar headers en '{sheet_name}': {str(header_error)}")
-                        # Continuar sin limpiar headers si hay error
+                        results["errors"].append(f"❌ Error al limpiar headers en '{sheet_name}': {str(header_error)}")
+                        # Continue without cleaning headers if there's an error
+                        import traceback
+                        results["errors"].append(f"Traceback: {traceback.format_exc()}")
                 
                 # Manejar formato TeamStats (consolidado)
                 if has_teamstats_sheet and sheet_name == "TeamStats":
@@ -502,11 +538,19 @@ def process_wyscout_excel(uploaded_file, save_raw: bool = True) -> dict:
                 # Convertir a per 90 si está disponible y hay columna Duration
                 if PER90_CONVERSION_AVAILABLE and "Duration" in df.columns:
                     try:
+                        df_before_per90 = df.copy()
                         df = convert_df_to_per90(df)
-                        results["warnings"].append(f"Métricas convertidas a per 90 para hoja '{sheet_name}'")
+                        # Verify conversion worked (check if we have per 90 columns)
+                        has_per90 = any("Per 90" in str(col) or "per 90" in str(col).lower() for col in df.columns)
+                        if has_per90:
+                            results["warnings"].append(f"✅ Métricas convertidas a per 90 para hoja '{sheet_name}'")
+                        else:
+                            results["warnings"].append(f"⚠️ Conversión a per 90 aplicada pero no se detectaron columnas 'Per 90'")
                     except Exception as per90_error:
-                        results["warnings"].append(f"Error al convertir a per 90 en '{sheet_name}': {str(per90_error)}")
-                        # Continuar sin conversión si hay error
+                        results["errors"].append(f"❌ Error al convertir a per 90 en '{sheet_name}': {str(per90_error)}")
+                        # Continue without conversion if there's an error
+                        import traceback
+                        results["errors"].append(f"Traceback: {traceback.format_exc()}")
                 
                 # Si es formato TeamStats, guardar como una sola hoja consolidada
                 if has_teamstats_sheet and sheet_name == "TeamStats":
