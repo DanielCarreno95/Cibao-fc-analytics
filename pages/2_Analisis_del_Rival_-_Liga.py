@@ -378,6 +378,14 @@ CIBAO_TEAM_NAME = "Cibao"
 from src.data_processing.load_cibao_team_data import load_cibao_team_data
 from src.data_processing.loaders import load_per90_data
 
+# Try to import fix_wyscout_headers at module level (if available)
+try:
+    from src.data_processing.fix_wyscout_headers import fix_team_headers
+    FIX_WYSCOUT_HEADERS_AVAILABLE = True
+except ImportError:
+    FIX_WYSCOUT_HEADERS_AVAILABLE = False
+    fix_team_headers = None
+
 # ===========================================
 # FUNCIONES DE OBTENCIÓN DE PRÓXIMOS PARTIDOS
 # ===========================================
@@ -527,41 +535,8 @@ def load_liga_data() -> pd.DataFrame:
                 
                 # Apply fix_wyscout_headers if available (headers might not have been cleaned when JSON was created)
                 if has_old_format:
-                    try:
-                        # Try different import paths
-                        fix_team_headers = None
-                        import sys
-                        from pathlib import Path
-                        
-                        # Get the repo root (go up from pages/ to repo root)
-                        # On Streamlit Cloud, __file__ is /mount/src/cibao-fc-analytics/pages/2_Analisis_del_Rival_-_Liga.py
-                        # So parents[1] gives us /mount/src/cibao-fc-analytics/
-                        repo_root = Path(__file__).parents[1]
-                        src_data_processing_path = repo_root / "src" / "data_processing"
-                        fix_wyscout_headers_file = src_data_processing_path / "fix_wyscout_headers.py"
-                        
-                        # Try direct import first
+                    if FIX_WYSCOUT_HEADERS_AVAILABLE and fix_team_headers is not None:
                         try:
-                            from src.data_processing.fix_wyscout_headers import fix_team_headers
-                        except ImportError:
-                            # Fallback 1: Check if file exists and add parent directory to sys.path
-                            if fix_wyscout_headers_file.exists():
-                                # Add src/data_processing to sys.path
-                                if str(src_data_processing_path) not in sys.path:
-                                    sys.path.insert(0, str(src_data_processing_path))
-                                try:
-                                    from fix_wyscout_headers import fix_team_headers
-                                except ImportError:
-                                    # Fallback 2: Add repo root to sys.path
-                                    if str(repo_root) not in sys.path:
-                                        sys.path.insert(0, str(repo_root))
-                                    from src.data_processing.fix_wyscout_headers import fix_team_headers
-                            else:
-                                # File doesn't exist - can't import
-                                raise ImportError(f"fix_wyscout_headers.py not found at {fix_wyscout_headers_file}")
-                        
-                        if fix_team_headers is None:
-                            raise ImportError("Could not import fix_team_headers from any path")
                         
                         # Make a copy to avoid modifying cached data
                         df = df.copy()
@@ -578,13 +553,12 @@ def load_liga_data() -> pd.DataFrame:
                         else:
                             # Fix worked
                             data_source += " (fixed from OLD to NEW format)"
-                    except (ImportError, Exception) as e:
-                        # If fix_wyscout_headers is not available, show warning but continue
-                        st.warning(f"⚠️ Could not apply fix_wyscout_headers: {str(e)}. Continuing with OLD format data.")
-                        # Don't show full traceback for ImportError - it's expected if module doesn't exist
-                        if "ModuleNotFoundError" not in str(e) and "ImportError" not in str(type(e).__name__):
-                            import traceback
-                            st.code(traceback.format_exc())
+                        except Exception as e:
+                            # If fix_wyscout_headers fails during execution, show warning but continue
+                            st.warning(f"⚠️ Error applying fix_wyscout_headers: {str(e)}. Continuing with OLD format data.")
+                    else:
+                        # Module not available - this is expected if it's not installed
+                        pass  # Continue with OLD format data silently
                 elif has_new_format:
                     data_source += " (already NEW format)"
                 else:
