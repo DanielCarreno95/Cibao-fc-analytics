@@ -488,8 +488,12 @@ def extract_team_from_match(match_str: str, is_home: bool = True) -> str:
 def load_liga_data() -> pd.DataFrame:
     """Carga todos los datos de Liga Mayor desde Wyscout."""
     try:
-        # Load per 90 data from processed JSON files
-        df = load_per90_data()
+        # Get cache key based on file modification time
+        from src.data_processing.loaders import get_data_cache_key
+        cache_key = get_data_cache_key()
+        
+        # Load per 90 data from processed JSON files (cache key auto-invalidates when files change)
+        df = load_per90_data(_cache_key=cache_key)
         if not df.empty and "Team" in df.columns:
             # Verify Team column has actual team names
             if df["Team"].nunique() > 1 or df["Team"].iloc[0] not in ["TeamStats", "teamstats"]:
