@@ -76,12 +76,22 @@ except ImportError:
     def inject_dark_theme():
         pass  # No theme if can't import
 
+# Try importing navigation
+try:
+    from src.utils.navigation import render_top_navigation
+except ImportError:
+    def render_top_navigation():
+        pass  # No navigation if can't import
+
 # Directories
 PROCESSED_DIR = REPO_ROOT / "data" / "processed" / "Wyscout"
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 st.set_page_config(page_title="Upload Wyscout Data", page_icon="📊", layout="wide")
 inject_dark_theme()
+
+# ---------- TOP NAVIGATION BAR ----------
+render_top_navigation()
 
 st.title("📊 Upload Wyscout Data")
 st.markdown("**Simple flow:** Upload Excel → Clean headers → Convert to per90 → Save JSON")
