@@ -502,10 +502,23 @@ def load_liga_data() -> pd.DataFrame:
                 if has_old_format:
                     try:
                         from src.data_processing.fix_wyscout_headers import fix_team_headers
+                        # Make a copy to avoid modifying cached data
+                        df = df.copy()
+                        df_before_cols = set(df.columns)
                         df = fix_team_headers(df)
+                        df_after_cols = set(df.columns)
+                        # Verify the fix worked
+                        has_new_format = "Passes" in df.columns or "Passes Accurate" in df.columns
+                        if not has_new_format:
+                            # Fix didn't work - this shouldn't happen, but log it
+                            st.warning(f"⚠️ fix_wyscout_headers was applied but NEW format columns not found. "
+                                     f"OLD format cols found: {old_format_cols[:3]}. "
+                                     f"Columns before: {len(df_before_cols)}, after: {len(df_after_cols)}")
                     except (ImportError, Exception) as e:
-                        # If fix_wyscout_headers is not available, continue without it
-                        pass
+                        # If fix_wyscout_headers is not available, show error
+                        st.error(f"❌ Error applying fix_wyscout_headers: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())
                 return df
     except Exception as e:
         pass  # Fall through to Excel loading
