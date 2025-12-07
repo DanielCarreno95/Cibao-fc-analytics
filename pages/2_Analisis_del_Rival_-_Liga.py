@@ -1939,6 +1939,21 @@ def get_recent_form(matches: List[Dict], team_name: str, num_matches: Optional[i
             
             # Only append if all validations pass
             if opponent_valid and match_str_valid and date_valid:
+                # Extract shots data from match (DataFrame row)
+                shots = match.get("Shots", 0)
+                shots_on_target = match.get("Shots On Target", 0)
+                shots_against = match.get("Shots Against", 0)
+                shots_against_on_target = match.get("Shots Against On Target", 0)
+                
+                # Convert to numeric if they're strings
+                try:
+                    shots = float(shots) if pd.notna(shots) else 0
+                    shots_on_target = float(shots_on_target) if pd.notna(shots_on_target) else 0
+                    shots_against = float(shots_against) if pd.notna(shots_against) else 0
+                    shots_against_on_target = float(shots_against_on_target) if pd.notna(shots_against_on_target) else 0
+                except (ValueError, TypeError):
+                    shots = shots_on_target = shots_against = shots_against_on_target = 0
+                
                 recent_matches.append({
                     "match_id": match_id,
                     "date": date_str,
@@ -1948,7 +1963,11 @@ def get_recent_form(matches: List[Dict], team_name: str, num_matches: Optional[i
                     "score": f"{goals_for}-{goals_against}",
                     "goals_for": goals_for,
                     "goals_against": goals_against,
-                    "is_home": is_home
+                    "is_home": is_home,
+                    "Shots": shots,
+                    "Shots On Target": shots_on_target,
+                    "Shots Against": shots_against,
+                    "Shots Against On Target": shots_against_on_target
                 })
             # Skip invalid matches silently (they're likely data quality issues)
             
@@ -2087,53 +2106,15 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
                 if opp_shots > 0:
                     opp_shots_pct = (opp_shots_on_target / opp_shots) * 100
         else:
-            # Wyscout format - extract directly from match dictionary (DataFrame row)
-            # Try multiple column name variations
-            shots_col = None
-            shots_on_target_col = None
-            shots_against_col = None
-            shots_against_on_target_col = None
+            # Wyscout format - extract directly from match dictionary
+            # The shots data should already be in the match dict (added in get_recent_form)
+            team_shots = int(float(match.get("Shots", 0))) if pd.notna(match.get("Shots")) else 0
+            team_shots_on_target = int(float(match.get("Shots On Target", 0))) if pd.notna(match.get("Shots On Target")) else 0
+            opp_shots = int(float(match.get("Shots Against", 0))) if pd.notna(match.get("Shots Against")) else 0
+            opp_shots_on_target = int(float(match.get("Shots Against On Target", 0))) if pd.notna(match.get("Shots Against On Target")) else 0
             
-            # Find shots columns with flexible matching
-            for col in match.keys():
-                col_lower = str(col).lower()
-                if "shots" in col_lower and "on target" in col_lower and "against" not in col_lower:
-                    shots_on_target_col = col
-                elif "shots" in col_lower and "against" not in col_lower and "on target" not in col_lower:
-                    if "total" in col_lower or "scoring" in col_lower:
-                        shots_col = col
-                elif "shots" in col_lower and "against" in col_lower and "on target" in col_lower:
-                    shots_against_on_target_col = col
-                elif "shots" in col_lower and "against" in col_lower and "on target" not in col_lower:
-                    shots_against_col = col
-            
-            # Try specific column names
-            if not shots_col:
-                shots_col = match.get("Shots") or match.get("totalScoringAtt") or match.get("Shots Per 90")
-            if not shots_on_target_col:
-                shots_on_target_col = match.get("Shots On Target") or match.get("ontargetScoringAtt") or match.get("Shots On Target Per 90")
-            if not shots_against_col:
-                shots_against_col = match.get("Shots Against") or match.get("shots_against")
-            if not shots_against_on_target_col:
-                shots_against_on_target_col = match.get("Shots Against On Target") or match.get("shots_against_on_target")
-            
-            # Extract team shots (this match row is for the selected team)
-            if shots_col and shots_col in match:
-                team_shots = int(float(match[shots_col])) if pd.notna(match[shots_col]) else 0
-            if shots_on_target_col and shots_on_target_col in match:
-                team_shots_on_target = int(float(match[shots_on_target_col])) if pd.notna(match[shots_on_target_col]) else 0
             if team_shots > 0:
                 team_shots_pct = (team_shots_on_target / team_shots) * 100
-            
-            # For opponent shots, we'd need to look up the opponent's row from the same match
-            # For now, use shots against (which is opponent's shots)
-            if shots_against_col and shots_against_col in match:
-                opp_shots = int(float(match[shots_against_col])) if pd.notna(match[shots_against_col]) else 0
-            if shots_against_on_target_col and shots_against_on_target_col in match:
-                opp_shots_on_target = int(float(match[shots_against_on_target_col])) if pd.notna(match[shots_against_on_target_col]) else 0
-            elif shots_against_col and shots_against_col in match:
-                # If we have total shots against but not on target, estimate (rough approximation)
-                opp_shots_on_target = int(opp_shots * 0.3) if opp_shots > 0 else 0
             if opp_shots > 0:
                 opp_shots_pct = (opp_shots_on_target / opp_shots) * 100
         
