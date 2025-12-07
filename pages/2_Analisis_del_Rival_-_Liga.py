@@ -2070,6 +2070,7 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
         opp_shots_pct = 0.0
         
         if match_data:
+            # Scoresway/Concacaf format - extract from match_data
             team_stats = extract_team_stats_from_match(match_data, team_name)
             opponent_name = match.get("opponent", "")
             opponent_stats = extract_team_stats_from_match(match_data, opponent_name) if opponent_name else None
@@ -2085,6 +2086,56 @@ def display_recent_form(recent_matches: List[Dict], team_name: str):
                 opp_shots_on_target = int(opponent_stats.get("ontargetScoringAtt", 0))
                 if opp_shots > 0:
                     opp_shots_pct = (opp_shots_on_target / opp_shots) * 100
+        else:
+            # Wyscout format - extract directly from match dictionary (DataFrame row)
+            # Try multiple column name variations
+            shots_col = None
+            shots_on_target_col = None
+            shots_against_col = None
+            shots_against_on_target_col = None
+            
+            # Find shots columns with flexible matching
+            for col in match.keys():
+                col_lower = str(col).lower()
+                if "shots" in col_lower and "on target" in col_lower and "against" not in col_lower:
+                    shots_on_target_col = col
+                elif "shots" in col_lower and "against" not in col_lower and "on target" not in col_lower:
+                    if "total" in col_lower or "scoring" in col_lower:
+                        shots_col = col
+                elif "shots" in col_lower and "against" in col_lower and "on target" in col_lower:
+                    shots_against_on_target_col = col
+                elif "shots" in col_lower and "against" in col_lower and "on target" not in col_lower:
+                    shots_against_col = col
+            
+            # Try specific column names
+            if not shots_col:
+                shots_col = match.get("Shots") or match.get("totalScoringAtt") or match.get("Shots Per 90")
+            if not shots_on_target_col:
+                shots_on_target_col = match.get("Shots On Target") or match.get("ontargetScoringAtt") or match.get("Shots On Target Per 90")
+            if not shots_against_col:
+                shots_against_col = match.get("Shots Against") or match.get("shots_against")
+            if not shots_against_on_target_col:
+                shots_against_on_target_col = match.get("Shots Against On Target") or match.get("shots_against_on_target")
+            
+            # Extract team shots (this match row is for the selected team)
+            if shots_col and shots_col in match:
+                team_shots = int(float(match[shots_col])) if pd.notna(match[shots_col]) else 0
+            if shots_on_target_col and shots_on_target_col in match:
+                team_shots_on_target = int(float(match[shots_on_target_col])) if pd.notna(match[shots_on_target_col]) else 0
+            if team_shots > 0:
+                team_shots_pct = (team_shots_on_target / team_shots) * 100
+            
+            # For opponent shots, we'd need to look up the opponent's row from the same match
+            # For now, use shots against (which is opponent's shots)
+            if shots_against_col and shots_against_col in match:
+                opp_shots = int(float(match[shots_against_col])) if pd.notna(match[shots_against_col]) else 0
+            if shots_against_on_target_col and shots_against_on_target_col in match:
+                opp_shots_on_target = int(float(match[shots_against_on_target_col])) if pd.notna(match[shots_against_on_target_col]) else 0
+            elif shots_against_col and shots_against_col in match:
+                # If we have total shots against but not on target, estimate (rough approximation)
+                opp_shots_on_target = int(opp_shots * 0.3) if opp_shots > 0 else 0
+            if opp_shots > 0:
+                opp_shots_pct = (opp_shots_on_target / opp_shots) * 100
         
         # Create columns for this row - updated widths
         row_cols = st.columns([0.5, 1.5, 2, 1, 1, 1, 1.5, 1.5])
