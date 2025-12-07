@@ -1809,12 +1809,36 @@ def get_recent_form(matches: List[Dict], team_name: str, num_matches: Optional[i
             # Extraer información básica del match
             match_str = str(match.get("Match", ""))
             
-            # Extract actual score from match string (e.g., "Team1 - Team2 3:1")
+            # Extract actual score from match string (e.g., "Home Team - Away Team 3:1")
             # The score is at the end of the match string
+            # Format: "Home Team - Away Team Score" where Score is "HomeGoals:AwayGoals"
             score_match = re.search(r'(\d+):(\d+)\s*$', match_str)
             if score_match:
-                goals_for = int(score_match.group(1))
-                goals_against = int(score_match.group(2))
+                home_goals = int(score_match.group(1))
+                away_goals = int(score_match.group(2))
+                
+                # Determine if selected team is home or away to assign goals correctly
+                match_parts = re.split(r'\s*-\s*', match_str)
+                if len(match_parts) >= 2:
+                    home_team = match_parts[0].strip()
+                    team_name_lower = team_name.lower().strip()
+                    home_team_lower = home_team.lower().strip()
+                    
+                    # Check if selected team is home team
+                    is_home_team = (team_name_lower in home_team_lower or home_team_lower in team_name_lower)
+                    
+                    if is_home_team:
+                        # Selected team is home: goals_for = home_goals, goals_against = away_goals
+                        goals_for = home_goals
+                        goals_against = away_goals
+                    else:
+                        # Selected team is away: goals_for = away_goals, goals_against = home_goals
+                        goals_for = away_goals
+                        goals_against = home_goals
+                else:
+                    # Fallback if can't parse teams: assume first number is for selected team (less reliable)
+                    goals_for = home_goals
+                    goals_against = away_goals
             else:
                 # Fallback: try to use Goals/Conceded goals if available (but these are per-90, so round them)
                 goals_for_raw = match.get("Goals", 0)
