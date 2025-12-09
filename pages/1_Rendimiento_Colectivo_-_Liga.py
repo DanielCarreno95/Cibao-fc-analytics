@@ -1652,7 +1652,7 @@ with tab5:
 # ===========================================
 import tempfile
 import requests
-from fpdf import FPDF, flex
+from fpdf import FPDF
 from datetime import datetime
 
 # ---------- Logo helper ----------
