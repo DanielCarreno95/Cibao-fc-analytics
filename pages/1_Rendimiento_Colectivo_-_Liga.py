@@ -1922,7 +1922,7 @@ pdf_y_label = locals().get("y_choice")
 
 pdf_func = globals().get("generate_pdf_report", None)
 if pdf_func is None:
-    st.error("No se pudo cargar el generador de PDF.")
+    st.error(f"No se pudo cargar el generador de PDF: {_pdf_import_error}")
 else:
     try:
         pdf_bytes = pdf_func(
