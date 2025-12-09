@@ -1921,30 +1921,35 @@ pdf_y_metric = locals().get("y_column")
 pdf_x_label = locals().get("x_choice")
 pdf_y_label = locals().get("y_choice")
 
-pdf_bytes = generate_pdf_report(
-    df_cibao=df_cibao,
-    df_filtrado=df_filtrado,
-    df_liga_mayor=df_liga_mayor,
-    partidos_seleccionados=partidos_sel,
-    mostrar_promedio_liga=True,
-    grupos=grupos,
-    grupos_pases=grupos_pases_pdf,
-    grupos_def=grupos_def_pdf,
-    grupos_tacticos=grupos_tacticos_pdf,
-    metrics_blocks=metrics_blocks_pdf,
-    opponent_choice=pdf_opponent,
-    x_metric=pdf_x_metric,
-    y_metric=pdf_y_metric,
-    x_label=pdf_x_label,
-    y_label=pdf_y_label,
-    make_team_scatter_func=make_team_scatter,
-)
+if generate_pdf_report is None:
+    st.error(f"No se pudo cargar el generador de PDF: {_pdf_import_error}")
+else:
+    try:
+        pdf_bytes = generate_pdf_report(
+            df_cibao=df_cibao,
+            df_filtrado=df_filtrado,
+            df_liga_mayor=df_liga_mayor,
+            partidos_seleccionados=partidos_sel,
+            mostrar_promedio_liga=True,
+            grupos=grupos,
+            grupos_pases=grupos_pases_pdf,
+            grupos_def=grupos_def_pdf,
+            grupos_tacticos=grupos_tacticos_pdf,
+            metrics_blocks=metrics_blocks_pdf,
+            opponent_choice=pdf_opponent,
+            x_metric=pdf_x_metric,
+            y_metric=pdf_y_metric,
+            x_label=pdf_x_label,
+            y_label=pdf_y_label,
+            make_team_scatter_func=make_team_scatter,
+        )
 
-st.download_button(
-    "📥 Descargar PDF (estructura completa)",
-    data=pdf_bytes,
-    file_name="reporte_rendimiento_liga_cibao.pdf",
-    mime="application/pdf",
-    use_container_width=True,
-)
-
+        st.download_button(
+            "📥 Descargar PDF (estructura completa)",
+            data=pdf_bytes,
+            file_name="reporte_rendimiento_liga_cibao.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+    except Exception as e:
+        st.error(f"Error generando el PDF: {e}")
