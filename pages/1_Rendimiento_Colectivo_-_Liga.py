@@ -375,6 +375,88 @@ if df_filtrado.empty and not df_cibao.empty:
         df_filtrado = df_cibao.copy()
 
 # ===============================================
+# 📊 BLOQUE KPIs — ÚLTIMO PARTIDO
+# ===============================================
+
+st.markdown("### Indicadores del último partido")
+
+# Seleccionar el último partido según la fecha más reciente
+if not df_filtrado.empty:
+    ultimo_partido = df_filtrado.sort_values("Date", ascending=False).iloc[0]
+else:
+    st.warning("No hay datos disponibles para mostrar los KPIs.")
+    st.stop()
+
+# Formatear fecha (dd-mm-yyyy)
+fecha_str = "-"
+if pd.notna(ultimo_partido.get("Date", None)):
+    try:
+        fecha_str = pd.to_datetime(ultimo_partido["Date"]).strftime("%d-%m-%Y")
+    except Exception:
+        fecha_str = str(ultimo_partido.get("Date", ""))
+
+# KPIs textuales
+kpi_texts = [
+    ("Fecha", fecha_str),
+    ("Jornada número", ultimo_partido.get("Jornada", "")),
+    ("Partido", ultimo_partido.get("Match", "")),
+    ("Resultado Final", ultimo_partido.get("Final Result", "")),
+    ("Alineación", ultimo_partido.get("Alineacion", "")),
+]
+
+# KPIs numéricos del último partido
+kpi_numericos = [
+    ("Goles Esperados (xG)", ultimo_partido.get("xg", np.nan)),
+    ("Posesión (%)", ultimo_partido.get("possession_percent", np.nan)),
+    ("Tarjetas Amarillas", ultimo_partido.get("yellow_cards", np.nan)),
+    ("Tarjetas Rojas", ultimo_partido.get("red_cards", np.nan)),
+]
+
+# Mostrar KPIs textuales
+cols_text = st.columns(len(kpi_texts))
+for (label, value), c in zip(kpi_texts, cols_text):
+    with c:
+        display = str(value) if pd.notna(value) else "-"
+        st.markdown(
+            f"""
+            <div style='background:rgba(25,25,25,0.95);
+                        border:1px solid rgba(255,140,0,0.35);
+                        border-radius:14px;padding:18px;
+                        text-align:center;box-shadow:0 0 18px rgba(255,140,0,0.12);'>
+                <div style='font-size:1.3rem;color:#FF8C00;font-weight:700;'>{display}</div>
+                <div style='color:#cfcfcf;font-size:0.9rem;'>{label}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# Mostrar KPIs numéricos (xG, Posesión, Tarjetas)
+cols_num = st.columns(len(kpi_numericos))
+for (label, val), c in zip(kpi_numericos, cols_num):
+    with c:
+        if "Tarjetas" in label:
+            display = "-" if pd.isna(val) else f"{int(val)}"
+        else:
+            display = "-" if pd.isna(val) else f"{val:.2f}"
+        st.markdown(
+            f"""
+            <div style='background:rgba(25,25,25,0.95);
+                        border:1px solid rgba(255,140,0,0.35);
+                        border-radius:14px;padding:18px;
+                        text-align:center;box-shadow:0 0 18px rgba(255,140,0,0.12);'>
+                <div style='font-size:2.1rem;color:#FF8C00;font-weight:900;'>{display}</div>
+                <div style='color:#cfcfcf;font-size:0.95rem;'>{label}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+
+# ===============================================
 # 🧠 HELPERS AUXILIARES
 # ===============================================
 def col_from(metric_name: str):
