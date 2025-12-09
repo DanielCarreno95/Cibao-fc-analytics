@@ -791,8 +791,8 @@ def plot_group(nombre_grupo, mapping, opponent=None):
     
     # Special handling for "Shot Accuracy %" - calculate if not found but we have Shots and Shots On Target
     if "Shot Accuracy %" in mapping.values() and not any("Shot Accuracy" in str(col) or "shot.*accuracy" in str(col).lower() for col in columnas):
-        shots_col = find_column("Shots") or find_column("totalScoringAtt")
-        shots_on_target_col = find_column("Shots On Target") or find_column("ontargetScoringAtt")
+        shots_col = find_column_in_df(df_plot, "Shots") or find_column_in_df(df_plot, "totalScoringAtt")
+        shots_on_target_col = find_column_in_df(df_plot, "Shots On Target") or find_column_in_df(df_plot, "ontargetScoringAtt")
         if shots_col and shots_on_target_col:
             # Calculate shot accuracy percentage
             df_plot["Shot Accuracy %"] = (df_plot[shots_on_target_col] / df_plot[shots_col] * 100).fillna(0)
@@ -802,27 +802,27 @@ def plot_group(nombre_grupo, mapping, opponent=None):
     # Special handling for percentage metrics - try to calculate from counts if percentages don't exist
     # For "Positional Attacks With Shot %" and "Counterattacks With Shot %"
     if "Positional Attacks With Shot %" in mapping.values() and not any("Positional Attacks" in str(col) for col in columnas):
-        positional_attacks_col = find_column("Positional Attacks") or find_column("Positional Attacks With Shot")
+        positional_attacks_col = find_column_in_df(df_plot, "Positional Attacks") or find_column_in_df(df_plot, "Positional Attacks With Shot")
         if positional_attacks_col:
             # If we have the count, we can't calculate percentage without total attacks, so just use the count
             columnas.append(positional_attacks_col)
             etiquetas[positional_attacks_col] = "Ataques posicionales"
     
     if "Counterattacks With Shot %" in mapping.values() and not any("Counterattacks" in str(col) for col in columnas):
-        counterattacks_col = find_column("Counterattacks") or find_column("Counterattacks With Shot")
+        counterattacks_col = find_column_in_df(df_plot, "Counterattacks") or find_column_in_df(df_plot, "Counterattacks With Shot")
         if counterattacks_col:
             columnas.append(counterattacks_col)
             etiquetas[counterattacks_col] = "Contraataques"
     
     # For set pieces - try both singular and plural, and with/without "With Shot"
     if "Corners With Shot" in mapping.values() or "Corners With Shot %" in mapping.values():
-        corners_col = find_column("Corners With Shot") or find_column("Corners With Shots") or find_column("Corners")
+        corners_col = find_column_in_df(df_plot, "Corners With Shot") or find_column_in_df(df_plot, "Corners With Shots") or find_column_in_df(df_plot, "Corners")
         if corners_col and corners_col not in columnas:
             columnas.append(corners_col)
             etiquetas[corners_col] = "Corners con disparo" if "With Shot" in str(corners_col) else "Corners"
     
     if "Free Kicks With Shot" in mapping.values() or "Free Kicks With Shot %" in mapping.values():
-        free_kicks_col = find_column("Free Kicks With Shot") or find_column("Free Kicks With Shots") or find_column("Free Kicks")
+        free_kicks_col = find_column_in_df(df_plot, "Free Kicks With Shot") or find_column_in_df(df_plot, "Free Kicks With Shots") or find_column_in_df(df_plot, "Free Kicks")
         if free_kicks_col and free_kicks_col not in columnas:
             columnas.append(free_kicks_col)
             etiquetas[free_kicks_col] = "Faltas directas con disparo" if "With Shot" in str(free_kicks_col) else "Free Kicks"
