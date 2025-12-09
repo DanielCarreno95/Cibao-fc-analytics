@@ -671,6 +671,95 @@ CIBAO_GRAY = "#D3D3D3"
 PALETTE_CIBAO = ["#FF8C00"]
 
 # ===========================
+# HELPERS DE COMPARACIÓN
+# ===========================
+
+def find_column_in_df(df, col_name):
+    """Find column in DataFrame with case-insensitive and normalized matching."""
+    if col_name in df.columns:
+        return col_name
+    col_lower = str(col_name).lower()
+    for df_col in df.columns:
+        if str(df_col).lower() == col_lower:
+            return df_col
+    col_normalized = str(col_name).replace(" ", "_").replace("%", "percent").lower()
+    for df_col in df.columns:
+        df_col_normalized = str(df_col).replace(" ", "_").replace("%", "percent").lower()
+        if df_col_normalized == col_normalized:
+            return df_col
+    return None
+
+
+def get_team_colors(teams):
+    return {
+        team: CIBAO_ORANGE if str(team).lower() == "cibao" else CIBAO_GRAY
+        for team in teams
+    }
+
+
+def build_comparison_df(mapping, prefer_wyscout=True, opponent=None):
+    """Devuelve df con columnas ['Team','metric','valor','label'] usando Wyscout si existe, sino Excel (_Rival)."""
+    teams_to_include = ["Cibao"]
+    if opponent and opponent != "Cibao":
+        teams_to_include.append(opponent)
+
+    # 1) Intentar con df_liga_mayor (Wyscout)
+    if prefer_wyscout and not df_liga_mayor.empty and "Team" in df_liga_mayor.columns:
+        columnas = []
+        etiquetas = {}
+        for k, v in mapping.items():
+            found_col = find_column_in_df(df_liga_mayor, v)
+            if found_col:
+                columnas.append(found_col)
+                etiquetas[found_col] = k
+
+        if columnas:
+            df_plot = df_liga_mayor[df_liga_mayor["Team"].isin(teams_to_include)].copy()
+            if not df_plot.empty:
+                df_means = df_plot.groupby("Team")[columnas].mean().reset_index()
+                df_melted = df_means.melt(
+                    id_vars=["Team"],
+                    value_vars=columnas,
+                    var_name="metric",
+                    value_name="valor"
+                )
+                df_melted["label"] = df_melted["metric"].map(etiquetas)
+                df_melted["valor"] = pd.to_numeric(df_melted["valor"], errors="coerce").fillna(0)
+                return df_melted
+
+    # 2) Fallback Excel (Cibao + columnas _Rival)
+    df_base = df_filtrado.copy()
+    if opponent and "Team_Rival" in df_base.columns:
+        df_filtered = df_base[df_base["Team_Rival"].str.lower() == str(opponent).lower()]
+        if not df_filtered.empty:
+            df_base = df_filtered
+
+    rows = []
+    for label, col in mapping.items():
+        if col in df_base.columns:
+            rows.append({
+                "Team": "Cibao",
+                "metric": col,
+                "label": label,
+                "valor": pd.to_numeric(df_base[col], errors="coerce").mean()
+            })
+
+        rival_col = f"{col}_Rival"
+        if opponent and rival_col in df_base.columns:
+            rows.append({
+                "Team": opponent,
+                "metric": col,
+                "label": label,
+                "valor": pd.to_numeric(df_base[rival_col], errors="coerce").mean()
+            })
+
+    df_comp = pd.DataFrame(rows)
+    if not df_comp.empty:
+        df_comp["valor"] = pd.to_numeric(df_comp["valor"], errors="coerce").fillna(0)
+    return df_comp
+
+
+# ===========================
 # FUNCIÓN DE GRÁFICO + CONCLUSIONES
 # ===========================
 
@@ -691,29 +780,11 @@ def plot_group(nombre_grupo, mapping, opponent=None):
         st.warning(f"No hay datos disponibles para: {nombre_grupo}")
         return
 
-    # Helper function to find column with flexible matching
-    def find_column(col_name):
-        """Find column in DataFrame with case-insensitive and normalized matching."""
-        if col_name in df_plot.columns:
-            return col_name
-        # Try case-insensitive
-        col_lower = col_name.lower()
-        for df_col in df_plot.columns:
-            if str(df_col).lower() == col_lower:
-                return df_col
-        # Try normalized (spaces to underscores, etc.)
-        col_normalized = col_name.replace(" ", "_").replace("%", "percent").lower()
-        for df_col in df_plot.columns:
-            df_col_normalized = str(df_col).replace(" ", "_").replace("%", "percent").lower()
-            if df_col_normalized == col_normalized:
-                return df_col
-        return None
-    
     # Find available columns using flexible matching
     columnas = []
     etiquetas = {}
     for k, v in mapping.items():
-        found_col = find_column(v)
+        found_col = find_column_in_df(df_plot, v)
         if found_col:
             columnas.append(found_col)
             etiquetas[found_col] = k
@@ -939,34 +1010,25 @@ with tab2:
     # FUNCIÓN: BARRAS VERTICALES
     # ===========================
 
-    def plot_group_vertical(nombre_grupo, mapping):
+    def plot_group_vertical(nombre_grupo, mapping, opponent=opponent_choice):
 
-        df_plot = df_filtrado.copy()
+        df_comp = build_comparison_df(mapping, prefer_wyscout=True, opponent=opponent)
 
-        columnas = [v for v in mapping.values() if v in df_plot.columns]
-        etiquetas = {v: k for k, v in mapping.items() if v in df_plot.columns}
-
-        if len(columnas) == 0:
+        if df_comp is None or df_comp.empty:
             st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
             return
 
-        df_mean = (
-            df_plot[columnas]
-            .mean()
-            .reset_index()
-            .rename(columns={"index": "metric", 0: "valor"})
-        )
-
-        df_mean["label"] = df_mean["metric"].map(etiquetas)
-        df_mean = df_mean.sort_values("valor", ascending=False)
+        df_comp = df_comp.sort_values("valor", ascending=False)
 
         fig = px.bar(
-            df_mean,
+            df_comp,
             x="label",
             y="valor",
             orientation="v",
             text_auto=".2f",
-            color_discrete_sequence=["#FF8C00"],
+            color="Team",
+            color_discrete_map=get_team_colors(df_comp["Team"].unique()),
+            barmode="group",
         )
 
         fig.update_layout(
@@ -978,72 +1040,77 @@ with tab2:
             title=dict(text=f"<b>{nombre_grupo}</b>", font=dict(size=18, color="#FF8C00")),
             title_x=0.5,
             margin=dict(l=20, r=20, t=50, b=20),
-            showlegend=False,
+            showlegend=True,
             xaxis=dict(tickangle=-35),
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
         # -------- CONCLUSIONES TÁCTICAS --------
-        max_row = df_mean.iloc[0]
-        min_row = df_mean.iloc[-1]
+        df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
+        if not df_cibao_only.empty:
+            max_row = df_cibao_only.loc[df_cibao_only["valor"].idxmax()]
+            min_row = df_cibao_only.loc[df_cibao_only["valor"].idxmin()]
 
-        conclusion = f"""
-        <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-8px; margin-bottom:25px;'>
-        <b>Conclusiones tácticas</b><br><br>
+            conclusion = f"""
+            <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-8px; margin-bottom:25px;'>
+            <b>Conclusiones tácticas</b><br><br>
 
-        • <b>Fortaleza estructural:</b> El equipo muestra mayor fiabilidad en <b>{max_row['label']}</b>, indicador de estabilidad en la fase de construcción.<br><br>
+            • <b>Fortaleza estructural:</b> El equipo muestra mayor fiabilidad en <b>{max_row['label']}</b>, indicador de estabilidad en la fase de construcción.<br><br>
 
-        • <b>Área por optimizar:</b> La métrica con menor incidencia es <b>{min_row['label']}</b>, aspecto donde aumentar la claridad puede mejorar la fluidez asociativa.<br><br>
-        </div>
-        """
+            • <b>Área por optimizar:</b> La métrica con menor incidencia es <b>{min_row['label']}</b>, aspecto donde aumentar la claridad puede mejorar la fluidez asociativa.<br><br>
+            </div>
+            """
 
-        st.markdown(conclusion, unsafe_allow_html=True)
+            st.markdown(conclusion, unsafe_allow_html=True)
 
 
     # ===========================
     # FUNCIÓN: GAUGE LINEAL (GRUPO 5)
     # ===========================
 
-    def plot_longitud_pase(mapping):
+    def plot_longitud_pase(mapping, opponent=opponent_choice):
 
-        col = list(mapping.values())[0]
-        label = list(mapping.keys())[0]
+        df_comp = build_comparison_df(mapping, prefer_wyscout=True, opponent=opponent)
 
-        if col not in df_filtrado.columns:
+        if df_comp is None or df_comp.empty:
             st.warning("No hay datos para Longitud media de pase.")
             return
 
-        value = df_filtrado[col].mean()
+        valores = df_comp.groupby("Team")["valor"].mean()
+        equipos = list(valores.index)
+        color_map = get_team_colors(equipos)
 
-        fig = go.Figure()
+        cols = st.columns(len(equipos))
+        for idx, team in enumerate(equipos):
+            val = valores.loc[team]
+            with cols[idx]:
+                fig = go.Figure()
+                fig.add_trace(go.Indicator(
+                    mode="gauge+number",
+                    value=val,
+                    title={'text': f"<b>{list(mapping.keys())[0]} — {team}</b>", 'font': {'color': color_map[team], 'size': 16}},
+                    gauge={
+                        'axis': {'range': [0, max(40, val * 1.5)]},
+                        'bar': {'color': color_map[team]},
+                        'bgcolor': "#333",
+                        'borderwidth': 1,
+                        'bordercolor': "#555",
+                    },
+                ))
 
-        fig.add_trace(go.Indicator(
-            mode="gauge+number",
-            value=value,
-            title={'text': f"<b>{label}</b>", 'font': {'color': '#FF8C00', 'size': 18}},
-            gauge={
-                'axis': {'range': [0, max(40, value * 1.5)]},
-                'bar': {'color': "#FF8C00"},
-                'bgcolor': "#333",
-                'borderwidth': 1,
-                'bordercolor': "#555",
-            },
-        ))
-
-        fig.update_layout(
-            height=220,
-            margin=dict(l=20, r=20, t=60, b=20),
-            paper_bgcolor="#111",
-            font=dict(color="#D3D3D3")
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
+                fig.update_layout(
+                    height=220,
+                    margin=dict(l=20, r=20, t=60, b=20),
+                    paper_bgcolor="#111",
+                    font=dict(color="#D3D3D3")
+                )
+                st.plotly_chart(fig, use_container_width=True)
 
         st.markdown(f"""
         <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
         <b>Conclusión táctica</b><br><br>
-        • La <b>longitud media de pase ({value:.2f} m)</b> describe el perfil del equipo en cuanto a riesgo y distancia de circulación. 
+        • La <b>longitud media de pase</b> describe el perfil del equipo en cuanto a riesgo y distancia de circulación. 
           Este valor sirve como referencia para calibrar la intención de progresar por combinación o por envío largo.
         </div>
         """, unsafe_allow_html=True)
@@ -1130,28 +1197,25 @@ with tab3:
     # ============================================================
 
     # --- BARRAS HORIZONTALES ---
-    def plot_horizontal(nombre, mapping):
+    def plot_horizontal(nombre, mapping, opponent=opponent_choice):
 
-        dfp = df_filtrado.copy()
-        cols = [v for v in mapping.values() if v in dfp.columns]
-        labels = {v: k for k, v in mapping.items() if v in dfp.columns}
+        df_comp = build_comparison_df(mapping, prefer_wyscout=True, opponent=opponent)
 
-        if not cols:
+        if df_comp is None or df_comp.empty:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        df_mean = dfp[cols].mean().reset_index()
-        df_mean.columns = ["metric", "valor"]
-        df_mean["label"] = df_mean["metric"].map(labels)
-        df_mean = df_mean.sort_values("valor", ascending=True)
+        df_comp = df_comp.sort_values("valor", ascending=True)
 
         fig = px.bar(
-            df_mean,
+            df_comp,
             x="valor",
             y="label",
             orientation="h",
             text_auto=".2f",
-            color_discrete_sequence=[CIBAO_ORANGE],
+            color="Team",
+            color_discrete_map=get_team_colors(df_comp["Team"].unique()),
+            barmode="group",
         )
 
         fig.update_layout(
@@ -1162,45 +1226,44 @@ with tab3:
             title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color=CIBAO_ORANGE)),
             margin=dict(l=30, r=20, t=50, b=20),
             font=dict(color=CIBAO_GRAY),
-            showlegend=False
+            showlegend=True
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
-        max_row = df_mean.iloc[-1]
-        min_row = df_mean.iloc[0]
+        df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
+        if not df_cibao_only.empty:
+            max_row = df_cibao_only.loc[df_cibao_only["valor"].idxmax()]
+            min_row = df_cibao_only.loc[df_cibao_only["valor"].idxmin()]
 
-        st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
-                    margin-top:-8px;margin-bottom:25px;'>
-        <b>Conclusiones tácticas</b><br><br>
-        • <b>Comportamiento destacado:</b> Mayor solvencia en <b>{max_row['label']}</b>.<br><br>
-        • <b>Aspecto mejorable:</b> Valor más bajo en <b>{min_row['label']}</b>.
-        </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px;margin-bottom:25px;'>
+            <b>Conclusiones tácticas</b><br><br>
+            • <b>Comportamiento destacado:</b> Mayor solvencia en <b>{max_row['label']}</b>.<br><br>
+            • <b>Aspecto mejorable:</b> Valor más bajo en <b>{min_row['label']}</b>.
+            </div>
+            """, unsafe_allow_html=True)
 
     # --- BARRAS VERTICALES ---
-    def plot_vertical(nombre, mapping):
+    def plot_vertical(nombre, mapping, opponent=opponent_choice):
 
-        dfp = df_filtrado.copy()
-        cols = [v for v in mapping.values() if v in dfp.columns]
-        labels = {v: k for k, v in mapping.items() if v in dfp.columns}
+        df_comp = build_comparison_df(mapping, prefer_wyscout=True, opponent=opponent)
 
-        if not cols:
+        if df_comp is None or df_comp.empty:
             st.warning(f"No hay datos para {nombre}")
             return
 
-        df_mean = dfp[cols].mean().reset_index()
-        df_mean.columns = ["metric", "valor"]
-        df_mean["label"] = df_mean["metric"].map(labels)
-        df_mean = df_mean.sort_values("valor", ascending=False)
+        df_comp = df_comp.sort_values("valor", ascending=False)
 
         fig = px.bar(
-            df_mean,
+            df_comp,
             x="label",
             y="valor",
             text_auto=".2f",
-            color_discrete_sequence=[CIBAO_ORANGE],
+            color="Team",
+            color_discrete_map=get_team_colors(df_comp["Team"].unique()),
+            barmode="group",
         )
 
         fig.update_layout(
@@ -1212,65 +1275,71 @@ with tab3:
             margin=dict(l=20, r=20, t=50, b=20),
             font=dict(color=CIBAO_GRAY),
             xaxis=dict(tickangle=-30),
-            showlegend=False
+            showlegend=True
         )
 
         st.plotly_chart(fig, use_container_width=True)
 
-        max_row = df_mean.iloc[0]
-        min_row = df_mean.iloc[-1]
+        df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
+        if not df_cibao_only.empty:
+            max_row = df_cibao_only.loc[df_cibao_only["valor"].idxmax()]
+            min_row = df_cibao_only.loc[df_cibao_only["valor"].idxmin()]
 
-        st.markdown(f"""
-        <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
-                    margin-top:-8px;margin-bottom:25px;'>
-        <b>Conclusiones tácticas</b><br><br>
-        • <b>Mayor influencia:</b> <b>{max_row['label']}</b>.<br><br>
-        • <b>Zona con margen de mejora:</b> <b>{min_row['label']}</b>.
-        </div>
-        """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px;margin-bottom:25px;'>
+            <b>Conclusiones tácticas</b><br><br>
+            • <b>Mayor influencia:</b> <b>{max_row['label']}</b>.<br><br>
+            • <b>Zona con margen de mejora:</b> <b>{min_row['label']}</b>.
+            </div>
+            """, unsafe_allow_html=True)
 
     # --- GAUGE LINEAL (UNIFICADO) ---
-    def plot_gauge(mapping):
+    def plot_gauge(mapping, opponent=opponent_choice):
 
-        col = list(mapping.values())[0]
-        label = list(mapping.keys())[0]
+        df_comp = build_comparison_df(mapping, prefer_wyscout=True, opponent=opponent)
 
-        if col not in df_filtrado.columns:
+        if df_comp is None or df_comp.empty:
             st.warning("No hay datos disponibles.")
             return
 
-        value = df_filtrado[col].mean()
+        valores = df_comp.groupby("Team")["valor"].mean()
+        equipos = list(valores.index)
+        color_map = get_team_colors(equipos)
 
-        max_rango = max(40, value * 1.8)  # rango uniforme
+        cols = st.columns(len(equipos))
+        for idx, team in enumerate(equipos):
+            val = valores.loc[team]
+            with cols[idx]:
+                max_rango = max(40, val * 1.8)
+                fig = go.Figure(go.Indicator(
+                    mode="gauge+number",
+                    value=val,
+                    title={'text': f"<b>{list(mapping.keys())[0]} — {team}</b>", 'font': {'color': color_map[team], 'size': 16}},
+                    gauge={
+                        'axis': {'range': [0, max_rango]},
+                        'bar': {'color': color_map[team]},
+                        'bgcolor': "#333",
+                        'borderwidth': 1,
+                        'bordercolor': "#555",
+                    }
+                ))
 
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=value,
-            title={'text': f"<b>{label}</b>", 'font': {'color': CIBAO_ORANGE, 'size': 18}},
-            gauge={
-                'axis': {'range': [0, max_rango]},
-                'bar': {'color': CIBAO_ORANGE},
-                'bgcolor': "#333",
-                'borderwidth': 1,
-                'bordercolor': "#555",
-            }
-        ))
+                fig.update_layout(
+                    paper_bgcolor=CIBAO_BLACK,
+                    plot_bgcolor=CIBAO_BLACK,
+                    height=260,
+                    margin=dict(l=20, r=20, t=60, b=20),
+                    font=dict(color=CIBAO_GRAY)
+                )
 
-        fig.update_layout(
-            paper_bgcolor=CIBAO_BLACK,
-            plot_bgcolor=CIBAO_BLACK,
-            height=260,  # unificado
-            margin=dict(l=20, r=20, t=60, b=20),
-            font=dict(color=CIBAO_GRAY)
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True)
 
         st.markdown(f"""
         <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
                     margin-top:-5px;margin-bottom:25px;'>
         <b>Conclusión táctica</b><br><br>
-        • La <b>distancia media de disparo ({value:.1f} m)</b> indica la capacidad del equipo para limitar
+        • La <b>distancia media de disparo</b> indica la capacidad del equipo para limitar
           la calidad de las ocasiones rivales.
         </div>
         """, unsafe_allow_html=True)
@@ -1345,93 +1414,91 @@ with tab4:
     # FUNCIÓN DEL HEATMAP (COLORES FIJOS POR RANKING)
     # ===========================
 
-    def plot_heatmap(nombre_grupo, mapping):
+    def plot_heatmap(nombre_grupo, mapping, opponent=opponent_choice):
 
-        dfp = df_filtrado.copy()
+        df_comp = build_comparison_df(mapping, prefer_wyscout=True, opponent=opponent)
 
-        cols = [v for v in mapping.values() if v in dfp.columns]
-        labels = [k for k, v in mapping.items() if v in dfp.columns]
-
-        if len(cols) == 0:
+        if df_comp is None or df_comp.empty:
             st.warning(f"No hay datos disponibles para: {nombre_grupo}")
             return
 
-        # --- Datos reales
-        series_real = dfp[cols].mean().fillna(0)
+        pivot = df_comp.pivot(index="Team", columns="label", values="valor")
+        if pivot.empty:
+            st.warning(f"No hay datos disponibles para: {nombre_grupo}")
+            return
 
-        # --- Ranking → convierte valores a 0,1,2 (bajo–medio–alto)
-        rank = series_real.rank(method="dense") - 1
-        rank = rank.astype(int)
+        for idx, (team, row) in enumerate(pivot.iterrows()):
+            series_real = row.fillna(0)
+            labels = list(series_real.index)
 
-        # Convertimos ranking a matriz 1×N
-        z_vals = rank.to_numpy().reshape(1, -1)
+            rank = series_real.rank(method="dense") - 1
+            rank = rank.astype(int)
+            z_vals = rank.to_numpy().reshape(1, -1)
 
-        # --- HEATMAP
-        fig = go.Figure(
-            data=go.Heatmap(
-                z=z_vals,
-                x=labels,
-                y=[""],
-                colorscale=HEATMAP_COLORSCALE,
-                showscale=True,
-                colorbar=dict(
-                    thickness=10,
-                    tickvals=[0, 1, 2],
-                    ticktext=["Bajo", "Medio", "Alto"],
-                    bgcolor="#111",
-                    tickfont=dict(color=CIBAO_GRAY)
-                )
-            )
-        )
-
-        # --- Texto dentro de las celdas (valores reales)
-        annotations = []
-        for j, label in enumerate(labels):
-            annotations.append(
-                dict(
-                    x=label,
-                    y="",
-                    text=f"{series_real.iloc[j]:.2f}",
-                    font=dict(color="white", size=13),
-                    showarrow=False
+            fig = go.Figure(
+                data=go.Heatmap(
+                    z=z_vals,
+                    x=labels,
+                    y=[""],
+                    colorscale=HEATMAP_COLORSCALE,
+                    showscale=True,
+                    colorbar=dict(
+                        thickness=10,
+                        tickvals=[0, 1, 2],
+                        ticktext=["Bajo", "Medio", "Alto"],
+                        bgcolor="#111",
+                        tickfont=dict(color=CIBAO_GRAY)
+                    )
                 )
             )
 
-        fig.update_layout(
-            annotations=annotations,
-            height=280,
-            template="plotly_dark",
-            title=dict(
-                text=f"<b>{nombre_grupo}</b>",
-                font=dict(size=18, color=CIBAO_ORANGE)
-            ),
-            title_x=0.5,
-            paper_bgcolor="#111",
-            plot_bgcolor="#111",
-            margin=dict(l=20, r=20, t=50, b=20)
-        )
+            annotations = []
+            for j, label in enumerate(labels):
+                annotations.append(
+                    dict(
+                        x=label,
+                        y="",
+                        text=f"{series_real.iloc[j]:.2f}",
+                        font=dict(color="white", size=13),
+                        showarrow=False
+                    )
+                )
 
-        st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(
+                annotations=annotations,
+                height=280,
+                template="plotly_dark",
+                title=dict(
+                    text=f"<b>{nombre_grupo} — {team}</b>",
+                    font=dict(size=18, color=CIBAO_ORANGE)
+                ),
+                title_x=0.5,
+                paper_bgcolor="#111",
+                plot_bgcolor="#111",
+                margin=dict(l=20, r=20, t=50, b=20)
+            )
 
-        # --- CONCLUSIONES TÁCTICAS ---
-        max_m = series_real.idxmax()
-        min_m = series_real.idxmin()
+            st.plotly_chart(fig, use_container_width=True)
 
-        c1 = [k for k, v in mapping.items() if v == max_m][0]
-        c2 = [k for k, v in mapping.items() if v == min_m][0]
+            # --- CONCLUSIONES TÁCTICAS ---
+            max_m = series_real.idxmax()
+            min_m = series_real.idxmin()
 
-        st.markdown(f"""
-        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                    margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
+            c1 = max_m
+            c2 = min_m
 
-        <b>Conclusiones tácticas</b><br><br>
+            st.markdown(f"""
+            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px; margin-bottom:25px; border-radius:6px;'>
 
-        • <b>Zona de mayor incidencia:</b> mayor actividad en <b>{c1}</b>.<br><br>
+            <b>Conclusiones tácticas — {team}</b><br><br>
 
-        • <b>Zona con menor actividad:</b> menor intervención en <b>{c2}</b>.<br><br>
+            • <b>Zona de mayor incidencia:</b> mayor actividad en <b>{c1}</b>.<br><br>
 
-        </div>
-        """, unsafe_allow_html=True)
+            • <b>Zona con menor actividad:</b> menor intervención en <b>{c2}</b>.<br><br>
+
+            </div>
+            """, unsafe_allow_html=True)
 
 
     # ===========================
@@ -1646,348 +1713,3 @@ with tab5:
             y en cuáles existe margen para ajustar comportamientos.
         </div>
         """, unsafe_allow_html=True)
-        
-        # ===========================================
-# EXPORTACIÓN A PDF (fpdf2 + kaleido, sin HTML)
-# ===========================================
-import tempfile
-import requests
-from fpdf import FPDF
-from datetime import datetime
-
-# Valor del checkbox (fallback a True)
-mostrar_promedio_liga = st.session_state.get("mostrar_promedio_liga", True)
-
-# ---------- Logo helper ----------
-def descargar_logo():
-    url = "https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png"
-    try:
-        r = requests.get(url, timeout=10)
-        if r.status_code == 200:
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-            tmp.write(r.content)
-            tmp.close()
-            return tmp.name
-    except Exception:
-        pass
-    return None
-
-# ---------- Captura plotly -> PNG bytes ----------
-def plotly_to_png(fig, width=1600, height=900, scale=2):
-    try:
-        return pio.to_image(fig, format="png", width=width, height=height, scale=scale)
-    except Exception as e:
-        st.warning(f"No se pudo capturar un gráfico: {e}")
-        return None
-
-# ---------- Conclusiones automáticas ----------
-def generar_conclusiones(df_cibao, df_liga):
-    metricas = {
-        "xg": "Goles Esperados (xG)",
-        "possession_percent": "Posesión (%)",
-        "passes_accurate_percent": "Precisión de Pase (%)",
-        "shots_on_target_percent": "Disparos a Puerta (%)",
-        "duels_won_percent": "Duelos Ganados (%)",
-        "interceptions": "Intercepciones p90",
-    }
-    fort, deb = [], []
-    if df_liga.empty:
-        return {"fortalezas": fort, "debilidades": deb}
-    liga_sin = df_liga[df_liga["Team"].str.lower() != "cibao"].copy()
-    for col, nombre in metricas.items():
-        if col not in df_cibao.columns or col not in liga_sin.columns:
-            continue
-        v_c = pd.to_numeric(df_cibao[col], errors="coerce").mean()
-        v_l = pd.to_numeric(liga_sin[col], errors="coerce").mean()
-        if pd.isna(v_c) or pd.isna(v_l) or v_l == 0:
-            continue
-        dif = (v_c - v_l) / v_l * 100
-        item = {"metrica": nombre, "cibao": v_c, "liga": v_l, "dif": dif}
-        if dif >= 10:
-            fort.append(item)
-        elif dif <= -10:
-            deb.append(item)
-    fort = sorted(fort, key=lambda x: x["dif"], reverse=True)[:3]
-    deb = sorted(deb, key=lambda x: x["dif"])[:3]
-    return {"fortalezas": fort, "debilidades": deb}
-
-# ---------- Funciones para recrear gráficos ----------
-def grafico_barras_pdf(nombre, mapping, df_filtrado, df_liga, mostrar_promedio, orient="h"):
-    cols = [v for v in mapping.values() if v in df_filtrado.columns]
-    if not cols:
-        return None
-    etiquetas = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
-    data = []
-    means_c = df_filtrado[cols].mean()
-    for c in cols:
-        data.append({"label": etiquetas[c], "Equipo": "Cibao FC", "valor": means_c[c]})
-    if mostrar_promedio and not df_liga.empty:
-        liga_sin = df_liga[df_liga["Team"].str.lower() != "cibao"].copy()
-        for c in cols:
-            if c in liga_sin.columns:
-                v = pd.to_numeric(liga_sin[c], errors="coerce").mean()
-                data.append({"label": etiquetas[c], "Equipo": "Promedio Liga", "valor": v if not pd.isna(v) else 0})
-    dfp = pd.DataFrame(data)
-    color_map = {"Cibao FC": "#FF8C00", "Promedio Liga": "#FFC966"}
-    if orient == "h":
-        fig = px.bar(dfp, x="valor", y="label", color="Equipo", orientation="h",
-                     text_auto=".2f", color_discrete_map=color_map, barmode="group",
-                     title=nombre)
-    else:
-        fig = px.bar(dfp, x="label", y="valor", color="Equipo",
-                     text_auto=".2f", color_discrete_map=color_map, barmode="group",
-                     title=nombre)
-    fig.update_layout(template="plotly_dark", plot_bgcolor="#111", paper_bgcolor="#111",
-                      font=dict(color="#D3D3D3", size=14),
-                      title=dict(font=dict(size=20, color="#FF8C00")))
-    return fig
-
-def gauge_pdf(mapping, df_filtrado, df_liga, mostrar_promedio):
-    col = list(mapping.values())[0]
-    label = list(mapping.keys())[0]
-    if col not in df_filtrado.columns:
-        return None
-    v_c = df_filtrado[col].mean()
-    v_l = None
-    if mostrar_promedio and not df_liga.empty and col in df_liga.columns:
-        liga_sin = df_liga[df_liga["Team"].str.lower() != "cibao"].copy()
-        v_l = pd.to_numeric(liga_sin[col], errors="coerce").mean()
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=v_c,
-        title={'text': f"<b>{label}</b>", 'font': {'color': '#FF8C00', 'size': 20}},
-        number={'font': {'color': '#FF8C00', 'size': 42}},
-        gauge={
-            'axis': {'range': [0, max(1, v_c * 1.5, 40)]},
-            'bar': {'color': "#FF8C00"},
-            'bgcolor': "#333",
-            'threshold': {
-                'line': {'color': "#FFC966", 'width': 3},
-                'thickness': 0.8,
-                'value': v_l if v_l and not pd.isna(v_l) else 0
-            } if v_l and not pd.isna(v_l) else None
-        },
-    ))
-    fig.update_layout(paper_bgcolor="#111", font=dict(color="#D3D3D3"))
-    return fig
-
-def heatmap_pdf(nombre, mapping, df_filtrado):
-    cols = [v for v in mapping.values() if v in df_filtrado.columns]
-    labels = [k for k, v in mapping.items() if v in df_filtrado.columns]
-    if not cols:
-        return None
-    serie = df_filtrado[cols].mean().fillna(0)
-    rank = serie.rank(method="dense") - 1
-    z = rank.astype(int).to_numpy().reshape(1, -1)
-    colorscale = [
-        [0.0, "#2a2a2a"],
-        [0.5, "#ff7b00"],
-        [1.0, "#ffae42"]
-    ]
-    fig = go.Figure(go.Heatmap(z=z, x=labels, y=[""], colorscale=colorscale, showscale=True,
-                               colorbar=dict(tickvals=[0,1,2], ticktext=["Bajo","Medio","Alto"])))
-    ann = []
-    for j, lbl in enumerate(labels):
-        ann.append(dict(x=lbl, y="", text=f"{serie.iloc[j]:.2f}", font=dict(color="white", size=14), showarrow=False))
-    fig.update_layout(annotations=ann, template="plotly_dark",
-                      title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color="#FF8C00")),
-                      paper_bgcolor="#111", plot_bgcolor="#111")
-    return fig
-
-# ---------- PDF principal ----------
-def generar_pdf(df_filtrado, df_liga_mayor, partidos_sel, fig_comp, figs_tabs):
-    pdf = FPDF(orientation="L", unit="mm", format="A4")
-    # Portada
-    pdf.add_page()
-    pdf.set_fill_color(17,17,17); pdf.rect(0,0,297,210,"F")
-    logo = descargar_logo()
-    if logo:
-        try: pdf.image(logo, x=115, y=25, w=60)
-        except: pass
-    pdf.set_y(95); pdf.set_font("Helvetica","B",28); pdf.set_text_color(255,140,0)
-    pdf.cell(0,12,"REPORTE DE RENDIMIENTO COLECTIVO",0,1,"C")
-    pdf.set_font("Helvetica","B",16); pdf.set_text_color(220,220,220)
-    pdf.cell(0,9,"Liga Dominicana - Temporada 2024/2025",0,1,"C"); pdf.ln(6)
-    pdf.set_font("Helvetica","",12); pdf.set_text_color(190,190,190)
-    fecha = datetime.now().strftime("%d/%m/%Y - %H:%M")
-    pdf.cell(0,7,f"Fecha de generacion: {fecha}",0,1,"C")
-    if partidos_sel:
-        txt = ", ".join(partidos_sel[:3]) + ("..." if len(partidos_sel)>3 else "")
-        pdf.cell(0,7,f"Partidos analizados: {txt}",0,1,"C")
-    pdf.set_y(165); pdf.set_draw_color(255,140,0); pdf.set_line_width(1); pdf.line(50,165,247,165)
-    pdf.set_y(178); pdf.set_font("Helvetica","I",10); pdf.set_text_color(160,160,160)
-    pdf.cell(0,6,"Analisis tactico y estadistico avanzado",0,1,"C")
-    pdf.cell(0,6,"Departamento de Analisis - Cibao FC",0,1,"C")
-
-    # Resumen ejecutivo
-    pdf.add_page()
-    pdf.set_font("Helvetica","B",18); pdf.set_text_color(255,140,0)
-    pdf.cell(0,10,"RESUMEN EJECUTIVO",0,1,"C"); pdf.ln(4)
-    concl = generar_conclusiones(df_filtrado, df_liga_mayor)
-    pdf.set_font("Helvetica","B",14); pdf.set_text_color(100,220,100)
-    pdf.cell(0,9,"FORTALEZAS PRINCIPALES",0,1,"L"); pdf.ln(2)
-    pdf.set_font("Helvetica","",11); pdf.set_text_color(220,220,220)
-    if concl["fortalezas"]:
-        for it in concl["fortalezas"]:
-            pdf.set_x(12); pdf.set_text_color(255,140,0); pdf.cell(5,7,chr(149),0,0,"L")
-            pdf.set_text_color(220,220,220)
-            pdf.cell(0,7,f"{it['metrica']}: Cibao {it['cibao']:.2f} vs Liga {it['liga']:.2f} (+{it['dif']:.1f}%)",0,1,"L")
-    else:
-        pdf.set_x(12); pdf.cell(0,7,"Rendimiento equilibrado respecto al promedio de liga",0,1,"L")
-    pdf.ln(6)
-    pdf.set_font("Helvetica","B",14); pdf.set_text_color(255,120,120)
-    pdf.cell(0,9,"AREAS DE MEJORA",0,1,"L"); pdf.ln(2)
-    pdf.set_font("Helvetica","",11); pdf.set_text_color(220,220,220)
-    if concl["debilidades"]:
-        for it in concl["debilidades"]:
-            pdf.set_x(12); pdf.set_text_color(255,140,0); pdf.cell(5,7,chr(149),0,0,"L")
-            pdf.set_text_color(220,220,220)
-            pdf.cell(0,7,f"{it['metrica']}: Cibao {it['cibao']:.2f} vs Liga {it['liga']:.2f} ({it['dif']:.1f}%)",0,1,"L")
-    else:
-        pdf.set_x(12); pdf.cell(0,7,"No se identificaron areas significativas de mejora",0,1,"L")
-    pdf.set_draw_color(255,140,0); pdf.set_line_width(0.4); pdf.rect(10,28,277,150)
-
-    # Comparativa
-    if fig_comp:
-        pdf.add_page()
-        pdf.set_font("Helvetica","B",16); pdf.set_text_color(255,140,0)
-        pdf.cell(0,10,"COMPARATIVA: CIBAO FC VS RIVAL",0,1,"C"); pdf.ln(3)
-        img = plotly_to_png(fig_comp, width=2000, height=1200)
-        if img:
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png"); tmp.write(img); tmp.close()
-            try: pdf.image(tmp.name, x=15, y=38, w=265)
-            except: pass
-
-    # Secciones
-    secciones = [
-        ("EFICIENCIA Y ATAQUE", "eficiencia_ataque"),
-        ("CONSTRUCCION Y PASES", "construccion_pases"),
-        ("DEFENSA Y EFICIENCIA", "defensa"),
-        ("DISTRIBUCION TACTICA", "tactica"),
-    ]
-    for titulo, key in secciones:
-        figs = figs_tabs.get(key, [])
-        if not figs:
-            continue
-        pdf.add_page()
-        pdf.set_font("Helvetica","B",18); pdf.set_text_color(255,140,0)
-        pdf.cell(0,10,titulo,0,1,"C"); pdf.ln(2)
-        y = 35; per_page = 2; count = 0
-        for fig in figs:
-            if count > 0 and count % per_page == 0:
-                pdf.add_page()
-                pdf.set_font("Helvetica","B",14); pdf.set_text_color(255,140,0)
-                pdf.cell(0,8,f"{titulo} (continuacion)",0,1,"C"); pdf.ln(2)
-                y = 35
-            img = plotly_to_png(fig, width=2000, height=1100)
-            if img:
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png"); tmp.write(img); tmp.close()
-                try: pdf.image(tmp.name, x=15, y=y, w=265, h=80); y += 90
-                except: pass
-            else:
-                pdf.set_y(y); pdf.set_font("Helvetica","I",10); pdf.set_text_color(180,180,180)
-                pdf.cell(0,8,"[Grafico no disponible]",0,1,"C"); y += 20
-            count += 1
-
-    # Final
-    pdf.add_page()
-    pdf.set_y(90); pdf.set_font("Helvetica","B",22); pdf.set_text_color(255,140,0)
-    pdf.cell(0,12,"CIBAO FC",0,1,"C")
-    pdf.set_font("Helvetica","I",11); pdf.set_text_color(180,180,180)
-    pdf.cell(0,7,"Departamento de Analisis y Rendimiento",0,1,"C")
-    pdf.cell(0,7,"www.cibaofc.com",0,1,"C")
-
-    return pdf.output(dest="S").encode("latin-1")
-
-# ---------- UI ----------
-st.markdown("<hr style='margin:40px 0; border-color:#ff8c00;'>", unsafe_allow_html=True)
-st.markdown("""
-<h2 style='color:#ff8c00; text-align:center; margin-top:12px;'>
-    📄 Exportar Reporte Completo en PDF
-</h2>
-<p style='text-align:center; color:#ccc; font-size:15px;'>
-    Reporte profesional con todas las métricas, gráficos y conclusiones.
-</p>
-""", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
-
-# Valores seguros para el PDF
-mostrar_promedio_liga = st.session_state.get("mostrar_promedio_liga", True)
-partidos_seleccionados = st.session_state.get(
-    "sidebar_partidos_combinados",
-    st.session_state.get("global_partidos", [])
-)
-
-c1, c2, c3 = st.columns([1,1,1])
-with c2:
-    if st.button("🚀 GENERAR REPORTE PDF", use_container_width=True, type="primary"):
-        with st.spinner("Generando reporte... puede tardar 30-60 segundos ⏳"):
-            try:
-                # Comparativa (si hay rival)
-                fig_comp_pdf = None
-                if not df_liga_mayor.empty and 'opponent_choice' in locals():
-                    try:
-                        fig_comp_pdf, _, _ = make_team_scatter(
-                            df_liga_mayor,
-                            primary_team="Cibao",
-                            opponent=opponent_choice,
-                            x_metric=METRIC_OPTIONS.get(x_choice),
-                            y_metric=METRIC_OPTIONS.get(y_choice),
-                            x_label=x_choice,
-                            y_label=y_choice,
-                            title=f"Liga Mayor — {x_choice} vs {y_choice}",
-                            filters={"Competition": lambda s: s.str.contains("Liga", case=False, na=False)},
-                        )
-                    except Exception as e:
-                        st.warning(f"No se pudo recrear la comparativa: {e}")
-
-                figs_dict = {
-                    "eficiencia_ataque": [],
-                    "construccion_pases": [],
-                    "defensa": [],
-                    "tactica": [],
-                }
-
-                # Tab 1
-                for nombre_grupo, mapping in grupos.items():
-                    fig = grafico_barras_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga, orient="h")
-                    if fig: figs_dict["eficiencia_ataque"].append(fig)
-
-                # Tab 2
-                for nombre_grupo, mapping in grupos_pases.items():
-                    if nombre_grupo == "Longitud media de pase":
-                        fig = gauge_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga)
-                    else:
-                        fig = grafico_barras_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga,
-                                                 orient="v")
-                    if fig: figs_dict["construccion_pases"].append(fig)
-
-                # Tab 3
-                for nombre_grupo, mapping in grupos_def.items():
-                    if nombre_grupo == "Distancia media de disparo":
-                        fig = gauge_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga)
-                    else:
-                        fig = grafico_barras_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga,
-                                                 orient="h")
-                    if fig: figs_dict["defensa"].append(fig)
-
-                # Tab 4
-                for nombre_grupo, mapping in grupos_tacticos.items():
-                    fig = heatmap_pdf(nombre_grupo, mapping, df_filtrado)
-                    if fig: figs_dict["tactica"].append(fig)
-
-                pdf_bytes = generar_pdf(df_filtrado, df_liga_mayor, partidos_seleccionados, fig_comp_pdf, figs_dict)
-                nombre = f"Cibao_FC_Rendimiento_Colectivo_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
-
-                st.success("✅ ¡Reporte generado!")
-                st.download_button(
-                    label="📥 DESCARGAR PDF",
-                    data=pdf_bytes,
-                    file_name=nombre,
-                    mime="application/pdf",
-                    use_container_width=True,
-                    type="primary"
-                )
-            except Exception as e:
-                st.error(f"❌ Error generando el reporte: {e}")
-                st.exception(e)
