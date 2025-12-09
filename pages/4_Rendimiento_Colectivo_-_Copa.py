@@ -13,6 +13,7 @@ from graficos_de_navaja_suiza import make_team_scatter
 CIBAO_ORANGE = "#FF8C00"  # Naranja vibrante principal
 CIBAO_ORANGE_LIGHT = "#FFC966"  # Naranja dorado/ámbar claro para rivales (mayor contraste)
 CIBAO_GRAY = "#D3D3D3"
+WHITE_RIVAL = "#FFFFFF"
 
 st.set_page_config(
     page_title="Rendimiento Colectivo - Copa",
@@ -281,10 +282,11 @@ team_options_copa = sorted(
     }
 )
 
+opponent_copa = None
 if not team_options_copa:
     st.info("No hay rivales disponibles en el dataset de Copa Concacaf.")
 else:
-    opponent_copa = col_sel1.selectbox("Selecciona rival de Copa", team_options_copa)
+    opponent_copa = col_sel1.selectbox("Selecciona rival de Copa", team_options_copa, index=0)
 
     metric_labels_copa = list(METRICS_CONCACAF.keys())
     x_default_copa = metric_labels_copa.index("Goles") if "Goles" in metric_labels_copa else 0
@@ -404,6 +406,84 @@ def _map_metrics(names):
         if col:
             cols.append(col)
     return cols
+
+
+# ===========================
+# HELPERS DE COMPARACIÓN (Copa)
+# ===========================
+
+def normalize_team(name: str) -> str:
+    name = str(name or "").strip()
+    if name.lower().startswith("cibao"):
+        return "Cibao"
+    return name
+
+
+def find_column_in_df(df: pd.DataFrame, col_name: str):
+    """Find column in df with case-insensitive and normalized matching."""
+    if col_name in df.columns:
+        return col_name
+    col_lower = str(col_name).lower()
+    for df_col in df.columns:
+        if str(df_col).lower() == col_lower:
+            return df_col
+    col_normalized = str(col_name).replace(" ", "_").replace("%", "percent").lower()
+    for df_col in df.columns:
+        df_col_normalized = str(df_col).replace(" ", "_").replace("%", "percent").lower()
+        if df_col_normalized == col_normalized:
+            return df_col
+    return None
+
+
+def get_team_colors(teams):
+    return {
+        team: CIBAO_ORANGE if normalize_team(team) == "Cibao" else WHITE_RIVAL
+        for team in teams
+    }
+
+
+def build_comparison_df_copa(mapping: dict, opponent: str | None):
+    """Devuelve df con columnas ['Team','metric','valor','label'] comparando Cibao vs rival elegido."""
+    if df_copa_cibao.empty:
+        return pd.DataFrame()
+
+    df = df_copa_cibao.copy()
+    df["Team"] = df["team"].apply(normalize_team)
+
+    teams_to_include = ["Cibao"]
+    if opponent:
+        teams_to_include.append(normalize_team(opponent))
+
+    df = df[df["Team"].isin(teams_to_include)]
+    if df.empty:
+        return pd.DataFrame()
+
+    columnas = []
+    etiquetas = {}
+    for label, col in mapping.items():
+        found_col = find_column_in_df(df, col)
+        if found_col:
+            columnas.append(found_col)
+            etiquetas[found_col] = label
+
+    if not columnas:
+        return pd.DataFrame()
+
+    for col in columnas:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df_means = df.groupby("Team")[columnas].mean().reset_index()
+    df_means["Team"] = df_means["Team"].apply(normalize_team)
+
+    df_melted = df_means.melt(
+        id_vars=["Team"],
+        value_vars=columnas,
+        var_name="metric",
+        value_name="valor",
+    )
+    df_melted["label"] = df_melted["metric"].map(etiquetas)
+    df_melted["valor"] = pd.to_numeric(df_melted["valor"], errors="coerce").fillna(0)
+    return df_melted
 # =========================================================
 # 🔶 PESTAÑAS DE ANÁLISIS ESPECÍFICO — COPA
 # =========================================================
@@ -432,44 +512,23 @@ def plot_horizontal_group(group_title, mapping_pairs):
         st.warning(f"No hay datos para {group_title}.")
         return
 
-    df_block = df_copa_cibao.copy()
-    cols = [col for _, col in mapping_pairs]
-    for col in cols:
-        df_block[col] = pd.to_numeric(df_block[col], errors="coerce").fillna(0)
+    mapping = {label: col for label, col in mapping_pairs}
+    df_comp = build_comparison_df_copa(mapping, opponent_copa)
 
-    # Calcular promedio solo de Cibao
-    df_cibao_only = df_block[df_block["team"].str.contains("Cibao", case=False, na=False)]
-    mean_vals = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
+    if df_comp is None or df_comp.empty:
+        st.warning(f"No hay datos disponibles para {group_title}.")
+        return
 
-    # Calcular promedio de rivales (equipos que NO son Cibao)
-    df_rivales = df_block[~df_block["team"].str.contains("Cibao", case=False, na=False)]
-    rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
+    df_comp = df_comp.sort_values("valor", ascending=True)
 
-    df_plot = (
-        pd.DataFrame(
-            {
-                "label": [label for label, col in mapping_pairs],
-                "valor": [mean_vals[col] for _, col in mapping_pairs],
-                "rival_avg": [rival_means[col] for _, col in mapping_pairs],
-            }
-        )
-        .sort_values("valor", ascending=True)
-        .reset_index(drop=True)
-    )
-
-    # Preparar datos para gráfico de barras agrupadas
-    df_plot_melted = df_plot.melt(id_vars=['label'], value_vars=['valor', 'rival_avg'], 
-                                   var_name='Equipo', value_name='Valor')
-    df_plot_melted['Equipo'] = df_plot_melted['Equipo'].map({'valor': 'Cibao FC', 'rival_avg': 'Promedio Rivales'})
-    
     fig = px.bar(
-        df_plot_melted,
-        x="Valor",
+        df_comp,
+        x="valor",
         y="label",
-        color="Equipo",
+        color="Team",
         text_auto=".2f",
         orientation="h",
-        color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFFFFF"},
+        color_discrete_map=get_team_colors(df_comp["Team"].unique()),
         barmode="group",
         height=350,
     )
@@ -495,20 +554,21 @@ def plot_horizontal_group(group_title, mapping_pairs):
 
     st.plotly_chart(fig, use_container_width=True)
 
-    # Conclusiones basadas en Cibao únicamente
-    max_row = df_plot.iloc[-1]
-    min_row = df_plot.iloc[0]
-    st.markdown(
-        f"""
-        <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                    margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
-            <b>Conclusiones tácticas</b><br><br>
-            • <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Rivales: {max_row['rival_avg']:.2f}).<br>
-            • <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Rivales: {min_row['rival_avg']:.2f}).<br>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
+    if not df_cibao_only.empty:
+        max_row = df_cibao_only.loc[df_cibao_only["valor"].idxmax()]
+        min_row = df_cibao_only.loc[df_cibao_only["valor"].idxmin()]
+        st.markdown(
+            f"""
+            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                        margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
+                <b>Conclusiones tácticas</b><br><br>
+                • <b>Punto fuerte:</b> mayor incidencia en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                • <b>Área a potenciar:</b> menor impacto en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 with tab_ofensivo:
     st.markdown(
@@ -565,80 +625,63 @@ with tab_pases:
     pares = _dedup_pairs(pases_grupo)
 
     if pares:
-        cols = [col for _, col in pares]
-        df_p = df_copa_cibao.copy()
-        for col in cols:
-            df_p[col] = pd.to_numeric(df_p[col], errors="coerce").fillna(0)
+        mapping = {label: col for label, col in pares}
+        df_comp = build_comparison_df_copa(mapping, opponent_copa)
 
-        # Calcular promedio solo de Cibao
-        df_cibao_only = df_p[df_p["team"].str.contains("Cibao", case=False, na=False)]
-        mean_vals = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
+        if df_comp is None or df_comp.empty:
+            st.warning("No hay datos disponibles para Construcción y Pases.")
+        else:
+            df_comp = df_comp.sort_values("valor", ascending=False)
 
-        # Calcular promedio de rivales
-        df_rivales = df_p[~df_p["team"].str.contains("Cibao", case=False, na=False)]
-        rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
+            fig = px.bar(
+                df_comp,
+                x="label",
+                y="valor",
+                color="Team",
+                text_auto=".2f",
+                color_discrete_map=get_team_colors(df_comp["Team"].unique()),
+                barmode="group",
+                height=420,
+            )
 
-        df_plot = pd.DataFrame(
-            {
-                "label": [label for label, _ in pares],
-                "valor": [mean_vals[col] for _, col in pares],
-                "rival_avg": [rival_means[col] for _, col in pares],
-            }
-        ).sort_values("valor", ascending=False)
+            fig.update_layout(
+                template="plotly_dark",
+                plot_bgcolor="#0B0B0B",
+                paper_bgcolor="#0B0B0B",
+                margin=dict(l=40, r=40, t=60, b=40),
+                title=dict(text="<b>Volumen y precisión en la circulación</b>", font=dict(size=18, color=CIBAO_ORANGE)),
+                title_x=0.5,
+                font=dict(color=CIBAO_GRAY, size=12),
+                xaxis=dict(tickangle=-15),
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1,
+                    bgcolor="rgba(0,0,0,0.5)",
+                    font=dict(size=10)
+                ),
+            )
 
-        # Preparar datos para gráfico de barras agrupadas
-        df_plot_melted = df_plot.melt(id_vars=['label'], value_vars=['valor', 'rival_avg'], 
-                                       var_name='Equipo', value_name='Valor')
-        df_plot_melted['Equipo'] = df_plot_melted['Equipo'].map({'valor': 'Cibao FC', 'rival_avg': 'Promedio Rivales'})
-        
-        fig = px.bar(
-            df_plot_melted,
-            x="label",
-            y="Valor",
-            color="Equipo",
-            text_auto=".2f",
-            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFFFFF"},
-            barmode="group",
-            height=420,
-        )
+            st.plotly_chart(fig, use_container_width=True)
 
-        fig.update_layout(
-            template="plotly_dark",
-            plot_bgcolor="#0B0B0B",
-            paper_bgcolor="#0B0B0B",
-            margin=dict(l=40, r=40, t=60, b=40),
-            title=dict(text="<b>Volumen y precisión en la circulación</b>", font=dict(size=18, color=CIBAO_ORANGE)),
-            title_x=0.5,
-            font=dict(color=CIBAO_GRAY, size=12),
-            xaxis=dict(tickangle=-15),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                bgcolor="rgba(0,0,0,0.5)",
-                font=dict(size=10)
-            ),
-        )
+            df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
+            if not df_cibao_only.empty:
+                max_row = df_cibao_only.loc[df_cibao_only["valor"].idxmax()]
+                min_row = df_cibao_only.loc[df_cibao_only["valor"].idxmin()]
 
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Obtener valores originales de df_plot (antes del melt)
-        max_row = df_plot.iloc[0]
-        min_row = df_plot.iloc[-1]
-
-        st.markdown(
-            f"""
-            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                        margin-top:-8px; border-radius:6px;'>
-                <b>Conclusiones tácticas</b><br><br>
-                • <b>Punto fuerte:</b> mayor aporte en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Rivales: {max_row['rival_avg']:.2f}).<br>
-                • <b>Área por optimizar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Rivales: {min_row['rival_avg']:.2f}).<br>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+                st.markdown(
+                    f"""
+                    <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                                margin-top:-8px; border-radius:6px;'>
+                        <b>Conclusiones tácticas</b><br><br>
+                        • <b>Punto fuerte:</b> mayor aporte en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                        • <b>Área por optimizar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
     else:
         st.warning("No hay datos disponibles para Construcción y Pases.")
 
@@ -672,42 +715,23 @@ with tab_defensivo:
             st.warning(f"No hay datos para {title}.")
             return
 
-        cols = [col for _, col in pares]
-        df_d = df_copa_cibao.copy()
-        for col in cols:
-            df_d[col] = pd.to_numeric(df_d[col], errors="coerce").fillna(0)
+        mapping_dict = {label: col for label, col in pares}
+        df_comp = build_comparison_df_copa(mapping_dict, opponent_copa)
 
-        # Calcular promedio solo de Cibao
-        df_cibao_only = df_d[df_d["team"].str.contains("Cibao", case=False, na=False)]
-        mean_vals = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
+        if df_comp is None or df_comp.empty:
+            st.warning(f"No hay datos disponibles para {title}.")
+            return
 
-        # Calcular promedio de rivales
-        df_rivales = df_d[~df_d["team"].str.contains("Cibao", case=False, na=False)]
-        rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
+        df_comp = df_comp.sort_values("valor", ascending=True)
 
-        df_plot = (
-            pd.DataFrame({
-                "label": [label for label, _ in pares], 
-                "valor": [mean_vals[col] for _, col in pares],
-                "rival_avg": [rival_means[col] for _, col in pares]
-            })
-            .sort_values("valor", ascending=True)
-            .reset_index(drop=True)
-        )
-
-        # Preparar datos para gráfico de barras agrupadas
-        df_plot_melted = df_plot.melt(id_vars=['label'], value_vars=['valor', 'rival_avg'], 
-                                       var_name='Equipo', value_name='Valor')
-        df_plot_melted['Equipo'] = df_plot_melted['Equipo'].map({'valor': 'Cibao FC', 'rival_avg': 'Promedio Rivales'})
-        
         fig = px.bar(
-            df_plot_melted,
-            x="Valor",
+            df_comp,
+            x="valor",
             y="label",
-            color="Equipo",
+            color="Team",
             text_auto=".2f",
             orientation="h",
-            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFFFFF"},
+            color_discrete_map=get_team_colors(df_comp["Team"].unique()),
             barmode="group",
             height=360,
         )
@@ -733,19 +757,21 @@ with tab_defensivo:
 
         st.plotly_chart(fig, use_container_width=True)
 
-        max_row = df_plot.iloc[-1]
-        min_row = df_plot.iloc[0]
-        st.markdown(
-            f"""
-            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                        margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
-                <b>Conclusiones tácticas</b><br><br>
-                • <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Rivales: {max_row['rival_avg']:.2f}).<br>
-                • <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Rivales: {min_row['rival_avg']:.2f}).<br>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
+        if not df_cibao_only.empty:
+            max_row = df_cibao_only.loc[df_cibao_only["valor"].idxmax()]
+            min_row = df_cibao_only.loc[df_cibao_only["valor"].idxmin()]
+            st.markdown(
+                f"""
+                <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                            margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
+                    <b>Conclusiones tácticas</b><br><br>
+                    • <b>Punto fuerte:</b> mayor impacto en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                    • <b>Área a vigilar:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     col_def1, col_def2 = st.columns(2)
     with col_def1:
@@ -781,42 +807,23 @@ with tab_set_pieces:
             st.warning(f"No hay datos para {title}.")
             return
 
-        cols = [col for _, col in pares]
-        df_sp = df_copa_cibao.copy()
-        for col in cols:
-            df_sp[col] = pd.to_numeric(df_sp[col], errors="coerce").fillna(0)
+        mapping_dict = {label: col for label, col in pares}
+        df_comp = build_comparison_df_copa(mapping_dict, opponent_copa)
 
-        # Calcular promedio solo de Cibao
-        df_cibao_only = df_sp[df_sp["team"].str.contains("Cibao", case=False, na=False)]
-        mean_vals = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
+        if df_comp is None or df_comp.empty:
+            st.warning(f"No hay datos disponibles para {title}.")
+            return
 
-        # Calcular promedio de rivales
-        df_rivales = df_sp[~df_sp["team"].str.contains("Cibao", case=False, na=False)]
-        rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
+        df_comp = df_comp.sort_values("valor", ascending=True)
 
-        df_plot = (
-            pd.DataFrame({
-                "label": [label for label, _ in pares], 
-                "valor": [mean_vals[col] for _, col in pares],
-                "rival_avg": [rival_means[col] for _, col in pares]
-            })
-            .sort_values("valor", ascending=True)
-            .reset_index(drop=True)
-        )
-
-        # Preparar datos para gráfico de barras agrupadas
-        df_plot_melted = df_plot.melt(id_vars=['label'], value_vars=['valor', 'rival_avg'], 
-                                       var_name='Equipo', value_name='Valor')
-        df_plot_melted['Equipo'] = df_plot_melted['Equipo'].map({'valor': 'Cibao FC', 'rival_avg': 'Promedio Rivales'})
-        
         fig = px.bar(
-            df_plot_melted,
-            x="Valor",
+            df_comp,
+            x="valor",
             y="label",
-            color="Equipo",
+            color="Team",
             text_auto=".2f",
             orientation="h",
-            color_discrete_map={"Cibao FC": CIBAO_ORANGE, "Promedio Rivales": "#FFFFFF"},
+            color_discrete_map=get_team_colors(df_comp["Team"].unique()),
             barmode="group",
             height=360,
         )
@@ -842,19 +849,21 @@ with tab_set_pieces:
 
         st.plotly_chart(fig, use_container_width=True)
 
-        max_row = df_plot.iloc[-1]
-        min_row = df_plot.iloc[0]
-        st.markdown(
-            f"""
-            <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
-                        margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
-                <b>Conclusiones tácticas</b><br><br>
-                • <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f} vs Rivales: {max_row['rival_avg']:.2f}).<br>
-                • <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f} vs Rivales: {min_row['rival_avg']:.2f}).<br>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
+        if not df_cibao_only.empty:
+            max_row = df_cibao_only.loc[df_cibao_only["valor"].idxmax()]
+            min_row = df_cibao_only.loc[df_cibao_only["valor"].idxmin()]
+            st.markdown(
+                f"""
+                <div style='background:#111; padding:12px; border-left:3px solid {CIBAO_ORANGE};
+                            margin-top:-8px; margin-bottom:24px; border-radius:6px;'>
+                    <b>Conclusiones tácticas</b><br><br>
+                    • <b>Punto fuerte:</b> mayor producción en <b>{max_row['label']}</b> ({max_row['valor']:.2f}).<br>
+                    • <b>Área a seguir:</b> menor incidencia en <b>{min_row['label']}</b> ({min_row['valor']:.2f}).<br>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     col_sp1, col_sp2 = st.columns(2)
     with col_sp1:
@@ -908,50 +917,48 @@ with tab_general:
         if not metricas_disponibles:
             st.warning(f"No hay datos disponibles para {categoria}")
             continue
-        
-        # Calcular promedios
-        df_temp = df_copa_cibao.copy()
-        cols = list(metricas_disponibles.values())
-        
-        for col in cols:
-            df_temp[col] = pd.to_numeric(df_temp[col], errors="coerce").fillna(0)
-        
-        # Cibao
-        df_cibao_only = df_temp[df_temp["team"].str.contains("Cibao", case=False, na=False)]
-        cibao_means = df_cibao_only[cols].mean() if not df_cibao_only.empty else pd.Series(0, index=cols)
-        
-        # Rivales
-        df_rivales = df_temp[~df_temp["team"].str.contains("Cibao", case=False, na=False)]
-        rival_means = df_rivales[cols].mean() if not df_rivales.empty else pd.Series(0, index=cols)
-        
-        # Crear tabla comparativa
+
+        df_comp = build_comparison_df_copa(metricas_disponibles, opponent_copa)
+        if df_comp is None or df_comp.empty:
+            st.warning(f"No hay datos disponibles para {categoria}")
+            continue
+
+        rival_name = normalize_team(opponent_copa) if opponent_copa else "Rival"
+
+        pivot = df_comp.pivot(index="label", columns="Team", values="valor")
+        if "Cibao" not in pivot.columns:
+            pivot["Cibao"] = 0
+        if rival_name not in pivot.columns:
+            # If selected rival missing, try any other column as fallback
+            other_cols = [c for c in pivot.columns if c != "Cibao"]
+            if other_cols:
+                pivot[rival_name] = pivot[other_cols[0]]
+            else:
+                pivot[rival_name] = 0
+
         tabla_data = []
-        for label, col in metricas_disponibles.items():
-            cibao_val = cibao_means[col]
-            rival_val = rival_means[col]
+        for label in pivot.index:
+            cibao_val = pivot.loc[label, "Cibao"]
+            rival_val = pivot.loc[label, rival_name]
             diferencia = cibao_val - rival_val
             porcentaje = ((cibao_val / rival_val - 1) * 100) if rival_val != 0 else 0
-            
-            # Indicador visual
+
             if diferencia > 0:
                 indicador = "🟢"
-                color_diff = "green"
             elif diferencia < 0:
                 indicador = "🔴"
-                color_diff = "red"
             else:
                 indicador = "⚪"
-                color_diff = "gray"
             
             tabla_data.append({
                 "Métrica": label,
                 "Cibao FC": f"{cibao_val:.2f}",
-                "Promedio Rivales": f"{rival_val:.2f}",
+                rival_name: f"{rival_val:.2f}",
                 "Diferencia": f"{diferencia:+.2f}",
                 "% Diferencia": f"{porcentaje:+.1f}%",
                 "": indicador
             })
-        
+
         df_tabla = pd.DataFrame(tabla_data)
         
         # Mostrar tabla con estilo
@@ -962,7 +969,7 @@ with tab_general:
             column_config={
                 "Métrica": st.column_config.TextColumn("Métrica", width="medium"),
                 "Cibao FC": st.column_config.TextColumn("Cibao FC", width="small"),
-                "Promedio Rivales": st.column_config.TextColumn("Promedio Rivales", width="small"),
+                rival_name: st.column_config.TextColumn(rival_name, width="small"),
                 "Diferencia": st.column_config.TextColumn("Diferencia", width="small"),
                 "% Diferencia": st.column_config.TextColumn("% Diferencia", width="small"),
                 "": st.column_config.TextColumn("", width="small"),
