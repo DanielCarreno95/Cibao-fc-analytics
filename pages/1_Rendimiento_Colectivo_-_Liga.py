@@ -1646,14 +1646,16 @@ with tab5:
             y en cuáles existe margen para ajustar comportamientos.
         </div>
         """, unsafe_allow_html=True)
-
-# ===========================================
+        # ===========================================
 # EXPORTACIÓN A PDF (fpdf2 + kaleido, sin HTML)
 # ===========================================
 import tempfile
 import requests
 from fpdf import FPDF
 from datetime import datetime
+
+# Valor del checkbox (fallback a True)
+mostrar_promedio_liga = st.session_state.get("mostrar_promedio_liga", True)
 
 # ---------- Logo helper ----------
 def descargar_logo():
@@ -1690,12 +1692,12 @@ def generar_conclusiones(df_cibao, df_liga):
     fort, deb = [], []
     if df_liga.empty:
         return {"fortalezas": fort, "debilidades": deb}
-    liga_sin_cibao = df_liga[df_liga["Team"].str.lower() != "cibao"].copy()
+    liga_sin = df_liga[df_liga["Team"].str.lower() != "cibao"].copy()
     for col, nombre in metricas.items():
-        if col not in df_cibao.columns or col not in liga_sin_cibao.columns:
+        if col not in df_cibao.columns or col not in liga_sin.columns:
             continue
         v_c = pd.to_numeric(df_cibao[col], errors="coerce").mean()
-        v_l = pd.to_numeric(liga_sin_cibao[col], errors="coerce").mean()
+        v_l = pd.to_numeric(liga_sin[col], errors="coerce").mean()
         if pd.isna(v_c) or pd.isna(v_l) or v_l == 0:
             continue
         dif = (v_c - v_l) / v_l * 100
@@ -1708,7 +1710,7 @@ def generar_conclusiones(df_cibao, df_liga):
     deb = sorted(deb, key=lambda x: x["dif"])[:3]
     return {"fortalezas": fort, "debilidades": deb}
 
-# ---------- Funciones para recrear gráficos rápidamente ----------
+# ---------- Funciones para recrear gráficos ----------
 def grafico_barras_pdf(nombre, mapping, df_filtrado, df_liga, mostrar_promedio, orient="h"):
     cols = [v for v in mapping.values() if v in df_filtrado.columns]
     if not cols:
@@ -1864,13 +1866,14 @@ def generar_pdf(df_filtrado, df_liga_mayor, partidos_sel, fig_comp, figs_tabs):
     ]
     for titulo, key in secciones:
         figs = figs_tabs.get(key, [])
-        if not figs: continue
+        if not figs:
+            continue
         pdf.add_page()
         pdf.set_font("Helvetica","B",18); pdf.set_text_color(255,140,0)
         pdf.cell(0,10,titulo,0,1,"C"); pdf.ln(2)
         y = 35; per_page = 2; count = 0
         for fig in figs:
-            if count>0 and count % per_page == 0:
+            if count > 0 and count % per_page == 0:
                 pdf.add_page()
                 pdf.set_font("Helvetica","B",14); pdf.set_text_color(255,140,0)
                 pdf.cell(0,8,f"{titulo} (continuacion)",0,1,"C"); pdf.ln(2)
