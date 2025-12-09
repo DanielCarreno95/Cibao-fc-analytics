@@ -1646,3 +1646,337 @@ with tab5:
             y en cuáles existe margen para ajustar comportamientos.
         </div>
         """, unsafe_allow_html=True)
+
+# ===========================================
+# EXPORTACIÓN A PDF (fpdf2 + kaleido, sin HTML)
+# ===========================================
+import tempfile
+import requests
+from fpdf import FPDF, flex
+from datetime import datetime
+
+# ---------- Logo helper ----------
+def descargar_logo():
+    url = "https://www.cibaofc.com/wp-content/uploads/2025/02/cropped-LOGO-CFC-5-NARANJA-BLANCO.png"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            tmp.write(r.content)
+            tmp.close()
+            return tmp.name
+    except Exception:
+        pass
+    return None
+
+# ---------- Captura plotly -> PNG bytes ----------
+def plotly_to_png(fig, width=1600, height=900, scale=2):
+    try:
+        return pio.to_image(fig, format="png", width=width, height=height, scale=scale)
+    except Exception as e:
+        st.warning(f"No se pudo capturar un gráfico: {e}")
+        return None
+
+# ---------- Conclusiones automáticas ----------
+def generar_conclusiones(df_cibao, df_liga):
+    metricas = {
+        "xg": "Goles Esperados (xG)",
+        "possession_percent": "Posesión (%)",
+        "passes_accurate_percent": "Precisión de Pase (%)",
+        "shots_on_target_percent": "Disparos a Puerta (%)",
+        "duels_won_percent": "Duelos Ganados (%)",
+        "interceptions": "Intercepciones p90",
+    }
+    fort, deb = [], []
+    if df_liga.empty:
+        return {"fortalezas": fort, "debilidades": deb}
+    liga_sin_cibao = df_liga[df_liga["Team"].str.lower() != "cibao"].copy()
+    for col, nombre in metricas.items():
+        if col not in df_cibao.columns or col not in liga_sin_cibao.columns:
+            continue
+        v_c = pd.to_numeric(df_cibao[col], errors="coerce").mean()
+        v_l = pd.to_numeric(liga_sin_cibao[col], errors="coerce").mean()
+        if pd.isna(v_c) or pd.isna(v_l) or v_l == 0:
+            continue
+        dif = (v_c - v_l) / v_l * 100
+        item = {"metrica": nombre, "cibao": v_c, "liga": v_l, "dif": dif}
+        if dif >= 10:
+            fort.append(item)
+        elif dif <= -10:
+            deb.append(item)
+    fort = sorted(fort, key=lambda x: x["dif"], reverse=True)[:3]
+    deb = sorted(deb, key=lambda x: x["dif"])[:3]
+    return {"fortalezas": fort, "debilidades": deb}
+
+# ---------- Funciones para recrear gráficos rápidamente ----------
+def grafico_barras_pdf(nombre, mapping, df_filtrado, df_liga, mostrar_promedio, orient="h"):
+    cols = [v for v in mapping.values() if v in df_filtrado.columns]
+    if not cols:
+        return None
+    etiquetas = {v: k for k, v in mapping.items() if v in df_filtrado.columns}
+    data = []
+    means_c = df_filtrado[cols].mean()
+    for c in cols:
+        data.append({"label": etiquetas[c], "Equipo": "Cibao FC", "valor": means_c[c]})
+    if mostrar_promedio and not df_liga.empty:
+        liga_sin = df_liga[df_liga["Team"].str.lower() != "cibao"].copy()
+        for c in cols:
+            if c in liga_sin.columns:
+                v = pd.to_numeric(liga_sin[c], errors="coerce").mean()
+                data.append({"label": etiquetas[c], "Equipo": "Promedio Liga", "valor": v if not pd.isna(v) else 0})
+    dfp = pd.DataFrame(data)
+    color_map = {"Cibao FC": "#FF8C00", "Promedio Liga": "#FFC966"}
+    if orient == "h":
+        fig = px.bar(dfp, x="valor", y="label", color="Equipo", orientation="h",
+                     text_auto=".2f", color_discrete_map=color_map, barmode="group",
+                     title=nombre)
+    else:
+        fig = px.bar(dfp, x="label", y="valor", color="Equipo",
+                     text_auto=".2f", color_discrete_map=color_map, barmode="group",
+                     title=nombre)
+    fig.update_layout(template="plotly_dark", plot_bgcolor="#111", paper_bgcolor="#111",
+                      font=dict(color="#D3D3D3", size=14),
+                      title=dict(font=dict(size=20, color="#FF8C00")))
+    return fig
+
+def gauge_pdf(mapping, df_filtrado, df_liga, mostrar_promedio):
+    col = list(mapping.values())[0]
+    label = list(mapping.keys())[0]
+    if col not in df_filtrado.columns:
+        return None
+    v_c = df_filtrado[col].mean()
+    v_l = None
+    if mostrar_promedio and not df_liga.empty and col in df_liga.columns:
+        liga_sin = df_liga[df_liga["Team"].str.lower() != "cibao"].copy()
+        v_l = pd.to_numeric(liga_sin[col], errors="coerce").mean()
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=v_c,
+        title={'text': f"<b>{label}</b>", 'font': {'color': '#FF8C00', 'size': 20}},
+        number={'font': {'color': '#FF8C00', 'size': 42}},
+        gauge={
+            'axis': {'range': [0, max(1, v_c * 1.5, 40)]},
+            'bar': {'color': "#FF8C00"},
+            'bgcolor': "#333",
+            'threshold': {
+                'line': {'color': "#FFC966", 'width': 3},
+                'thickness': 0.8,
+                'value': v_l if v_l and not pd.isna(v_l) else 0
+            } if v_l and not pd.isna(v_l) else None
+        },
+    ))
+    fig.update_layout(paper_bgcolor="#111", font=dict(color="#D3D3D3"))
+    return fig
+
+def heatmap_pdf(nombre, mapping, df_filtrado):
+    cols = [v for v in mapping.values() if v in df_filtrado.columns]
+    labels = [k for k, v in mapping.items() if v in df_filtrado.columns]
+    if not cols:
+        return None
+    serie = df_filtrado[cols].mean().fillna(0)
+    rank = serie.rank(method="dense") - 1
+    z = rank.astype(int).to_numpy().reshape(1, -1)
+    colorscale = [
+        [0.0, "#2a2a2a"],
+        [0.5, "#ff7b00"],
+        [1.0, "#ffae42"]
+    ]
+    fig = go.Figure(go.Heatmap(z=z, x=labels, y=[""], colorscale=colorscale, showscale=True,
+                               colorbar=dict(tickvals=[0,1,2], ticktext=["Bajo","Medio","Alto"])))
+    ann = []
+    for j, lbl in enumerate(labels):
+        ann.append(dict(x=lbl, y="", text=f"{serie.iloc[j]:.2f}", font=dict(color="white", size=14), showarrow=False))
+    fig.update_layout(annotations=ann, template="plotly_dark",
+                      title=dict(text=f"<b>{nombre}</b>", font=dict(size=18, color="#FF8C00")),
+                      paper_bgcolor="#111", plot_bgcolor="#111")
+    return fig
+
+# ---------- PDF principal ----------
+def generar_pdf(df_filtrado, df_liga_mayor, partidos_sel, fig_comp, figs_tabs):
+    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    # Portada
+    pdf.add_page()
+    pdf.set_fill_color(17,17,17); pdf.rect(0,0,297,210,"F")
+    logo = descargar_logo()
+    if logo:
+        try: pdf.image(logo, x=115, y=25, w=60)
+        except: pass
+    pdf.set_y(95); pdf.set_font("Helvetica","B",28); pdf.set_text_color(255,140,0)
+    pdf.cell(0,12,"REPORTE DE RENDIMIENTO COLECTIVO",0,1,"C")
+    pdf.set_font("Helvetica","B",16); pdf.set_text_color(220,220,220)
+    pdf.cell(0,9,"Liga Dominicana - Temporada 2024/2025",0,1,"C"); pdf.ln(6)
+    pdf.set_font("Helvetica","",12); pdf.set_text_color(190,190,190)
+    fecha = datetime.now().strftime("%d/%m/%Y - %H:%M")
+    pdf.cell(0,7,f"Fecha de generacion: {fecha}",0,1,"C")
+    if partidos_sel:
+        txt = ", ".join(partidos_sel[:3]) + ("..." if len(partidos_sel)>3 else "")
+        pdf.cell(0,7,f"Partidos analizados: {txt}",0,1,"C")
+    pdf.set_y(165); pdf.set_draw_color(255,140,0); pdf.set_line_width(1); pdf.line(50,165,247,165)
+    pdf.set_y(178); pdf.set_font("Helvetica","I",10); pdf.set_text_color(160,160,160)
+    pdf.cell(0,6,"Analisis tactico y estadistico avanzado",0,1,"C")
+    pdf.cell(0,6,"Departamento de Analisis - Cibao FC",0,1,"C")
+
+    # Resumen ejecutivo
+    pdf.add_page()
+    pdf.set_font("Helvetica","B",18); pdf.set_text_color(255,140,0)
+    pdf.cell(0,10,"RESUMEN EJECUTIVO",0,1,"C"); pdf.ln(4)
+    concl = generar_conclusiones(df_filtrado, df_liga_mayor)
+    pdf.set_font("Helvetica","B",14); pdf.set_text_color(100,220,100)
+    pdf.cell(0,9,"FORTALEZAS PRINCIPALES",0,1,"L"); pdf.ln(2)
+    pdf.set_font("Helvetica","",11); pdf.set_text_color(220,220,220)
+    if concl["fortalezas"]:
+        for it in concl["fortalezas"]:
+            pdf.set_x(12); pdf.set_text_color(255,140,0); pdf.cell(5,7,chr(149),0,0,"L")
+            pdf.set_text_color(220,220,220)
+            pdf.cell(0,7,f"{it['metrica']}: Cibao {it['cibao']:.2f} vs Liga {it['liga']:.2f} (+{it['dif']:.1f}%)",0,1,"L")
+    else:
+        pdf.set_x(12); pdf.cell(0,7,"Rendimiento equilibrado respecto al promedio de liga",0,1,"L")
+    pdf.ln(6)
+    pdf.set_font("Helvetica","B",14); pdf.set_text_color(255,120,120)
+    pdf.cell(0,9,"AREAS DE MEJORA",0,1,"L"); pdf.ln(2)
+    pdf.set_font("Helvetica","",11); pdf.set_text_color(220,220,220)
+    if concl["debilidades"]:
+        for it in concl["debilidades"]:
+            pdf.set_x(12); pdf.set_text_color(255,140,0); pdf.cell(5,7,chr(149),0,0,"L")
+            pdf.set_text_color(220,220,220)
+            pdf.cell(0,7,f"{it['metrica']}: Cibao {it['cibao']:.2f} vs Liga {it['liga']:.2f} ({it['dif']:.1f}%)",0,1,"L")
+    else:
+        pdf.set_x(12); pdf.cell(0,7,"No se identificaron areas significativas de mejora",0,1,"L")
+    pdf.set_draw_color(255,140,0); pdf.set_line_width(0.4); pdf.rect(10,28,277,150)
+
+    # Comparativa
+    if fig_comp:
+        pdf.add_page()
+        pdf.set_font("Helvetica","B",16); pdf.set_text_color(255,140,0)
+        pdf.cell(0,10,"COMPARATIVA: CIBAO FC VS RIVAL",0,1,"C"); pdf.ln(3)
+        img = plotly_to_png(fig_comp, width=2000, height=1200)
+        if img:
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png"); tmp.write(img); tmp.close()
+            try: pdf.image(tmp.name, x=15, y=38, w=265)
+            except: pass
+
+    # Secciones
+    secciones = [
+        ("EFICIENCIA Y ATAQUE", "eficiencia_ataque"),
+        ("CONSTRUCCION Y PASES", "construccion_pases"),
+        ("DEFENSA Y EFICIENCIA", "defensa"),
+        ("DISTRIBUCION TACTICA", "tactica"),
+    ]
+    for titulo, key in secciones:
+        figs = figs_tabs.get(key, [])
+        if not figs: continue
+        pdf.add_page()
+        pdf.set_font("Helvetica","B",18); pdf.set_text_color(255,140,0)
+        pdf.cell(0,10,titulo,0,1,"C"); pdf.ln(2)
+        y = 35; per_page = 2; count = 0
+        for fig in figs:
+            if count>0 and count % per_page == 0:
+                pdf.add_page()
+                pdf.set_font("Helvetica","B",14); pdf.set_text_color(255,140,0)
+                pdf.cell(0,8,f"{titulo} (continuacion)",0,1,"C"); pdf.ln(2)
+                y = 35
+            img = plotly_to_png(fig, width=2000, height=1100)
+            if img:
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png"); tmp.write(img); tmp.close()
+                try: pdf.image(tmp.name, x=15, y=y, w=265, h=80); y += 90
+                except: pass
+            else:
+                pdf.set_y(y); pdf.set_font("Helvetica","I",10); pdf.set_text_color(180,180,180)
+                pdf.cell(0,8,"[Grafico no disponible]",0,1,"C"); y += 20
+            count += 1
+
+    # Final
+    pdf.add_page()
+    pdf.set_y(90); pdf.set_font("Helvetica","B",22); pdf.set_text_color(255,140,0)
+    pdf.cell(0,12,"CIBAO FC",0,1,"C")
+    pdf.set_font("Helvetica","I",11); pdf.set_text_color(180,180,180)
+    pdf.cell(0,7,"Departamento de Analisis y Rendimiento",0,1,"C")
+    pdf.cell(0,7,"www.cibaofc.com",0,1,"C")
+
+    return pdf.output(dest="S").encode("latin-1")
+
+# ---------- UI ----------
+st.markdown("<hr style='margin:40px 0; border-color:#ff8c00;'>", unsafe_allow_html=True)
+st.markdown("""
+<h2 style='color:#ff8c00; text-align:center; margin-top:12px;'>
+    📄 Exportar Reporte Completo en PDF
+</h2>
+<p style='text-align:center; color:#ccc; font-size:15px;'>
+    Reporte profesional con todas las métricas, gráficos y conclusiones.
+</p>
+""", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
+
+c1, c2, c3 = st.columns([1,1,1])
+with c2:
+    if st.button("🚀 GENERAR REPORTE PDF", use_container_width=True, type="primary"):
+        with st.spinner("Generando reporte... puede tardar 30-60 segundos ⏳"):
+            try:
+                # Comparativa (si hay rival)
+                fig_comp_pdf = None
+                if not df_liga_mayor.empty and 'opponent_choice' in locals():
+                    try:
+                        fig_comp_pdf, _, _ = make_team_scatter(
+                            df_liga_mayor,
+                            primary_team="Cibao",
+                            opponent=opponent_choice,
+                            x_metric=METRIC_OPTIONS.get(x_choice),
+                            y_metric=METRIC_OPTIONS.get(y_choice),
+                            x_label=x_choice,
+                            y_label=y_choice,
+                            title=f"Liga Mayor — {x_choice} vs {y_choice}",
+                            filters={"Competition": lambda s: s.str.contains("Liga", case=False, na=False)},
+                        )
+                    except Exception as e:
+                        st.warning(f"No se pudo recrear la comparativa: {e}")
+
+                figs_dict = {
+                    "eficiencia_ataque": [],
+                    "construccion_pases": [],
+                    "defensa": [],
+                    "tactica": [],
+                }
+
+                # Tab 1
+                for nombre_grupo, mapping in grupos.items():
+                    fig = grafico_barras_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga, orient="h")
+                    if fig: figs_dict["eficiencia_ataque"].append(fig)
+
+                # Tab 2
+                for nombre_grupo, mapping in grupos_pases.items():
+                    if nombre_grupo == "Longitud media de pase":
+                        fig = gauge_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga)
+                    else:
+                        fig = grafico_barras_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga,
+                                                 orient="v")
+                    if fig: figs_dict["construccion_pases"].append(fig)
+
+                # Tab 3
+                for nombre_grupo, mapping in grupos_def.items():
+                    if nombre_grupo == "Distancia media de disparo":
+                        fig = gauge_pdf(mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga)
+                    else:
+                        fig = grafico_barras_pdf(nombre_grupo, mapping, df_filtrado, df_liga_mayor, mostrar_promedio_liga,
+                                                 orient="h")
+                    if fig: figs_dict["defensa"].append(fig)
+
+                # Tab 4
+                for nombre_grupo, mapping in grupos_tacticos.items():
+                    fig = heatmap_pdf(nombre_grupo, mapping, df_filtrado)
+                    if fig: figs_dict["tactica"].append(fig)
+
+                pdf_bytes = generar_pdf(df_filtrado, df_liga_mayor, partidos_seleccionados, fig_comp_pdf, figs_dict)
+                nombre = f"Cibao_FC_Rendimiento_Colectivo_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+
+                st.success("✅ ¡Reporte generado!")
+                st.download_button(
+                    label="📥 DESCARGAR PDF",
+                    data=pdf_bytes,
+                    file_name=nombre,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary"
+                )
+            except Exception as e:
+                st.error(f"❌ Error generando el reporte: {e}")
+                st.exception(e)
