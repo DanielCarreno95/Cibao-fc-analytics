@@ -1796,7 +1796,6 @@ with tab5:
         </div>
         """, unsafe_allow_html=True)
 
-
 # ============================================================
 # 📥 DESCARGA PDF — ESTRUCTURA COMPLETA ORIGINAL
 # ============================================================
@@ -1921,11 +1920,12 @@ pdf_y_metric = locals().get("y_column")
 pdf_x_label = locals().get("x_choice")
 pdf_y_label = locals().get("y_choice")
 
-if generate_pdf_report is None:
+pdf_func = globals().get("generate_pdf_report", None)
+if pdf_func is None:
     st.error(f"No se pudo cargar el generador de PDF: {_pdf_import_error}")
 else:
     try:
-        pdf_bytes = generate_pdf_report(
+        pdf_bytes = pdf_func(
             df_cibao=df_cibao,
             df_filtrado=df_filtrado,
             df_liga_mayor=df_liga_mayor,
