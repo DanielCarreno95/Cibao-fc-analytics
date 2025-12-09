@@ -1646,6 +1646,7 @@ with tab5:
             y en cuáles existe margen para ajustar comportamientos.
         </div>
         """, unsafe_allow_html=True)
+        
         # ===========================================
 # EXPORTACIÓN A PDF (fpdf2 + kaleido, sin HTML)
 # ===========================================
@@ -1909,6 +1910,13 @@ st.markdown("""
 </p>
 """, unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
+
+# Valores seguros para el PDF
+mostrar_promedio_liga = st.session_state.get("mostrar_promedio_liga", True)
+partidos_seleccionados = st.session_state.get(
+    "sidebar_partidos_combinados",
+    st.session_state.get("global_partidos", [])
+)
 
 c1, c2, c3 = st.columns([1,1,1])
 with c2:
