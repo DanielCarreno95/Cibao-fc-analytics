@@ -1115,15 +1115,15 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
         if not match_info:
             continue
         
-        # Check if this is Wyscout data (has is_home field) or Scoresway data (has home_team/away_team)
-        # Always derive is_home from Match string - home team is ALWAYS first in "Home - Away" format
-        match_str = str(match_info.get("Match", ""))
-        is_home = match_info.get("is_home")
+        # ALWAYS derive is_home from Match string - home team is ALWAYS first in "Home - Away" format
+        # This is the ONLY reliable way to determine home/away
+        match_str = str(match_info.get("Match", "")).strip()
+        is_home = False  # Default to False
+        match_team_name_cleaned = None  # Initialize for use in vs_cibao check
         
-        # Derive is_home from Match string if we have a Match string
         # Format: "Home Team - Away Team score:score"
         # Home team is ALWAYS the first part before " - "
-        if match_str and match_str != "nan" and match_str.strip():
+        if match_str and match_str != "nan" and " - " in match_str:
             parts = match_str.split(" - ")
             if len(parts) >= 2:
                 home_team = parts[0].strip()
@@ -1144,34 +1144,15 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
                 home_clean = home_team_lower.replace(' fc', '').strip()
                 
                 # Check if team name matches home team (with flexible matching)
-                # If team name is in home team or vice versa, it's a home game
-                is_home_derived = (team_name_lower in home_team_lower or 
-                                  home_team_lower in team_name_lower or
-                                  team_clean in home_clean or
-                                  home_clean in team_clean)
-                # Use derived value (always prefer derived over stored)
-                # Convert to proper boolean
-                is_home = bool(is_home_derived)
-            else:
-                # Can't parse Match string, default to False
-                is_home = False
+                # If team name matches the first part (home team), it's a home game
+                is_home = (team_name_lower in home_team_lower or 
+                          home_team_lower in team_name_lower or
+                          team_clean in home_clean or
+                          home_clean in team_clean)
         
-        # If we still don't have is_home, default to False
-        # Also handle float values that might be stored in JSON (0.0 = False, any non-zero = True)
-        if is_home is None:
-            is_home = False
-        elif isinstance(is_home, float):
-            # Handle float values: 0.0 = False, anything else = True
-            is_home = bool(is_home) and is_home != 0.0
-        elif pd.isna(is_home):
-            is_home = False
-        else:
-            # Convert to boolean
-            is_home = bool(is_home)
-        
-        # Apply filters for Wyscout data structure (always try if we have Match string)
-        if match_str and match_str != "nan" and match_str.strip():
-            # Wyscout data structure - use is_home field (derived or existing)
+        # Apply filters for Wyscout data structure
+        if match_str and match_str != "nan" and " - " in match_str:
+            # Wyscout data structure - use is_home field (derived from Match string)
             if filter_type == "home":
                 if is_home:
                     filtered.append(match)
@@ -1182,8 +1163,11 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
                 # For Wyscout data, check if BOTH the selected team AND Cibao are in the Match string
                 match_str_lower = match_str.lower()
                 cibao_name_lower = "cibao"
+                team_name_lower_check = (match_team_name_cleaned.lower().strip() 
+                                       if match_team_name_cleaned 
+                                       else team_name.lower().strip())
                 # Both teams must be in the match string
-                if cibao_name_lower in match_str_lower and team_name_lower in match_str_lower:
+                if cibao_name_lower in match_str_lower and team_name_lower_check in match_str_lower:
                     filtered.append(match)
         else:
             # Scoresway data structure - use home_team/away_team
