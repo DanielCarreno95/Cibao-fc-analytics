@@ -8398,7 +8398,7 @@ def main():
                             "",
                             f"Liga: {comp_possession:.1f}%",
                             color="normal",
-                            cibao_avg=f"Cibao: {cibao_possession:.1f}%"
+                            cibao_avg=f"{cibao_possession:.1f}%"
                         )
                     with col2:
                         display_metric_card(
@@ -8407,7 +8407,7 @@ def main():
                             "",
                             f"Liga: {comp_long_passes:.1f}",
                             color="normal",
-                            cibao_avg=f"Cibao: {cibao_long_passes:.1f}"
+                            cibao_avg=f"{cibao_long_passes:.1f}"
                         )
                     with col3:
                         display_metric_card(
@@ -8416,7 +8416,7 @@ def main():
                             "",
                             f"Liga: {comp_crosses:.1f}",
                             color="normal",
-                            cibao_avg=f"Cibao: {cibao_crosses:.1f}"
+                            cibao_avg=f"{cibao_crosses:.1f}"
                         )
                     with col4:
                         display_metric_card(
@@ -8425,7 +8425,7 @@ def main():
                             "",
                             f"Liga: {comp_ppda:.2f}" if comp_ppda > 0 else "N/A",
                             color="normal",
-                            cibao_avg=f"Cibao: {cibao_ppda:.2f}" if cibao_ppda > 0 else "N/A",
+                            cibao_avg=f"{cibao_ppda:.2f}" if cibao_ppda > 0 else "N/A",
                             higher_is_better=False
                         )
                     with col5:
@@ -8435,7 +8435,7 @@ def main():
                             "",
                             f"Liga: {comp_match_tempo:.1f}",
                             color="normal",
-                            cibao_avg=f"Cibao: {cibao_match_tempo:.1f}"
+                            cibao_avg=f"{cibao_match_tempo:.1f}"
                         )
                     
                     st.markdown("<br>", unsafe_allow_html=True)
