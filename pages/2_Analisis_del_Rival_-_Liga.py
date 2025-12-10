@@ -1710,11 +1710,11 @@ def display_metric_card(label: str, value: str, icon: str = "", delta: str = "",
                 
                 # Show competition average without indicator
                 comparison_parts.append(
-                    f'<div style="color: #64748B; font-size: 0.85rem; margin-top: 0.5rem;">Comp: {competition_avg}</div>'
+                    f'<div style="color: #64748B; font-size: 0.85rem; margin-top: 0.5rem;">Liga: {competition_avg}</div>'
                 )
             except (ValueError, AttributeError):
                 # Si no se puede calcular, mostrar sin indicador
-                comparison_parts.append(f'<div style="color: #64748B; font-size: 0.85rem; margin-top: 0.5rem;">Comp: {competition_avg}</div>')
+                comparison_parts.append(f'<div style="color: #64748B; font-size: 0.85rem; margin-top: 0.5rem;">Liga: {competition_avg}</div>')
         
         # Comparar con Cibao
         if cibao_avg is not None:
