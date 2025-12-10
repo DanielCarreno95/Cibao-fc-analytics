@@ -478,7 +478,6 @@ def extract_team_from_match(match_str: str, is_home: bool = True) -> str:
     if pd.isna(match_str) or not match_str:
         return ""
     
-    import re
     match_str = str(match_str)
     # Formato típico: "Cibao - Universidad O&M 2:1" o "Atlántico - Cibao 0:5"
     # Separar por " - " o " vs "
@@ -652,7 +651,6 @@ def get_all_teams_from_liga_data(df: pd.DataFrame) -> List[str]:
     # Clean team names: remove patterns like " (1)", " (2)", etc.
     def clean_team_name(name: str) -> str:
         """Remove duplicate suffixes like (1), (2) from team names."""
-        import re
         # Remove patterns like " (1)", " (2)", etc. at the end
         cleaned = re.sub(r'\s*\(\d+\)\s*$', '', str(name).strip())
         return cleaned.strip()
@@ -3270,7 +3268,6 @@ def analyze_formations_from_df(df: pd.DataFrame, team_name: str) -> Dict:
                 # Extraer score si existe
                 score_part = parts[1] if len(parts) > 1 else ""
                 # Buscar patrón de score (ej: "2:1", "0:5")
-                import re
                 score_match = re.search(r'(\d+):(\d+)', score_part)
                 if score_match:
                     team_goals = int(score_match.group(1))
@@ -6145,7 +6142,6 @@ def main():
                     if len(parts) >= 2:
                         home_team = parts[0].strip()
                         # Remove score if present (format: "Team 2:1")
-                        import re
                         home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
                         # Check if this team is the home team
                         team_name_lower = team_name.lower()
@@ -6562,7 +6558,6 @@ def main():
                             if len(parts) >= 2:
                                 home_team = parts[0].strip()
                                 # Remove score if present
-                                import re
                                 home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
                                 team_name_lower = team_name.lower()
                                 home_team_lower = home_team.lower()
