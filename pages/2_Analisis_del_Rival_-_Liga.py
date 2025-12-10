@@ -644,9 +644,31 @@ def get_all_teams_from_liga_data(df: pd.DataFrame) -> List[str]:
     """Obtiene lista de todos los equipos únicos de los datos de Liga Mayor."""
     if df.empty or "Team" not in df.columns:
         return []
+    
+    # Get all unique team names
     teams = df["Team"].unique().tolist()
     teams = [t for t in teams if pd.notna(t) and str(t).strip()]
-    return sorted(teams)
+    
+    # Clean team names: remove patterns like " (1)", " (2)", etc.
+    def clean_team_name(name: str) -> str:
+        """Remove duplicate suffixes like (1), (2) from team names."""
+        import re
+        # Remove patterns like " (1)", " (2)", etc. at the end
+        cleaned = re.sub(r'\s*\(\d+\)\s*$', '', str(name).strip())
+        return cleaned.strip()
+    
+    # Create a mapping of cleaned names to original names
+    # Prefer the version without the suffix if both exist
+    team_map = {}
+    for team in teams:
+        cleaned = clean_team_name(team)
+        # If we haven't seen this cleaned name, or if current team doesn't have a suffix
+        if cleaned not in team_map or not re.search(r'\(\d+\)$', str(team)):
+            team_map[cleaned] = team
+    
+    # Return unique cleaned team names, sorted
+    unique_teams = sorted(list(team_map.keys()))
+    return unique_teams
 
 def get_cibao_matches_liga(df: pd.DataFrame) -> pd.DataFrame:
     """Filtra partidos donde juega Cibao."""
@@ -6017,20 +6039,32 @@ def main():
     
     # Preparar datos del equipo seleccionado
     # Use flexible matching to handle name variations (e.g., "Delfines De Este" vs "Delfines Del Este")
+    # Also handle cleaned names (without "(1)" suffixes) matching against original data
     if not df_liga.empty:
         # Normalize team names for flexible matching
         selected_opponent_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
         
+        # Clean the selected opponent name (remove "(1)" suffixes) for matching
+        selected_opponent_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', selected_opponent_normalized)
+        
         # Try exact match first
         team_df = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
         
-        # If no exact match, try flexible matching (substring match)
+        # If no exact match, try matching against cleaned names (handle "(1)" variations)
         if team_df.empty:
             def team_name_match(team_name):
                 if pd.isna(team_name):
                     return False
-                team_name_normalized = str(team_name).lower().strip().replace(' fc', '').replace(' fc', '').strip()
-                # Check if selected opponent name is in team name or vice versa
+                team_name_str = str(team_name).lower().strip()
+                team_name_normalized = team_name_str.replace(' fc', '').replace(' fc', '').strip()
+                # Clean the team name from data (remove "(1)" suffixes)
+                team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', team_name_normalized)
+                
+                # Check if cleaned names match
+                if selected_opponent_cleaned == team_name_cleaned:
+                    return True
+                
+                # Also check if selected opponent name is in team name or vice versa
                 return (selected_opponent_normalized in team_name_normalized or 
                        team_name_normalized in selected_opponent_normalized or
                        selected_opponent_normalized.replace(' del ', ' de ') in team_name_normalized.replace(' del ', ' de ') or
