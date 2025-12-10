@@ -8349,6 +8349,8 @@ def main():
                     tactical_team_averages = calculate_team_averages_from_df(team_df, selected_opponent)
                     # Calculate competition averages for comparison
                     tactical_competition_averages = calculate_competition_averages(df_liga)
+                    # Calculate Cibao averages for comparison
+                    tactical_cibao_averages = calculate_team_averages_from_df(df_liga, CIBAO_TEAM_NAME)
                 else:
                     tactical_team_averages = {}
                     tactical_competition_averages = {}
@@ -8380,13 +8382,23 @@ def main():
                     
                     # KPI Cards
                     col1, col2, col3, col4, col5 = st.columns(5)
+                    # Get Cibao values for comparison
+                    cibao_possession = tactical_cibao_averages.get("possessionPercentage", 0) or tactical_cibao_averages.get("Possession, %", 0) or 0
+                    cibao_long_passes = tactical_cibao_averages.get("longPasses", 0) or tactical_cibao_averages.get("Long Passes", 0) or 0
+                    cibao_crosses = tactical_cibao_averages.get("crosses", 0) or tactical_cibao_averages.get("Crosses", 0) or 0
+                    cibao_ppda = tactical_cibao_averages.get("ppda", 0) or tactical_cibao_averages.get("PPDA", 0) or 0
+                    cibao_match_tempo = (tactical_cibao_averages.get("Match Tempo") or 
+                                        tactical_cibao_averages.get("match_tempo") or 
+                                        tactical_cibao_averages.get("Average passes per possession") or 0)
+                    
                     with col1:
                         display_metric_card(
                             "Posesión %",
                             f"{possession:.1f}%",
                             "",
                             f"Liga: {comp_possession:.1f}%",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"Cibao: {cibao_possession:.1f}%"
                         )
                     with col2:
                         display_metric_card(
@@ -8394,7 +8406,8 @@ def main():
                             f"{long_passes:.1f}",
                             "",
                             f"Liga: {comp_long_passes:.1f}",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"Cibao: {cibao_long_passes:.1f}"
                         )
                     with col3:
                         display_metric_card(
@@ -8402,7 +8415,8 @@ def main():
                             f"{crosses:.1f}",
                             "",
                             f"Liga: {comp_crosses:.1f}",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"Cibao: {cibao_crosses:.1f}"
                         )
                     with col4:
                         display_metric_card(
@@ -8410,7 +8424,9 @@ def main():
                             f"{ppda:.2f}" if ppda > 0 else "N/A",
                             "",
                             f"Liga: {comp_ppda:.2f}" if comp_ppda > 0 else "N/A",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"Cibao: {cibao_ppda:.2f}" if cibao_ppda > 0 else "N/A",
+                            higher_is_better=False
                         )
                     with col5:
                         display_metric_card(
@@ -8418,7 +8434,8 @@ def main():
                             f"{match_tempo:.1f}",
                             "",
                             f"Liga: {comp_match_tempo:.1f}",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"Cibao: {cibao_match_tempo:.1f}"
                         )
                     
                     st.markdown("<br>", unsafe_allow_html=True)
