@@ -1178,11 +1178,11 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
                     filtered.append(match)
             elif filter_type == "vs_cibao":
                 # For Wyscout data, check if BOTH the selected team AND Cibao are in the Match string
-                match_str_lower = match_str.lower()
-                cibao_name_lower = remove_accents("Cibao").lower()
-                team_name_lower_check = remove_accents(match_team_name_cleaned).lower().strip() if match_team_name_cleaned else remove_accents(team_name).lower().strip()
+                match_str_no_accents = remove_accents(match_str).lower()
+                cibao_name_no_accents = remove_accents("Cibao").lower()
+                team_name_no_accents_check = remove_accents(match_team_name_cleaned).lower().strip() if match_team_name_cleaned else remove_accents(team_name).lower().strip()
                 # Both teams must be in the match string
-                if cibao_name_lower in match_str_lower and team_name_lower_check in match_str_lower:
+                if cibao_name_no_accents in match_str_no_accents and team_name_no_accents_check in match_str_no_accents:
                     filtered.append(match)
         else:
             # Scoresway data structure - use home_team/away_team
@@ -1211,12 +1211,14 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
             
             elif filter_type == "vs_cibao":
                 # Solo partidos contra Cibao
-                home_match_cibao = (cibao_name_lower in home_str or home_str in cibao_name_lower or
-                                   cibao_base in home_str.replace(' fc', '').strip() or
-                                   home_str.replace(' fc', '').strip() in cibao_base)
-                away_match_cibao = (cibao_name_lower in away_str or away_str in cibao_name_lower or
-                                   cibao_base in away_str.replace(' fc', '').strip() or
-                                   away_str.replace(' fc', '').strip() in cibao_base)
+                cibao_name_no_accents = remove_accents("Cibao").lower().strip()
+                cibao_base = cibao_name_no_accents.replace(' fc', '').strip()
+                home_match_cibao = (cibao_name_no_accents in remove_accents(home_str) or remove_accents(home_str) in cibao_name_no_accents or
+                                   cibao_base in remove_accents(home_str).replace(' fc', '').strip() or
+                                   remove_accents(home_str).replace(' fc', '').strip() in cibao_base)
+                away_match_cibao = (cibao_name_no_accents in remove_accents(away_str) or remove_accents(away_str) in cibao_name_no_accents or
+                                   cibao_base in remove_accents(away_str).replace(' fc', '').strip() or
+                                   remove_accents(away_str).replace(' fc', '').strip() in cibao_base)
                 home_match_team = (team_name_no_accents in remove_accents(home_str) or remove_accents(home_str) in team_name_no_accents or
                                   team_base in remove_accents(home_str).replace(' fc', '').strip() or
                                   remove_accents(home_str).replace(' fc', '').strip() in team_base)
@@ -6434,15 +6436,14 @@ def main():
                     # Check if we're using DataFrame structure (Wyscout data)
                     if isinstance(df_liga, pd.DataFrame) and not df_liga.empty and "Match" in df_liga.columns:
                         # Count matches where Match column contains both Cibao and the opponent
-                        cibao_name_lower = CIBAO_TEAM_NAME.lower()
-                        opponent_name_lower = selected_opponent.lower()
+                        cibao_name_no_accents = remove_accents(CIBAO_TEAM_NAME).lower()
+                        opponent_name_no_accents = remove_accents(selected_opponent).lower()
                         
-                        # Filter for matches that contain both teams in the Match string
+                        # Filter for matches that contain both teams in the Match string (with accent normalization)
                         matches_with_both = df_liga[
-                            df_liga["Match"].astype(str).str.lower().str.contains(cibao_name_lower, na=False) &
-                            df_liga["Match"].astype(str).str.lower().str.contains(opponent_name_lower, na=False)
+                            df_liga["Match"].astype(str).apply(lambda x: cibao_name_no_accents in remove_accents(str(x)).lower()) &
+                            df_liga["Match"].astype(str).apply(lambda x: opponent_name_no_accents in remove_accents(str(x)).lower())
                         ]
-                        
                         # Count unique matches (by Match + Date combination)
                         if not matches_with_both.empty:
                             if "Date" in matches_with_both.columns:
@@ -6455,10 +6456,10 @@ def main():
                     else:
                         # Fallback: old structure (Scoresway JSON)
                         seen_match_ids = set()  # Para evitar duplicados
-                        cibao_name_lower = CIBAO_TEAM_NAME.lower().strip()
-                        cibao_base = cibao_name_lower.replace(' fc', '').strip()
-                        opponent_name_lower = selected_opponent.lower().strip()
-                        opponent_base = opponent_name_lower.replace(' fc', '').strip()
+                        cibao_name_no_accents = remove_accents(CIBAO_TEAM_NAME).lower().strip()
+                        cibao_base = cibao_name_no_accents.replace(' fc', '').strip()
+                        opponent_name_no_accents = remove_accents(selected_opponent).lower().strip()
+                        opponent_base = opponent_name_no_accents.replace(' fc', '').strip()
                         
                         for match_data in all_matches:
                             match_info = extract_match_info(match_data)
@@ -6493,19 +6494,19 @@ def main():
                             away = match_info.get("away_team", "").lower().strip() if match_info.get("away_team") else ""
                             
                             # Verificar si ambos equipos están en el partido
-                            home_match_cibao = (cibao_name_lower in home or home in cibao_name_lower or
-                                               cibao_base in home.replace(' fc', '').strip() or
-                                               home.replace(' fc', '').strip() in cibao_base)
-                            away_match_cibao = (cibao_name_lower in away or away in cibao_name_lower or
-                                               cibao_base in away.replace(' fc', '').strip() or
-                                               away.replace(' fc', '').strip() in cibao_base)
+                            home_match_cibao = (cibao_name_no_accents in remove_accents(home) or remove_accents(home) in cibao_name_no_accents or
+                                               cibao_base in remove_accents(home).replace(' fc', '').strip() or
+                                               remove_accents(home).replace(' fc', '').strip() in cibao_base)
+                            away_match_cibao = (cibao_name_no_accents in remove_accents(away) or remove_accents(away) in cibao_name_no_accents or
+                                               cibao_base in remove_accents(away).replace(' fc', '').strip() or
+                                               remove_accents(away).replace(' fc', '').strip() in cibao_base)
                             
-                            home_match_opponent = (opponent_name_lower in home or home in opponent_name_lower or
-                                                  opponent_base in home.replace(' fc', '').strip() or
-                                                  home.replace(' fc', '').strip() in opponent_base)
-                            away_match_opponent = (opponent_name_lower in away or away in opponent_name_lower or
-                                                  opponent_base in away.replace(' fc', '').strip() or
-                                                  away.replace(' fc', '').strip() in opponent_base)
+                            home_match_opponent = (opponent_name_no_accents in remove_accents(home) or remove_accents(home) in opponent_name_no_accents or
+                                                  opponent_base in remove_accents(home).replace(' fc', '').strip() or
+                                                  remove_accents(home).replace(' fc', '').strip() in opponent_base)
+                            away_match_opponent = (opponent_name_no_accents in remove_accents(away) or remove_accents(away) in opponent_name_no_accents or
+                                                  opponent_base in remove_accents(away).replace(' fc', '').strip() or
+                                                  remove_accents(away).replace(' fc', '').strip() in opponent_base)
                             
                             if (home_match_cibao or away_match_cibao) and (home_match_opponent or away_match_opponent):
                                 h2h_count += 1
@@ -6716,12 +6717,12 @@ def main():
                     elif filter_type_ui == "vs_cibao":
                         # Filter for matches vs Cibao
                         if "Match" in filtered_team_df.columns:
-                            cibao_name_lower = CIBAO_TEAM_NAME.lower()
+                            cibao_name_no_accents = remove_accents(CIBAO_TEAM_NAME).lower()
                             def is_vs_cibao_match(row):
-                                match_str = str(row.get("Match", "")).lower()
-                                team_name = str(row.get("Team", "")).lower().strip()
+                                match_str_no_accents = remove_accents(str(row.get("Match", ""))).lower()
+                                team_name_no_accents = remove_accents(str(row.get("Team", ""))).lower().strip()
                                 # Check if both Cibao and the selected team are in the match string
-                                return cibao_name_lower in match_str and team_name in match_str
+                                return cibao_name_no_accents in match_str_no_accents and team_name_no_accents in match_str_no_accents
                             filtered_team_df = filtered_team_df[filtered_team_df.apply(is_vs_cibao_match, axis=1)].copy()
                 
                 # Calculate averages from filtered DataFrame (already filtered by team, so pass already_filtered=True)
@@ -6781,15 +6782,15 @@ def main():
                     # Contar partidos donde ambos equipos jugaron (head-to-head)
                     # Use filtered_matches_ui to count matches vs Cibao in the current filter
                     h2h_count = 0
-                    cibao_name_lower = CIBAO_TEAM_NAME.lower()
+                    cibao_name_no_accents = remove_accents(CIBAO_TEAM_NAME).lower()
                     
                     # Count matches in filtered_matches_ui that contain both Cibao and the opponent
                     for match in filtered_matches_ui:
-                        match_str = str(match.get("Match", "")).lower()
-                        opponent_name_lower = selected_opponent.lower()
+                        match_str_no_accents = remove_accents(str(match.get("Match", ""))).lower()
+                        opponent_name_no_accents = remove_accents(selected_opponent).lower()
                         
                         # Check if match contains both Cibao and the opponent
-                        if cibao_name_lower in match_str and opponent_name_lower in match_str:
+                        if cibao_name_no_accents in match_str_no_accents and opponent_name_no_accents in match_str_no_accents:
                             h2h_count += 1
                     
                     st.metric("Partidos vs Cibao", h2h_count)
