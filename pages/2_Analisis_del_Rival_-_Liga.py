@@ -2942,7 +2942,6 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
         "Tackles Exitosos": ("wonTackle", 15.0),
         "Despejes": ("totalClearance", 20.0),
         "Intercepciones": ("interception", 15.0),
-        "Atajadas": ("saves", 8.0),
         "Faltas": ("fkFoulLost", 15.0),
         "Tarjetas Amarillas": ("totalYellowCard", 5.0),
     }
@@ -7296,7 +7295,7 @@ def main():
                 "Goles", "Goles Recibidos", "Disparos", "Disparos al Arco",
                 "Posesión", "Precisión Pases", "Pases Totales", "Pases Precisos",
                 "Corners", "Tackles Exitosos", "Despejes",
-                "Intercepciones", "Atajadas", "Faltas", "Tarjetas Amarillas"
+                "Intercepciones", "Faltas", "Tarjetas Amarillas"
             ]
             
             default_metrics = [
