@@ -6746,6 +6746,16 @@ def main():
             st.markdown("<br>", unsafe_allow_html=True)
             
             # Mostrar resumen de partidos (directamente arriba de Métricas Clave - 12 KPI cards)
+            # Calculate h2h_count once before displaying
+            h2h_count = 0
+            if selected_opponent != CIBAO_TEAM_NAME:
+                cibao_name_no_accents = remove_accents(CIBAO_TEAM_NAME).lower()
+                opponent_name_no_accents = remove_accents(selected_opponent).lower()
+                for match in filtered_matches_ui:
+                    match_str_no_accents = remove_accents(str(match.get("Match", ""))).lower()
+                    if cibao_name_no_accents in match_str_no_accents and opponent_name_no_accents in match_str_no_accents:
+                        h2h_count += 1
+            
             col_info1, col_info2 = st.columns(2)
             with col_info1:
                 # Contar partidos jugados - verificar status o si tiene score data
@@ -6776,23 +6786,15 @@ def main():
                                 today = datetime.now()
                                 if match_date < today:
                                     played_count += 1
-                st.metric("Partidos Jugados", played_count)
+                # Show "Partidos vs Cibao" instead of "Partidos Jugados" when filter is "vs_cibao"
+                if filter_type_ui == "vs_cibao" and selected_opponent != CIBAO_TEAM_NAME:
+                    # When filtered to vs_cibao, show h2h_count instead of played_count
+                    st.metric("Partidos vs Cibao", h2h_count)
+                else:
+                    st.metric("Partidos Jugados", played_count)
             with col_info2:
-                if selected_opponent != CIBAO_TEAM_NAME:
-                    # Contar partidos donde ambos equipos jugaron (head-to-head)
-                    # Use filtered_matches_ui to count matches vs Cibao in the current filter
-                    h2h_count = 0
-                    cibao_name_no_accents = remove_accents(CIBAO_TEAM_NAME).lower()
-                    
-                    # Count matches in filtered_matches_ui that contain both Cibao and the opponent
-                    for match in filtered_matches_ui:
-                        match_str_no_accents = remove_accents(str(match.get("Match", ""))).lower()
-                        opponent_name_no_accents = remove_accents(selected_opponent).lower()
-                        
-                        # Check if match contains both Cibao and the opponent
-                        if cibao_name_no_accents in match_str_no_accents and opponent_name_no_accents in match_str_no_accents:
-                            h2h_count += 1
-                    
+                if selected_opponent != CIBAO_TEAM_NAME and filter_type_ui != "vs_cibao":
+                    # Only show "Partidos vs Cibao" when filter is NOT vs_cibao (to avoid duplication)
                     st.metric("Partidos vs Cibao", h2h_count)
             
             st.markdown("<br>", unsafe_allow_html=True)
