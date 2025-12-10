@@ -14,6 +14,7 @@ import csv
 import requests
 from bs4 import BeautifulSoup
 import re
+import unicodedata
 
 # Tema Plotly oscuro
 pio.templates.default = "plotly_dark"
@@ -638,6 +639,22 @@ def extract_match_info(match_data: Dict) -> Optional[Dict]:
     except Exception as e:
         return None
 
+
+def remove_accents(text):
+    """Remove accents from text to normalize team names and match strings.
+    
+    This helps with matching teams that have accents (e.g., Atlético, Atlántico, San Cristóbal)
+    by converting them to their non-accented equivalents (Atletico, Atlantico, San Cristobal).
+    """
+    if pd.isna(text) or not text:
+        return text if isinstance(text, str) else ""
+    
+    text = str(text)
+    # Normalize Unicode to NFD (decomposed form) - separates base characters from combining marks
+    nfd = unicodedata.normalize('NFD', text)
+    # Remove combining marks (accents) - keep only base characters
+    no_accents = ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+    return no_accents
 
 def get_all_teams_from_liga_data(df: pd.DataFrame) -> List[str]:
     """Obtiene lista de todos los equipos únicos de los datos de Liga Mayor."""
@@ -6073,9 +6090,11 @@ def main():
     # Preparar datos del equipo seleccionado
     # Use flexible matching to handle name variations (e.g., "Delfines De Este" vs "Delfines Del Este")
     # Also handle cleaned names (without "(1)" suffixes) matching against original data
+    # Normalize accents for consistent matching (data is normalized during upload)
     if not df_liga.empty:
-        # Normalize team names for flexible matching
-        selected_opponent_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
+        # Normalize accents in selected opponent name (data is already normalized during upload)
+        selected_opponent_no_accents = remove_accents(selected_opponent)
+        selected_opponent_normalized = selected_opponent_no_accents.lower().strip().replace(' fc', '').replace(' fc', '').strip()
         
         # Clean the selected opponent name (remove "(1)" suffixes) for matching
         selected_opponent_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', selected_opponent_normalized)
@@ -6085,12 +6104,14 @@ def main():
             if pd.isna(team_name):
                 return False
             team_name_str = str(team_name).lower().strip()
-            team_name_normalized = team_name_str.replace(' fc', '').replace(' fc', '').strip()
+            # Normalize accents (data should already be normalized, but do it here too for safety)
+            team_name_no_accents = remove_accents(team_name_str)
+            team_name_normalized = team_name_no_accents.replace(' fc', '').replace(' fc', '').strip()
             # Clean the team name from data (remove "(1)" suffixes)
             team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', team_name_normalized)
             
-            # Check exact match first
-            if team_name_str == selected_opponent.lower():
+            # Check exact match first (with accent normalization)
+            if team_name_no_accents == selected_opponent_no_accents.lower():
                 return True
             
             # Check if cleaned names match (handles "(1)" variations)
@@ -6565,18 +6586,22 @@ def main():
             # For Wyscout data, use the original DataFrame filtering instead of converting dicts back
             if isinstance(df_liga, pd.DataFrame) and not df_liga.empty and "Team" in df_liga.columns:
                 # Filter DataFrame directly for better accuracy
-                selected_opponent_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                # Normalize accents (data is already normalized during upload, but normalize selected name too)
+                selected_opponent_no_accents = remove_accents(selected_opponent)
+                selected_opponent_normalized = selected_opponent_no_accents.lower().strip().replace(' fc', '').replace(' fc', '').strip()
                 
-                # Try exact match first (case-insensitive, strip whitespace)
-                filtered_team_df = df_liga[df_liga["Team"].str.lower().str.strip() == selected_opponent.lower().strip()].copy()
+                # Try exact match first (case-insensitive, strip whitespace, with accent normalization)
+                filtered_team_df = df_liga[df_liga["Team"].apply(lambda x: remove_accents(str(x)).lower().strip() == selected_opponent_no_accents.lower().strip())].copy()
                 
                 # If no exact match, try flexible matching (partial match)
                 if filtered_team_df.empty:
                     def team_name_match(team_name):
                         if pd.isna(team_name):
                             return False
-                        team_name_normalized = str(team_name).lower().strip().replace(' fc', '').replace(' fc', '').strip()
-                        selected_normalized = selected_opponent.lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                        # Normalize accents for both sides
+                        team_name_no_accents = remove_accents(str(team_name))
+                        team_name_normalized = team_name_no_accents.lower().strip().replace(' fc', '').replace(' fc', '').strip()
+                        selected_normalized = selected_opponent_normalized
                         # Try various matching strategies
                         # 1. Exact match (already tried above)
                         # 2. Selected name is contained in team name (e.g., "Delfines" in "Delfines Del Este")
@@ -6593,6 +6618,7 @@ def main():
                 
                 # ALWAYS derive is_home from Match string (ignore any existing column - it may have wrong float values)
                 # This ensures consistency, especially for teams with accents in their names
+                # Data is normalized during upload (no accents), but normalize here too for safety
                 if "Match" in filtered_team_df.columns:
                     def derive_is_home(row):
                         match_str = str(row.get("Match", "")).strip()
@@ -6615,16 +6641,20 @@ def main():
                         # Clean team name (remove (1), (2) suffixes) for better matching
                         team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', team_name).strip()
                         
+                        # Normalize accents for both (data should already be normalized, but do it here too)
+                        team_name_no_accents = remove_accents(team_name_cleaned)
+                        home_team_no_accents = remove_accents(home_team)
+                        
                         # Normalize both for comparison (handle accents properly)
-                        team_name_lower = team_name_cleaned.lower().strip()
-                        home_team_lower = home_team.lower().strip()
+                        team_name_lower = team_name_no_accents.lower().strip()
+                        home_team_lower = home_team_no_accents.lower().strip()
                         
                         # Remove " FC" suffixes and clean both sides
                         team_clean = team_name_lower.replace(' fc', '').strip()
                         home_clean = home_team_lower.replace(' fc', '').strip()
                         
                         # Check if team name matches home team (with flexible matching)
-                        # This handles accents correctly because we're comparing lowercase strings
+                        # This handles accents correctly by normalizing them first
                         is_home = (team_name_lower in home_team_lower or 
                                   home_team_lower in team_name_lower or
                                   team_clean in home_clean or

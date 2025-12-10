@@ -12,6 +12,7 @@ import sys
 from datetime import datetime
 import re
 import os
+import unicodedata
 
 # Add src to path - try multiple methods for Streamlit Cloud
 REPO_ROOT = Path(__file__).parents[1]
@@ -108,6 +109,22 @@ def save_upload_metadata(metadata):
             json.dump(metadata, f, indent=2, ensure_ascii=False, default=str)
     except Exception as e:
         st.warning(f"Could not save upload metadata: {e}")
+
+def remove_accents(text):
+    """Remove accents from text to normalize team names and match strings.
+    
+    This helps with matching teams that have accents (e.g., Atlético, Atlántico, San Cristóbal)
+    by converting them to their non-accented equivalents (Atletico, Atlantico, San Cristobal).
+    """
+    if pd.isna(text) or not text:
+        return text if isinstance(text, str) else ""
+    
+    text = str(text)
+    # Normalize Unicode to NFD (decomposed form) - separates base characters from combining marks
+    nfd = unicodedata.normalize('NFD', text)
+    # Remove combining marks (accents) - keep only base characters
+    no_accents = ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+    return no_accents
 
 def clean_team_name_from_filename(filename):
     """Extract and clean team name from filename, removing (1) suffixes."""
@@ -304,6 +321,19 @@ if uploaded_files:
                     st.write("  ✅ Converted to per90")
                 else:
                     st.warning("  ⚠️ No 'Duration' column - skipping per90 conversion")
+                
+                # Step 5.5: Normalize accents in Team and Match columns for consistent matching
+                # This ensures teams with accents (Atlético, Atlántico, San Cristóbal) can be matched correctly
+                if "Team" in df.columns:
+                    # Store original team name in a separate column for display, but normalize the main Team column
+                    df["Team_Original"] = df["Team"].copy()  # Keep original for reference
+                    df["Team"] = df["Team"].apply(remove_accents)
+                    st.write("  ✅ Normalized accents in Team column")
+                
+                if "Match" in df.columns:
+                    # Normalize accents in Match column (contains team names)
+                    df["Match"] = df["Match"].apply(remove_accents)
+                    st.write("  ✅ Normalized accents in Match column")
                 
                 # Step 6: Save JSON (Team column is now guaranteed to exist from filename)
                 # All rows are for the same team (from filename)
