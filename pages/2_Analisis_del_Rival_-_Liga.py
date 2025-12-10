@@ -7295,7 +7295,7 @@ def main():
             all_available_metrics = [
                 "Goles", "Goles Recibidos", "Disparos", "Disparos al Arco",
                 "Posesión", "Precisión Pases", "Pases Totales", "Pases Precisos",
-                "Corners", "Tackles Exitosos", "Tackles Totales", "Despejes",
+                "Corners", "Tackles Exitosos", "Despejes",
                 "Intercepciones", "Atajadas", "Faltas", "Tarjetas Amarillas"
             ]
             
