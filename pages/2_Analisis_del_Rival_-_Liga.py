@@ -8966,13 +8966,11 @@ def main():
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         # Lower PPDA = more intense pressing
-                        ppda_delta = comp_ppda - ppda if comp_ppda > 0 else 0
-                        ppda_label = "Más intenso" if ppda < comp_ppda else "Menos intenso" if ppda > comp_ppda else "Promedio"
                         display_metric_card(
                             "PPDA",
                             f"{ppda:.1f}",
                             "",
-                            f"Liga: {comp_ppda:.1f} ({ppda_label})",
+                            f"Liga: {comp_ppda:.1f}",
                             color="normal",
                             cibao_avg=f"{cibao_ppda:.1f}",
                             higher_is_better=False
