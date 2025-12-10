@@ -8740,6 +8740,25 @@ def main():
                                               tactical_competition_averages.get("counterAttacksWithShots") or 0)
                     comp_set_pieces = tactical_competition_averages.get("setPieces", 0) or tactical_competition_averages.get("Set Pieces", 0) or 0
                     
+                    # Cibao averages
+                    cibao_positional = (tactical_cibao_averages.get("Positional Attacks") or 
+                                       tactical_cibao_averages.get("Positional Attacks Per 90") or 
+                                       tactical_cibao_averages.get("positionalAttacks") or 0)
+                    cibao_counter = (tactical_cibao_averages.get("Counterattacks") or 
+                                    tactical_cibao_averages.get("Counterattacks Per 90") or 
+                                    tactical_cibao_averages.get("Counter Attacks") or 
+                                    tactical_cibao_averages.get("counterAttacks") or 0)
+                    cibao_positional_with_shots = (tactical_cibao_averages.get("Positional Attacks With Shot") or 
+                                                   tactical_cibao_averages.get("Positional Attacks With Shot Per 90") or 
+                                                   tactical_cibao_averages.get("Positional Attacks With Shots") or 
+                                                   tactical_cibao_averages.get("positionalAttacksWithShots") or 0)
+                    cibao_counter_with_shots = (tactical_cibao_averages.get("Counterattacks With Shot") or 
+                                               tactical_cibao_averages.get("Counterattacks With Shot Per 90") or 
+                                               tactical_cibao_averages.get("Counter Attacks With Shots") or 
+                                               tactical_cibao_averages.get("counterAttacksWithShots") or 0)
+                    cibao_positional_shot_pct = (cibao_positional_with_shots / cibao_positional * 100) if cibao_positional > 0 else 0
+                    cibao_counter_shot_pct = (cibao_counter_with_shots / cibao_counter * 100) if cibao_counter > 0 else 0
+                    
                     # KPI Cards
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
@@ -8748,7 +8767,8 @@ def main():
                             f"{positional_attacks:.1f}",
                             "",
                             f"Liga: {comp_positional:.1f}",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"{cibao_positional:.1f}"
                         )
                     with col2:
                         display_metric_card(
@@ -8756,7 +8776,8 @@ def main():
                             f"{positional_shot_pct:.1f}%",
                             "",
                             "Con disparos",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"{cibao_positional_shot_pct:.1f}%"
                         )
                     with col3:
                         display_metric_card(
@@ -8764,7 +8785,8 @@ def main():
                             f"{counter_attacks:.1f}",
                             "",
                             f"Liga: {comp_counter:.1f}",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"{cibao_counter:.1f}"
                         )
                     with col4:
                         display_metric_card(
@@ -8772,7 +8794,8 @@ def main():
                             f"{counter_shot_pct:.1f}%",
                             "",
                             "Con disparos",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"{cibao_counter_shot_pct:.1f}%"
                         )
                     
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -8925,6 +8948,20 @@ def main():
                                          tactical_competition_averages.get("interceptions") or 0)
                     comp_recoveries = tactical_competition_averages.get("recoveries", 0) or tactical_competition_averages.get("Recoveries", 0) or 0
                     
+                    # Cibao averages
+                    cibao_ppda = tactical_cibao_averages.get("ppda", 0) or tactical_cibao_averages.get("PPDA", 0) or 0
+                    cibao_defensive_pct = (tactical_cibao_averages.get("Defensive Duels Win %") or 
+                                          tactical_cibao_averages.get("Defensive Duels Won %") or 
+                                          tactical_cibao_averages.get("defensiveDuelsWonPct") or 
+                                          tactical_cibao_averages.get("defensive_duels_won_pct") or 0)
+                    cibao_aerial_pct = (tactical_cibao_averages.get("Aerial Duels Win %") or 
+                                       tactical_cibao_averages.get("Aerial Duels Won %") or 
+                                       tactical_cibao_averages.get("aerialDuelsWonPct") or 
+                                       tactical_cibao_averages.get("aerial_duels_won_pct") or 0)
+                    cibao_interceptions = (tactical_cibao_averages.get("Interceptions") or 
+                                          tactical_cibao_averages.get("Interceptions Per 90") or 
+                                          tactical_cibao_averages.get("interceptions") or 0)
+                    
                     # KPI Cards
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
@@ -8936,7 +8973,9 @@ def main():
                             f"{ppda:.1f}",
                             "",
                             f"Liga: {comp_ppda:.1f} ({ppda_label})",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"{cibao_ppda:.1f}",
+                            higher_is_better=False
                         )
                     with col2:
                         display_metric_card(
@@ -8944,7 +8983,8 @@ def main():
                             f"{defensive_duels_won_pct:.1f}%",
                             "",
                             f"Liga: {comp_defensive_pct:.1f}%",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"{cibao_defensive_pct:.1f}%"
                         )
                     with col3:
                         display_metric_card(
@@ -8952,7 +8992,8 @@ def main():
                             f"{aerial_duels_won_pct:.1f}%",
                             "",
                             f"Liga: {comp_aerial_pct:.1f}%",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"{cibao_aerial_pct:.1f}%"
                         )
                     with col4:
                         display_metric_card(
@@ -8960,7 +9001,8 @@ def main():
                             f"{interceptions:.1f}",
                             "",
                             f"Liga: {comp_interceptions:.1f}",
-                            color="normal"
+                            color="normal",
+                            cibao_avg=f"{cibao_interceptions:.1f}"
                         )
                     
                     st.markdown("<br>", unsafe_allow_html=True)
