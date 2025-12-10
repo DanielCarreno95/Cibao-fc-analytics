@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 import sys
 from datetime import datetime
+import re
+import os
 
 # Add src to path - try multiple methods for Streamlit Cloud
 REPO_ROOT = Path(__file__).parents[1]
@@ -107,6 +109,94 @@ def save_upload_metadata(metadata):
     except Exception as e:
         st.warning(f"Could not save upload metadata: {e}")
 
+def clean_team_name_from_filename(filename):
+    """Extract and clean team name from filename, removing (1) suffixes."""
+    # Remove "Team Stats " prefix and file extension
+    team_name = filename.replace("Team Stats ", "").replace(".xlsx", "").replace(".xls", "").strip()
+    # Remove (1), (2), etc. suffixes
+    team_name = re.sub(r'\s*\(\d+\)\s*$', '', team_name).strip()
+    return team_name
+
+def find_old_team_files(team_name_clean, directory):
+    """Find all old files (JSON and Excel) for a given team name.
+    
+    Handles variations like:
+    - Team Stats Cibao.xls
+    - Team Stats Cibao (1).xls
+    - Cibao_per_90.json
+    """
+    old_files = []
+    
+    # Clean the team name for matching (remove (1) suffixes)
+    team_name_normalized = re.sub(r'\s*\(\d+\)\s*$', '', team_name_clean).strip()
+    team_name_safe = team_name_normalized.replace(" ", "_").replace("/", "_").replace("\\", "_")
+    
+    if not directory.exists():
+        return old_files
+    
+    # Find JSON files matching this team
+    for file_path in directory.glob("*.json"):
+        filename = file_path.name
+        # Remove .json extension and normalize
+        filename_base = filename.replace(".json", "").replace("_per_90", "")
+        # Check if filename starts with the cleaned team name (handles variations)
+        # This matches: "Cibao_per_90.json", "Cibao_something.json", etc.
+        if filename_base.startswith(team_name_safe) or filename.startswith(team_name_safe + "_"):
+            old_files.append(file_path)
+    
+    # Also check metadata for old filenames that might match
+    metadata = load_upload_metadata()
+    for stored_team_name, info in metadata.items():
+        stored_team_clean = clean_team_name_from_filename(stored_team_name)
+        stored_filename = info.get("filename", "")
+        
+        # If the stored team name matches (after cleaning), check for the Excel file
+        if re.sub(r'\s*\(\d+\)\s*$', '', stored_team_clean).strip().lower() == team_name_normalized.lower():
+            # Look for Excel files in the directory that match
+            excel_patterns = [
+                stored_filename,
+                stored_filename.replace(".xlsx", ".xls"),
+                stored_filename.replace(".xls", ".xlsx"),
+            ]
+            for pattern in excel_patterns:
+                excel_path = directory / pattern
+                if excel_path.exists():
+                    old_files.append(excel_path)
+    
+    return old_files
+
+def remove_old_team_files(team_name_clean, directory):
+    """Remove all old files for a team before uploading new data."""
+    old_files = find_old_team_files(team_name_clean, directory)
+    
+    removed_files = []
+    for file_path in old_files:
+        try:
+            if file_path.exists():
+                file_path.unlink()
+                removed_files.append(file_path.name)
+        except Exception as e:
+            st.warning(f"  ⚠️ Could not delete old file {file_path.name}: {e}")
+    
+    # Also clean up metadata entries for this team (all variations)
+    metadata = load_upload_metadata()
+    team_name_normalized = re.sub(r'\s*\(\d+\)\s*$', '', team_name_clean).strip().lower()
+    
+    teams_to_remove = []
+    for stored_team_name in metadata.keys():
+        stored_team_clean = clean_team_name_from_filename(stored_team_name)
+        stored_team_normalized = re.sub(r'\s*\(\d+\)\s*$', '', stored_team_clean).strip().lower()
+        if stored_team_normalized == team_name_normalized:
+            teams_to_remove.append(stored_team_name)
+    
+    for team_to_remove in teams_to_remove:
+        metadata.pop(team_to_remove, None)
+    
+    if teams_to_remove:
+        save_upload_metadata(metadata)
+    
+    return removed_files
+
 def update_upload_metadata(team_name, filename):
     """Update metadata with new upload information."""
     metadata = load_upload_metadata()
@@ -169,9 +259,18 @@ if uploaded_files:
                 
                 # Step 1: Extract team name from filename
                 # Format: "Team Stats Cibao.xlsx" → "Cibao"
+                # Also handles: "Team Stats Cibao (1).xlsx" → "Cibao"
                 filename = uploaded_file.name
-                team_name = filename.replace("Team Stats ", "").replace(".xlsx", "").replace(".xls", "").strip()
+                team_name = clean_team_name_from_filename(filename)
                 st.write(f"  📋 Team from filename: {team_name}")
+                
+                # Step 1.5: Remove old files for this team (handles naming variations)
+                st.write(f"  🗑️ Removing old files for {team_name}...")
+                removed_files = remove_old_team_files(team_name, PROCESSED_DIR)
+                if removed_files:
+                    st.write(f"  ✅ Removed {len(removed_files)} old file(s): {', '.join(removed_files)}")
+                else:
+                    st.write(f"  ℹ️ No old files found to remove")
                 
                 # Step 2: Load Excel (handle multiple sheets)
                 xls = pd.ExcelFile(uploaded_file)
