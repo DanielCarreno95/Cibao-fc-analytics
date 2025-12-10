@@ -2940,7 +2940,6 @@ def create_radar_chart(opponent_metrics: Dict[str, float], cibao_metrics: Dict[s
         "Pases Precisos": ("accuratePass", 400.0),
         "Corners": ("wonCorners", 10.0),
         "Tackles Exitosos": ("wonTackle", 15.0),
-        "Tackles Totales": ("totalTackle", 20.0),
         "Despejes": ("totalClearance", 20.0),
         "Intercepciones": ("interception", 15.0),
         "Atajadas": ("saves", 8.0),
