@@ -7402,12 +7402,6 @@ def main():
                     "category": "Set Pieces",
                     "invert": True
                 },
-                "Tackles Totales por 90 min": {
-                    "key": "totalTackle",
-                    "chart_type": "bar",
-                    "unit": "tackles",
-                    "category": "Defensiva"
-                },
                 "Tackles Exitosos por 90 min": {
                     "key": "wonTackle",
                     "chart_type": "bar",
@@ -7430,12 +7424,6 @@ def main():
                     "key": "interception",
                     "chart_type": "bar",
                     "unit": "intercepciones",
-                    "category": "Defensiva"
-                },
-                "Atajadas por 90 min": {
-                    "key": "saves",
-                    "chart_type": "bar",
-                    "unit": "atajadas",
                     "category": "Defensiva"
                 },
                 "Faltas Cometidas por 90 min": {
