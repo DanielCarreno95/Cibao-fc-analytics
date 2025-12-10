@@ -1708,18 +1708,9 @@ def display_metric_card(label: str, value: str, icon: str = "", delta: str = "",
                 else:
                     is_better = diff < 0
                 
-                # Crear indicador visual
-                if abs(diff) > 0.01:  # Solo mostrar si hay diferencia significativa
-                    arrow = "↑" if is_better else "↓"
-                    arrow_color = "#10B981" if is_better else "#EF4444"
-                    indicator = f'<span style="color: {arrow_color}; font-weight: bold; margin-left: 0.3rem;">{arrow}</span>'
-                else:
-                    indicator = '<span style="color: #94A3B8; margin-left: 0.3rem;">≈</span>'
-                
+                # Show competition average without indicator
                 comparison_parts.append(
-                    f'<div style="color: #64748B; font-size: 0.85rem; margin-top: 0.5rem; display: flex; align-items: center; justify-content: center;">'
-                    f'<span>Comp: {competition_avg}</span>{indicator}'
-                    f'</div>'
+                    f'<div style="color: #64748B; font-size: 0.85rem; margin-top: 0.5rem;">Comp: {competition_avg}</div>'
                 )
             except (ValueError, AttributeError):
                 # Si no se puede calcular, mostrar sin indicador
@@ -1738,18 +1729,9 @@ def display_metric_card(label: str, value: str, icon: str = "", delta: str = "",
                 else:
                     is_better = diff < 0
                 
-                # Crear indicador visual
-                if abs(diff) > 0.01:  # Solo mostrar si hay diferencia significativa
-                    arrow = "↑" if is_better else "↓"
-                    arrow_color = "#10B981" if is_better else "#EF4444"
-                    indicator = f'<span style="color: {arrow_color}; font-weight: bold; margin-left: 0.3rem;">{arrow}</span>'
-                else:
-                    indicator = '<span style="color: #94A3B8; margin-left: 0.3rem;">≈</span>'
-                
+                # Show Cibao average without indicator
                 comparison_parts.append(
-                    f'<div style="color: #FF9900; font-size: 0.85rem; margin-top: 0.25rem; display: flex; align-items: center; justify-content: center;">'
-                    f'<span>Cibao: {cibao_avg}</span>{indicator}'
-                    f'</div>'
+                    f'<div style="color: #FF9900; font-size: 0.85rem; margin-top: 0.25rem;">Cibao: {cibao_avg}</div>'
                 )
             except (ValueError, AttributeError):
                 # Si no se puede calcular, mostrar sin indicador
