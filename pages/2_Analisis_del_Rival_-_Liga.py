@@ -1120,22 +1120,27 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
         match_str = str(match_info.get("Match", ""))
         # Get team name from match itself, fallback to parameter
         match_team_name = str(match_info.get("Team", "")).strip() or team_name
+        # Clean team name (remove (1), (2) suffixes) for better matching
+        match_team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', match_team_name).strip()
         is_home = match_info.get("is_home")
         
         # Derive is_home from Match string if we have a Match string (more reliable than stored value)
-        if match_str and match_str != "nan" and match_str.strip() and match_team_name:
+        if match_str and match_str != "nan" and match_str.strip() and match_team_name_cleaned:
             parts = match_str.split(" - ")
             if len(parts) >= 2:
                 home_team = parts[0].strip()
                 # Remove score if present
                 home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
-                team_name_lower_check = match_team_name.lower().strip()
+                team_name_lower_check = match_team_name_cleaned.lower().strip()
                 home_team_lower = home_team.lower().strip()
                 # Check if team name matches home team (with flexible matching)
+                # Also clean both sides to remove (1) suffixes
+                team_clean = team_name_lower_check.replace(' fc', '').strip()
+                home_clean = home_team_lower.replace(' fc', '').strip()
                 is_home_derived = (team_name_lower_check in home_team_lower or 
                                   home_team_lower in team_name_lower_check or
-                                  team_name_lower_check.replace(' fc', '').strip() in home_team_lower.replace(' fc', '').strip() or
-                                  home_team_lower.replace(' fc', '').strip() in team_name_lower_check.replace(' fc', '').strip())
+                                  team_clean in home_clean or
+                                  home_clean in team_clean)
                 # Use derived value (always prefer derived over stored)
                 is_home = is_home_derived
         
