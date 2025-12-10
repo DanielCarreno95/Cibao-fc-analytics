@@ -6047,30 +6047,31 @@ def main():
         # Clean the selected opponent name (remove "(1)" suffixes) for matching
         selected_opponent_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', selected_opponent_normalized)
         
-        # Try exact match first
-        team_df = df_liga[df_liga["Team"].str.lower() == selected_opponent.lower()].copy()
-        
-        # If no exact match, try matching against cleaned names (handle "(1)" variations)
-        if team_df.empty:
-            def team_name_match(team_name):
-                if pd.isna(team_name):
-                    return False
-                team_name_str = str(team_name).lower().strip()
-                team_name_normalized = team_name_str.replace(' fc', '').replace(' fc', '').strip()
-                # Clean the team name from data (remove "(1)" suffixes)
-                team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', team_name_normalized)
-                
-                # Check if cleaned names match
-                if selected_opponent_cleaned == team_name_cleaned:
-                    return True
-                
-                # Also check if selected opponent name is in team name or vice versa
-                return (selected_opponent_normalized in team_name_normalized or 
-                       team_name_normalized in selected_opponent_normalized or
-                       selected_opponent_normalized.replace(' del ', ' de ') in team_name_normalized.replace(' del ', ' de ') or
-                       team_name_normalized.replace(' del ', ' de ') in selected_opponent_normalized.replace(' del ', ' de '))
+        # Define flexible matching function to get ALL variations (exact + cleaned)
+        def team_name_match(team_name):
+            if pd.isna(team_name):
+                return False
+            team_name_str = str(team_name).lower().strip()
+            team_name_normalized = team_name_str.replace(' fc', '').replace(' fc', '').strip()
+            # Clean the team name from data (remove "(1)" suffixes)
+            team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', team_name_normalized)
             
-            team_df = df_liga[df_liga["Team"].apply(team_name_match)].copy()
+            # Check exact match first
+            if team_name_str == selected_opponent.lower():
+                return True
+            
+            # Check if cleaned names match (handles "(1)" variations)
+            if selected_opponent_cleaned == team_name_cleaned:
+                return True
+            
+            # Also check if selected opponent name is in team name or vice versa
+            return (selected_opponent_normalized in team_name_normalized or 
+                   team_name_normalized in selected_opponent_normalized or
+                   selected_opponent_normalized.replace(' del ', ' de ') in team_name_normalized.replace(' del ', ' de ') or
+                   team_name_normalized.replace(' del ', ' de ') in selected_opponent_normalized.replace(' del ', ' de '))
+        
+        # Use flexible matching to get ALL rows (including variations like "Salcedo" and "Salcedo (1)")
+        team_df = df_liga[df_liga["Team"].apply(team_name_match)].copy()
     else:
         team_df = pd.DataFrame()
     
@@ -6084,27 +6085,43 @@ def main():
     
     if not team_df.empty:
         # First, remove duplicates from DataFrame itself (in case there are duplicate rows)
-        if "Match" in team_df.columns and "Date" in team_df.columns:
-            # Drop duplicates based on Match+Date, keeping first occurrence
+        # Use a more robust deduplication: Match+Date+Team to ensure we don't remove valid matches
+        if "Match" in team_df.columns and "Date" in team_df.columns and "Team" in team_df.columns:
+            # Drop duplicates based on Match+Date+Team, keeping first occurrence
+            team_df = team_df.drop_duplicates(subset=["Match", "Date", "Team"], keep="first").copy()
+        elif "Match" in team_df.columns and "Date" in team_df.columns:
+            # Fallback to Match+Date if Team column not available
             team_df = team_df.drop_duplicates(subset=["Match", "Date"], keep="first").copy()
         
-        for _, row in team_df.iterrows():
+        for idx, row in team_df.iterrows():
             match_dict = row.to_dict()
             
             # Create unique identifier for this match
-            match_str = str(match_dict.get("Match", ""))
+            # Use Match+Date+Team to be more precise (avoid removing valid matches with same Match string)
+            match_str = str(match_dict.get("Match", "")).strip()
+            team_name_in_match = str(match_dict.get("Team", "")).strip()
             date_val = match_dict.get("Date")
             if pd.notna(date_val):
                 if isinstance(date_val, pd.Timestamp):
                     date_str = date_val.strftime("%Y-%m-%d")
                 else:
-                    date_str = str(date_val)
+                    date_str = str(date_val).strip()
             else:
                 date_str = ""
             
-            match_date_key = f"{match_str}_{date_str}"
+            # Use Team+Date+Match+Index for more precise deduplication
+            # Include index as fallback to ensure we don't accidentally remove valid matches
+            # This ensures we don't accidentally remove matches that have the same Match string
+            # but are actually different matches (e.g., if Match column has formatting issues)
+            # Only use index if Match or Date is missing to avoid over-deduplication
+            if not match_str or not date_str:
+                # If Match or Date is missing, use index to ensure uniqueness
+                match_date_key = f"{team_name_in_match}_{date_str}_{match_str}_{idx}"
+            else:
+                # If both Match and Date exist, use them (more reliable)
+                match_date_key = f"{team_name_in_match}_{date_str}_{match_str}"
             
-            # Skip if we've already processed this Match+Date combination
+            # Skip if we've already processed this exact combination
             if match_date_key in seen_match_date:
                 continue
             seen_match_date.add(match_date_key)
