@@ -812,7 +812,17 @@ def build_comparison_df(mapping, prefer_wyscout=True, opponent=None):
     # 2) Fallback Excel (Cibao + columnas _Rival)
     df_base = df_filtrado.copy()
     if opponent and "Team_Rival" in df_base.columns:
-        df_filtered = df_base[df_base["Team_Rival"].str.lower() == str(opponent).lower()]
+        # Normalize accents for consistent matching (data is normalized during upload)
+        import unicodedata
+        def remove_accents(text):
+            if pd.isna(text) or not text:
+                return text if isinstance(text, str) else ""
+            text = str(text)
+            nfd = unicodedata.normalize('NFD', text)
+            return ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+        
+        opponent_no_accents = remove_accents(str(opponent))
+        df_filtered = df_base[df_base["Team_Rival"].apply(lambda x: remove_accents(str(x)).lower() == opponent_no_accents.lower())]
         if not df_filtered.empty:
             df_base = df_filtered
 
