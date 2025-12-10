@@ -915,18 +915,18 @@ def calculate_team_averages_from_df(df: pd.DataFrame, team_name: str, already_fi
         team_df = df.copy()
     else:
         # Intentar matching flexible del nombre del equipo
-        team_name_lower = team_name.lower().strip()
-        team_df = df[df["Team"].str.lower().str.strip() == team_name_lower].copy()
+        team_name_no_accents = remove_accents(team_name).lower().strip()
+        team_df = df[df["Team"].apply(lambda x: remove_accents(str(x)).lower().strip() == team_name_no_accents)].copy()
         
         # Si no hay coincidencia exacta, intentar matching parcial
         if team_df.empty:
             # Buscar coincidencias parciales (el nombre del equipo contiene el nombre buscado o viceversa)
             for col_team in df["Team"].unique():
                 if pd.notna(col_team):
-                    col_team_lower = str(col_team).lower().strip()
+                    col_team_no_accents = remove_accents(str(col_team)).lower().strip()
                     # Coincidencia parcial
-                    if team_name_lower in col_team_lower or col_team_lower in team_name_lower:
-                        team_df = df[df["Team"].str.lower().str.strip() == col_team_lower].copy()
+                    if team_name_no_accents in col_team_no_accents or col_team_no_accents in team_name_no_accents:
+                        team_df = df[df["Team"].apply(lambda x: remove_accents(str(x)).lower().strip() == col_team_no_accents)].copy()
                         break
     
     if team_df.empty:
@@ -1122,8 +1122,8 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
     filtered = []
     cibao_name_lower = "Cibao".lower().strip()
     cibao_base = cibao_name_lower.replace(' fc', '').strip()
-    team_name_lower = team_name.lower().strip()
-    team_base = team_name_lower.replace(' fc', '').strip()
+    team_name_no_accents = remove_accents(team_name).lower().strip()
+    team_base = team_name_no_accents.replace(' fc', '').strip()
     
     for match in matches:
         # Los matches ya tienen la estructura de match_info (con home_team, away_team, etc.)
@@ -1153,17 +1153,17 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
                 match_team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', match_team_name).strip()
                 
                 # Normalize both for comparison
-                team_name_lower = match_team_name_cleaned.lower().strip()
-                home_team_lower = home_team.lower().strip()
+                team_name_no_accents = remove_accents(match_team_name_cleaned).lower().strip()
+                home_team_no_accents = remove_accents(home_team).lower().strip()
                 
                 # Remove " FC" suffixes and clean both sides
-                team_clean = team_name_lower.replace(' fc', '').strip()
-                home_clean = home_team_lower.replace(' fc', '').strip()
+                team_clean = team_name_no_accents.replace(' fc', '').strip()
+                home_clean = home_team_no_accents.replace(' fc', '').strip()
                 
                 # Check if team name matches home team (with flexible matching)
                 # If team name matches the first part (home team), it's a home game
-                is_home = (team_name_lower in home_team_lower or 
-                          home_team_lower in team_name_lower or
+                is_home = (team_name_no_accents in home_team_no_accents or
+                          home_team_no_accents in team_name_no_accents or
                           team_clean in home_clean or
                           home_clean in team_clean)
         
@@ -1179,10 +1179,8 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
             elif filter_type == "vs_cibao":
                 # For Wyscout data, check if BOTH the selected team AND Cibao are in the Match string
                 match_str_lower = match_str.lower()
-                cibao_name_lower = "cibao"
-                team_name_lower_check = (match_team_name_cleaned.lower().strip() 
-                                       if match_team_name_cleaned 
-                                       else team_name.lower().strip())
+                cibao_name_lower = remove_accents("Cibao").lower()
+                team_name_lower_check = remove_accents(match_team_name_cleaned).lower().strip() if match_team_name_cleaned else remove_accents(team_name).lower().strip()
                 # Both teams must be in the match string
                 if cibao_name_lower in match_str_lower and team_name_lower_check in match_str_lower:
                     filtered.append(match)
@@ -1197,17 +1195,17 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
             
             if filter_type == "home":
                 # Solo partidos en casa
-                home_match = (team_name_lower in home_str or home_str in team_name_lower or
-                             team_base in home_str.replace(' fc', '').strip() or
-                             home_str.replace(' fc', '').strip() in team_base)
+                home_match = (team_name_no_accents in remove_accents(home_str) or remove_accents(home_str) in team_name_no_accents or
+                             team_base in remove_accents(home_str).replace(' fc', '').strip() or
+                             remove_accents(home_str).replace(' fc', '').strip() in team_base)
                 if home_match:
                     filtered.append(match)
             
             elif filter_type == "away":
                 # Solo partidos fuera
-                away_match = (team_name_lower in away_str or away_str in team_name_lower or
-                             team_base in away_str.replace(' fc', '').strip() or
-                             away_str.replace(' fc', '').strip() in team_base)
+                away_match = (team_name_no_accents in remove_accents(away_str) or remove_accents(away_str) in team_name_no_accents or
+                             team_base in remove_accents(away_str).replace(' fc', '').strip() or
+                             remove_accents(away_str).replace(' fc', '').strip() in team_base)
                 if away_match:
                     filtered.append(match)
             
@@ -1219,12 +1217,12 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
                 away_match_cibao = (cibao_name_lower in away_str or away_str in cibao_name_lower or
                                    cibao_base in away_str.replace(' fc', '').strip() or
                                    away_str.replace(' fc', '').strip() in cibao_base)
-                home_match_team = (team_name_lower in home_str or home_str in team_name_lower or
-                                  team_base in home_str.replace(' fc', '').strip() or
-                                  home_str.replace(' fc', '').strip() in team_base)
-                away_match_team = (team_name_lower in away_str or away_str in team_name_lower or
-                                  team_base in away_str.replace(' fc', '').strip() or
-                                  away_str.replace(' fc', '').strip() in team_base)
+                home_match_team = (team_name_no_accents in remove_accents(home_str) or remove_accents(home_str) in team_name_no_accents or
+                                  team_base in remove_accents(home_str).replace(' fc', '').strip() or
+                                  remove_accents(home_str).replace(' fc', '').strip() in team_base)
+                away_match_team = (team_name_no_accents in remove_accents(away_str) or remove_accents(away_str) in team_name_no_accents or
+                                  team_base in remove_accents(away_str).replace(' fc', '').strip() or
+                                  remove_accents(away_str).replace(' fc', '').strip() in team_base)
                 
                 if (home_match_cibao or away_match_cibao) and (home_match_team or away_match_team):
                     filtered.append(match)
@@ -3278,7 +3276,8 @@ def analyze_formations_from_df(df: pd.DataFrame, team_name: str) -> Dict:
     if df.empty or "Scheme" not in df.columns:
         return formation_stats
     
-    team_df = df[df["Team"].str.lower() == team_name.lower()].copy()
+    team_name_no_accents = remove_accents(team_name).lower().strip()
+    team_df = df[df["Team"].apply(lambda x: remove_accents(str(x)).lower().strip() == team_name_no_accents)].copy()
     if team_df.empty:
         return formation_stats
     
@@ -3472,7 +3471,7 @@ def extract_player_stats_from_matches(matches: List[Dict], team_name: str) -> Di
             for contestant in contestants:
                 if contestant.get("id") == contestant_id:
                     name = contestant.get("name") or contestant.get("shortName") or contestant.get("officialName", "")
-                    if team_name.lower() in name.lower():
+                    if remove_accents(team_name).lower() in remove_accents(name).lower():
                         team_lineup = lineup
                         break
             
@@ -3824,7 +3823,8 @@ def analyze_match_phases_from_df(df: pd.DataFrame, team_name: str) -> Dict:
     # Wyscout team stats no incluyen datos de goles por fase temporal
     # Retornamos estructura vacía pero con conteo de partidos
     if not df.empty and "Team" in df.columns:
-        team_df = df[df["Team"].str.lower() == team_name.lower()].copy()
+        team_name_no_accents = remove_accents(team_name).lower().strip()
+        team_df = df[df["Team"].apply(lambda x: remove_accents(str(x)).lower().strip() == team_name_no_accents)].copy()
         match_count = len(team_df)
         
         # Actualizar conteo de partidos para todas las fases
@@ -3969,16 +3969,16 @@ def analyze_event_patterns(matches: List[Dict], team_name: str) -> Dict:
         
         team_contestant_id = None
         opponent_contestant_id = None
-        team_name_lower = team_name.lower().strip()
-        team_base = team_name_lower.replace(' fc', '').strip()
+        team_name_no_accents = remove_accents(team_name).lower().strip()
+        team_base = team_name_no_accents.replace(' fc', '').strip()
         
         for contestant in contestants:
             name = contestant.get("name") or contestant.get("shortName") or contestant.get("officialName", "")
-            name_lower = name.lower().strip() if name else ""
-            name_base = name_lower.replace(' fc', '').strip()
+            name_no_accents = remove_accents(name).lower().strip() if name else ""
+            name_base = name_no_accents.replace(' fc', '').strip()
             
-            if (team_name_lower in name_lower or 
-                name_lower in team_name_lower or
+            if (team_name_no_accents in name_no_accents or
+                name_no_accents in team_name_no_accents or
                 team_base in name_base or
                 name_base in team_base):
                 team_contestant_id = contestant.get("id", "")
@@ -4055,16 +4055,16 @@ def analyze_momentum(matches: List[Dict], team_name: str) -> Dict:
             continue
         
         team_contestant_id = None
-        team_name_lower = team_name.lower().strip()
-        team_base = team_name_lower.replace(' fc', '').strip()
+        team_name_no_accents = remove_accents(team_name).lower().strip()
+        team_base = team_name_no_accents.replace(' fc', '').strip()
         
         for contestant in contestants:
             name = contestant.get("name") or contestant.get("shortName") or contestant.get("officialName", "")
-            name_lower = name.lower().strip() if name else ""
-            name_base = name_lower.replace(' fc', '').strip()
+            name_no_accents = remove_accents(name).lower().strip() if name else ""
+            name_base = name_no_accents.replace(' fc', '').strip()
             
-            if (team_name_lower in name_lower or 
-                name_lower in team_name_lower or
+            if (team_name_no_accents in name_no_accents or
+                name_no_accents in team_name_no_accents or
                 team_base in name_base or
                 name_base in team_base):
                 team_contestant_id = contestant.get("id", "")
@@ -5001,7 +5001,9 @@ def get_performance_by_phase(matches: List[Dict], team_name: str) -> Dict:
             for contestant in contestants:
                 name = contestant.get("name") or contestant.get("shortName", "")
                 contestant_id = contestant.get("id")
-                if team_name.lower() in name.lower() or name.lower() in team_name.lower():
+                team_name_no_accents = remove_accents(team_name).lower()
+                name_no_accents = remove_accents(name).lower() if name else ""
+                if team_name_no_accents in name_no_accents or name_no_accents in team_name_no_accents:
                     team_contestant_id = contestant_id
                 else:
                     opponent_contestant_id = contestant_id
