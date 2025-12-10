@@ -1150,17 +1150,24 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
                                   team_clean in home_clean or
                                   home_clean in team_clean)
                 # Use derived value (always prefer derived over stored)
-                is_home = is_home_derived
+                # Convert to proper boolean
+                is_home = bool(is_home_derived)
             else:
                 # Can't parse Match string, default to False
                 is_home = False
         
         # If we still don't have is_home, default to False
-        if is_home is None or (isinstance(is_home, float) and pd.isna(is_home)):
+        # Also handle float values that might be stored in JSON (0.0 = False, any non-zero = True)
+        if is_home is None:
             is_home = False
-        
-        # Convert to boolean to be safe
-        is_home = bool(is_home) if is_home is not None else False
+        elif isinstance(is_home, float):
+            # Handle float values: 0.0 = False, anything else = True
+            is_home = bool(is_home) and is_home != 0.0
+        elif pd.isna(is_home):
+            is_home = False
+        else:
+            # Convert to boolean
+            is_home = bool(is_home)
         
         # Apply filters for Wyscout data structure (always try if we have Match string)
         if match_str and match_str != "nan" and match_str.strip():
@@ -6207,7 +6214,8 @@ def main():
                                         home_team_lower in team_name_lower or
                                         team_clean in home_clean or
                                         home_clean in team_clean)
-                        match_dict["is_home"] = is_home_match
+                        # Store as boolean (not float) - ensure it's True/False
+                        match_dict["is_home"] = bool(is_home_match)
                     else:
                         # Can't parse Match string, default to False
                         match_dict["is_home"] = False
