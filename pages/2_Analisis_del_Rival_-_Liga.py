@@ -6144,6 +6144,9 @@ def main():
                     parts = match_str.split(" - ")
                     if len(parts) >= 2:
                         home_team = parts[0].strip()
+                        # Remove score if present (format: "Team 2:1")
+                        import re
+                        home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
                         # Check if this team is the home team
                         team_name_lower = team_name.lower()
                         home_team_lower = home_team.lower()
@@ -6160,6 +6163,9 @@ def main():
                         match_dict["is_home"] = False
                 else:
                     match_dict["is_home"] = False
+            
+            # Also add is_home to the DataFrame row for filtering
+            # We'll update the DataFrame after processing all rows
             
             team_all_matches.append(match_dict)
     
@@ -6546,6 +6552,28 @@ def main():
                     
                     filtered_team_df = df_liga[df_liga["Team"].apply(team_name_match)].copy()
                 
+                # Ensure is_home column exists in DataFrame for filtering
+                if "is_home" not in filtered_team_df.columns and "Match" in filtered_team_df.columns:
+                    def derive_is_home(row):
+                        match_str = str(row.get("Match", ""))
+                        team_name = str(row.get("Team", "")).strip()
+                        if match_str and team_name:
+                            parts = match_str.split(" - ")
+                            if len(parts) >= 2:
+                                home_team = parts[0].strip()
+                                # Remove score if present
+                                import re
+                                home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
+                                team_name_lower = team_name.lower()
+                                home_team_lower = home_team.lower()
+                                # Check if team name matches home team
+                                return (team_name_lower in home_team_lower or 
+                                       home_team_lower in team_name_lower or
+                                       team_name_lower.replace(' fc', '').strip() in home_team_lower.replace(' fc', '').strip() or
+                                       home_team_lower.replace(' fc', '').strip() in team_name_lower.replace(' fc', '').strip())
+                        return False
+                    filtered_team_df["is_home"] = filtered_team_df.apply(derive_is_home, axis=1)
+                
                 # Apply UI filter to the DataFrame
                 if filter_type_ui != "all":
                     if filter_type_ui == "last_3":
@@ -6588,6 +6616,16 @@ def main():
                                         return not (team_name.lower() in home_team.lower() or home_team.lower() in team_name.lower())
                                 return True
                             filtered_team_df = filtered_team_df[filtered_team_df.apply(is_away_match, axis=1)].copy()
+                    elif filter_type_ui == "vs_cibao":
+                        # Filter for matches vs Cibao
+                        if "Match" in filtered_team_df.columns:
+                            cibao_name_lower = CIBAO_TEAM_NAME.lower()
+                            def is_vs_cibao_match(row):
+                                match_str = str(row.get("Match", "")).lower()
+                                team_name = str(row.get("Team", "")).lower().strip()
+                                # Check if both Cibao and the selected team are in the match string
+                                return cibao_name_lower in match_str and team_name in match_str
+                            filtered_team_df = filtered_team_df[filtered_team_df.apply(is_vs_cibao_match, axis=1)].copy()
                 
                 # Calculate averages from filtered DataFrame (already filtered by team, so pass already_filtered=True)
                 filtered_averages_ui = calculate_team_averages_from_df(filtered_team_df, selected_opponent, already_filtered=True) if not filtered_team_df.empty else {}
