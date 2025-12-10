@@ -8472,6 +8472,7 @@ def main():
                     base_text_color = get_text_color(base_color, team_name=selected_opponent)
                     team_text_colors = ['white' if (v < threshold or v < absolute_threshold) else base_text_color for v in team_values]
                     comp_text_positions = ['outside' if (v < threshold or v < absolute_threshold) else 'inside' for v in comp_values]
+                    # League average labels are always white
                     comp_text_colors = ['#FFFFFF' for v in comp_values]  # League average bars are always dark gray, so always white text
                     
                     fig.add_trace(go.Bar(
@@ -8495,7 +8496,7 @@ def main():
                         text=[f"{v:.1f}" if i < 3 else f"{v:.2f}" if i == 3 else f"{v:.1f}" for i, v in enumerate(comp_values)],
                         textposition=comp_text_positions,
                         insidetextanchor='middle',
-                        textfont=dict(size=14, color=comp_text_colors, family="Arial Black"),
+                        textfont=dict(size=14, color='#FFFFFF', family="Arial Black"),  # Always white for league average labels
                         cliponaxis=False
                     ))
                     
