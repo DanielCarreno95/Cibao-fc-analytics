@@ -8660,7 +8660,7 @@ def main():
                         text=[f"{v:.1f}" if i < 5 else f"{v:.1f}m" for i, v in enumerate(comp_values)],
                         textposition=comp_text_positions,
                         insidetextanchor='middle',
-                        textfont=dict(size=14, color=comp_text_colors, family="Arial Black"),
+                        textfont=dict(size=14, color='#FFFFFF', family="Arial Black"),  # Always white for league average labels
                         cliponaxis=False
                     ))
                     
@@ -8865,7 +8865,7 @@ def main():
                         text=[f"{positional_attacks:.1f}", f"{comp_positional:.1f}"],
                         textposition=[pos_attacks_pos, comp_pos_attacks_pos],
                         insidetextanchor='middle',
-                        textfont=dict(size=14, color=[pos_attacks_color, comp_pos_attacks_color], family='Arial Black'),
+                        textfont=dict(size=14, color=[pos_attacks_color, '#FFFFFF'], family='Arial Black'),  # League average always white
                         cliponaxis=False
                     ))
                     
@@ -8878,7 +8878,7 @@ def main():
                         text=[f"{positional_with_shots:.1f}", f"{comp_positional_with_shots:.1f}"],
                         textposition=[pos_shots_pos, comp_pos_shots_pos],
                         insidetextanchor='middle',
-                        textfont=dict(size=14, color=[pos_shots_color, comp_pos_shots_color], family='Arial Black'),
+                        textfont=dict(size=14, color=[pos_shots_color, '#FFFFFF'], family='Arial Black'),  # League average always white
                         cliponaxis=False
                     ))
                     
@@ -9089,7 +9089,7 @@ def main():
                         text=[f"{comp_values[0]:.1f}", f"{comp_values[1]:.1f}%", f"{comp_values[2]:.1f}%", f"{comp_values[3]:.1f}"],
                         textposition=comp_def_text_positions,
                         insidetextanchor='middle',
-                        textfont=dict(size=14, color=comp_def_text_colors, family='Arial Black'),
+                        textfont=dict(size=14, color='#FFFFFF', family='Arial Black'),  # Always white for league average labels
                         cliponaxis=False
                     ))
                     
@@ -9265,7 +9265,7 @@ def main():
                         text=[f"{comp_corners:.1f}", f"{comp_corners_with_shots:.1f}"],
                         textposition=comp_corners_positions,
                         insidetextanchor='middle',
-                        textfont=dict(size=14, color=comp_corners_colors, family='Arial Black'),
+                        textfont=dict(size=14, color='#FFFFFF', family='Arial Black'),  # Always white for league average labels
                         cliponaxis=False
                     ))
                     fig_corners.update_layout(
@@ -9324,7 +9324,7 @@ def main():
                         text=[f"{comp_free_kicks:.1f}", f"{comp_free_kicks_with_shots:.1f}"],
                         textposition=comp_fk_positions,
                         insidetextanchor='middle',
-                        textfont=dict(size=14, color=comp_fk_colors, family='Arial Black'),
+                        textfont=dict(size=14, color='#FFFFFF', family='Arial Black'),  # Always white for league average labels
                         cliponaxis=False
                     ))
                     fig_fk.update_layout(
@@ -9383,7 +9383,7 @@ def main():
                         text=[f"{comp_penalties:.1f}", f"{comp_penalties_converted:.1f}"],
                         textposition=comp_penalties_positions,
                         insidetextanchor='middle',
-                        textfont=dict(size=14, color=comp_penalties_colors, family='Arial Black'),
+                        textfont=dict(size=14, color='#FFFFFF', family='Arial Black'),  # Always white for league average labels
                         cliponaxis=False
                     ))
                     fig_penalties.update_layout(
@@ -9442,7 +9442,7 @@ def main():
                         text=[f"{comp_throw_ins:.1f}", f"{comp_throw_ins_accurate:.1f}"],
                         textposition=comp_throw_ins_positions,
                         insidetextanchor='middle',
-                        textfont=dict(size=14, color=comp_throw_ins_colors, family='Arial Black'),
+                        textfont=dict(size=14, color='#FFFFFF', family='Arial Black'),  # Always white for league average labels
                         cliponaxis=False
                     ))
                     fig_throw_ins.update_layout(
