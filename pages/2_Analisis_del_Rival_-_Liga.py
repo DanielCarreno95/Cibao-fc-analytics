@@ -6363,7 +6363,9 @@ def main():
             st.markdown("---")
             
             # Mostrar resumen de partidos (movido directamente arriba de Métricas Clave - 12 KPI cards)
-            col_info1, col_info2 = st.columns(2)
+            # Top section: Show only "Partidos Jugados" (unfiltered)
+            # "Partidos vs Cibao" is shown in filtered section below to avoid duplication
+            col_info1 = st.columns(1)[0]
             with col_info1:
                 # Contar partidos jugados
                 # For Wyscout data, all rows are played matches (they're statistics)
