@@ -1116,10 +1116,31 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
             continue
         
         # Check if this is Wyscout data (has is_home field) or Scoresway data (has home_team/away_team)
-        if "is_home" in match_info:
-            # Wyscout data structure - use is_home field directly
-            is_home = match_info.get("is_home", False)
-            
+        # Derive is_home if not present
+        is_home = match_info.get("is_home")
+        if is_home is None or pd.isna(is_home):
+            # Derive is_home from Match string if not present
+            match_str = str(match_info.get("Match", ""))
+            if match_str and team_name:
+                parts = match_str.split(" - ")
+                if len(parts) >= 2:
+                    home_team = parts[0].strip()
+                    # Remove score if present
+                    home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
+                    team_name_lower_check = team_name.lower()
+                    home_team_lower = home_team.lower()
+                    # Check if team name matches home team
+                    is_home = (team_name_lower_check in home_team_lower or 
+                              home_team_lower in team_name_lower_check or
+                              team_name_lower_check.replace(' fc', '').strip() in home_team_lower.replace(' fc', '').strip() or
+                              home_team_lower.replace(' fc', '').strip() in team_name_lower_check.replace(' fc', '').strip())
+                else:
+                    is_home = False
+            else:
+                is_home = False
+        
+        if "is_home" in match_info or match_info.get("Match"):
+            # Wyscout data structure - use is_home field (derived or existing)
             if filter_type == "home":
                 if is_home:
                     filtered.append(match)
