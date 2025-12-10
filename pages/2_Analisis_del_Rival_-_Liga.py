@@ -6591,26 +6591,49 @@ def main():
                     
                     filtered_team_df = df_liga[df_liga["Team"].apply(team_name_match)].copy()
                 
-                # Ensure is_home column exists in DataFrame for filtering
-                if "is_home" not in filtered_team_df.columns and "Match" in filtered_team_df.columns:
+                # ALWAYS derive is_home from Match string (ignore any existing column - it may have wrong float values)
+                # This ensures consistency, especially for teams with accents in their names
+                if "Match" in filtered_team_df.columns:
                     def derive_is_home(row):
-                        match_str = str(row.get("Match", ""))
+                        match_str = str(row.get("Match", "")).strip()
                         team_name = str(row.get("Team", "")).strip()
-                        if match_str and team_name:
-                            parts = match_str.split(" - ")
-                            if len(parts) >= 2:
-                                home_team = parts[0].strip()
-                                # Remove score if present
-                                home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
-                                team_name_lower = team_name.lower()
-                                home_team_lower = home_team.lower()
-                                # Check if team name matches home team
-                                return (team_name_lower in home_team_lower or 
-                                       home_team_lower in team_name_lower or
-                                       team_name_lower.replace(' fc', '').strip() in home_team_lower.replace(' fc', '').strip() or
-                                       home_team_lower.replace(' fc', '').strip() in team_name_lower.replace(' fc', '').strip())
-                        return False
-                    filtered_team_df["is_home"] = filtered_team_df.apply(derive_is_home, axis=1)
+                        
+                        if not match_str or match_str == "nan" or not team_name:
+                            return False
+                        
+                        if " - " not in match_str:
+                            return False
+                        
+                        parts = match_str.split(" - ")
+                        if len(parts) < 2:
+                            return False
+                        
+                        home_team = parts[0].strip()
+                        # Remove score if present (e.g., "Team 2:1" → "Team")
+                        home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
+                        
+                        # Clean team name (remove (1), (2) suffixes) for better matching
+                        team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', team_name).strip()
+                        
+                        # Normalize both for comparison (handle accents properly)
+                        team_name_lower = team_name_cleaned.lower().strip()
+                        home_team_lower = home_team.lower().strip()
+                        
+                        # Remove " FC" suffixes and clean both sides
+                        team_clean = team_name_lower.replace(' fc', '').strip()
+                        home_clean = home_team_lower.replace(' fc', '').strip()
+                        
+                        # Check if team name matches home team (with flexible matching)
+                        # This handles accents correctly because we're comparing lowercase strings
+                        is_home = (team_name_lower in home_team_lower or 
+                                  home_team_lower in team_name_lower or
+                                  team_clean in home_clean or
+                                  home_clean in team_clean)
+                        
+                        return bool(is_home)
+                    
+                    # ALWAYS overwrite is_home column (even if it exists) to ensure correct boolean values
+                    filtered_team_df["is_home"] = filtered_team_df.apply(derive_is_home, axis=1).astype(bool)
                 
                 # Apply UI filter to the DataFrame
                 if filter_type_ui != "all":
@@ -6624,8 +6647,10 @@ def main():
                             filtered_team_df = filtered_team_df.sort_values("Date", ascending=False).head(5).copy()
                     elif filter_type_ui == "home":
                         # Filter for home matches
+                        # is_home should always be derived above, but check anyway
                         if "is_home" in filtered_team_df.columns:
-                            filtered_team_df = filtered_team_df[filtered_team_df["is_home"] == True].copy()
+                            # Use boolean comparison (ensure it's boolean, not float)
+                            filtered_team_df = filtered_team_df[filtered_team_df["is_home"].astype(bool) == True].copy()
                         elif "Match" in filtered_team_df.columns:
                             # Derive is_home from Match string
                             def is_home_match(row):
@@ -6640,8 +6665,10 @@ def main():
                             filtered_team_df = filtered_team_df[filtered_team_df.apply(is_home_match, axis=1)].copy()
                     elif filter_type_ui == "away":
                         # Filter for away matches
+                        # is_home should always be derived above, but check anyway
                         if "is_home" in filtered_team_df.columns:
-                            filtered_team_df = filtered_team_df[filtered_team_df["is_home"] == False].copy()
+                            # Use boolean comparison (ensure it's boolean, not float)
+                            filtered_team_df = filtered_team_df[filtered_team_df["is_home"].astype(bool) == False].copy()
                         elif "Match" in filtered_team_df.columns:
                             # Derive is_home from Match string
                             def is_away_match(row):
