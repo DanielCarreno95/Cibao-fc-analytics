@@ -1712,10 +1712,7 @@ def display_metric_card(label: str, value: str, icon: str = "", delta: str = "",
                 if abs(diff) > 0.01:  # Solo mostrar si hay diferencia significativa
                     arrow = "↑" if is_better else "↓"
                     arrow_color = "#10B981" if is_better else "#EF4444"
-                    diff_str = f"{diff:+.2f}".replace('+', '+').replace('-', '-')
-                    if '%' in value:
-                        diff_str += '%'
-                    indicator = f'<span style="color: {arrow_color}; font-weight: bold; margin-left: 0.3rem;">{arrow} {diff_str}</span>'
+                    indicator = f'<span style="color: {arrow_color}; font-weight: bold; margin-left: 0.3rem;">{arrow}</span>'
                 else:
                     indicator = '<span style="color: #94A3B8; margin-left: 0.3rem;">≈</span>'
                 
@@ -1745,10 +1742,7 @@ def display_metric_card(label: str, value: str, icon: str = "", delta: str = "",
                 if abs(diff) > 0.01:  # Solo mostrar si hay diferencia significativa
                     arrow = "↑" if is_better else "↓"
                     arrow_color = "#10B981" if is_better else "#EF4444"
-                    diff_str = f"{diff:+.2f}".replace('+', '+').replace('-', '-')
-                    if '%' in value:
-                        diff_str += '%'
-                    indicator = f'<span style="color: {arrow_color}; font-weight: bold; margin-left: 0.3rem;">{arrow} {diff_str}</span>'
+                    indicator = f'<span style="color: {arrow_color}; font-weight: bold; margin-left: 0.3rem;">{arrow}</span>'
                 else:
                     indicator = '<span style="color: #94A3B8; margin-left: 0.3rem;">≈</span>'
                 
