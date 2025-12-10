@@ -1116,33 +1116,44 @@ def filter_matches_by_type(matches: List[Dict], team_name: str, filter_type: str
             continue
         
         # Check if this is Wyscout data (has is_home field) or Scoresway data (has home_team/away_team)
-        # Always try to derive is_home from Match string for accuracy (even if is_home exists)
+        # Always derive is_home from Match string - home team is ALWAYS first in "Home - Away" format
         match_str = str(match_info.get("Match", ""))
-        # Get team name from match itself, fallback to parameter
-        match_team_name = str(match_info.get("Team", "")).strip() or team_name
-        # Clean team name (remove (1), (2) suffixes) for better matching
-        match_team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', match_team_name).strip()
         is_home = match_info.get("is_home")
         
-        # Derive is_home from Match string if we have a Match string (more reliable than stored value)
-        if match_str and match_str != "nan" and match_str.strip() and match_team_name_cleaned:
+        # Derive is_home from Match string if we have a Match string
+        # Format: "Home Team - Away Team score:score"
+        # Home team is ALWAYS the first part before " - "
+        if match_str and match_str != "nan" and match_str.strip():
             parts = match_str.split(" - ")
             if len(parts) >= 2:
                 home_team = parts[0].strip()
-                # Remove score if present
+                # Remove score if present (e.g., "Team 2:1" → "Team")
                 home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
-                team_name_lower_check = match_team_name_cleaned.lower().strip()
+                
+                # Get team name from match itself, fallback to parameter
+                match_team_name = str(match_info.get("Team", "")).strip() or team_name
+                # Clean team name (remove (1), (2) suffixes) for better matching
+                match_team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', match_team_name).strip()
+                
+                # Normalize both for comparison
+                team_name_lower = match_team_name_cleaned.lower().strip()
                 home_team_lower = home_team.lower().strip()
-                # Check if team name matches home team (with flexible matching)
-                # Also clean both sides to remove (1) suffixes
-                team_clean = team_name_lower_check.replace(' fc', '').strip()
+                
+                # Remove " FC" suffixes and clean both sides
+                team_clean = team_name_lower.replace(' fc', '').strip()
                 home_clean = home_team_lower.replace(' fc', '').strip()
-                is_home_derived = (team_name_lower_check in home_team_lower or 
-                                  home_team_lower in team_name_lower_check or
+                
+                # Check if team name matches home team (with flexible matching)
+                # If team name is in home team or vice versa, it's a home game
+                is_home_derived = (team_name_lower in home_team_lower or 
+                                  home_team_lower in team_name_lower or
                                   team_clean in home_clean or
                                   home_clean in team_clean)
                 # Use derived value (always prefer derived over stored)
                 is_home = is_home_derived
+            else:
+                # Can't parse Match string, default to False
+                is_home = False
         
         # If we still don't have is_home, default to False
         if is_home is None or (isinstance(is_home, float) and pd.isna(is_home)):
@@ -6167,29 +6178,38 @@ def main():
                     match_dict["date"] = str(match_dict["Date"])
             
             # Derive is_home from Match string if not already present
+            # Home team is ALWAYS first in "Home Team - Away Team" format
             if "is_home" not in match_dict or pd.isna(match_dict.get("is_home")):
                 team_name = str(match_dict.get("Team", "")).strip()
-                if match_str and team_name:
-                    # Extract teams from match string (format: "Team1 - Team2 score:score")
-                    # The first team is home, second is away
+                # Clean team name (remove (1), (2) suffixes) for better matching
+                team_name_cleaned = re.sub(r'\s*\(\d+\)\s*$', '', team_name).strip()
+                
+                if match_str and team_name_cleaned:
+                    # Extract teams from match string (format: "Home Team - Away Team score:score")
+                    # The first team is ALWAYS home, second is ALWAYS away
                     parts = match_str.split(" - ")
                     if len(parts) >= 2:
                         home_team = parts[0].strip()
                         # Remove score if present (format: "Team 2:1")
                         home_team = re.sub(r'\s+\d+:\d+$', '', home_team).strip()
-                        # Check if this team is the home team
-                        team_name_lower = team_name.lower()
-                        home_team_lower = home_team.lower()
-                        # Check if team name matches home team (with some flexibility)
-                        if (team_name_lower in home_team_lower or 
-                            home_team_lower in team_name_lower or
-                            team_name_lower.replace(' fc', '').strip() in home_team_lower.replace(' fc', '').strip() or
-                            home_team_lower.replace(' fc', '').strip() in team_name_lower.replace(' fc', '').strip()):
-                            match_dict["is_home"] = True
-                        else:
-                            match_dict["is_home"] = False
+                        
+                        # Normalize both for comparison
+                        team_name_lower = team_name_cleaned.lower().strip()
+                        home_team_lower = home_team.lower().strip()
+                        
+                        # Remove " FC" suffixes and clean both sides
+                        team_clean = team_name_lower.replace(' fc', '').strip()
+                        home_clean = home_team_lower.replace(' fc', '').strip()
+                        
+                        # Check if team name matches home team (with flexible matching)
+                        # If team name matches the first part (home team), it's a home game
+                        is_home_match = (team_name_lower in home_team_lower or 
+                                        home_team_lower in team_name_lower or
+                                        team_clean in home_clean or
+                                        home_clean in team_clean)
+                        match_dict["is_home"] = is_home_match
                     else:
-                        # Fallback: default to False if we can't determine
+                        # Can't parse Match string, default to False
                         match_dict["is_home"] = False
                 else:
                     match_dict["is_home"] = False
