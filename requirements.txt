@@ -15,7 +15,7 @@ Seaborn
 python-dotenv
 reportlab
 playwright
-fpdf2>=2.7.0
+fpdf2
 Pillow>=10.0.0
 requests>=2.31.0
 beautifulsoup4
