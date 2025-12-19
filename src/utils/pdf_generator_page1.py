@@ -95,19 +95,21 @@ def clean_text_for_pdf(text: str) -> str:
     for unicode_char, ascii_char in replacements.items():
         cleaned = cleaned.replace(unicode_char, ascii_char)
     
-    # Usar latin-1 que soporta acentos y caracteres latinos comunes
-    # pero elimina caracteres fuera del rango latin-1 (como em dash)
-    try:
-        # Intentar codificar/decodificar con latin-1 (soporta acentos españoles)
-        cleaned = cleaned.encode('latin-1', 'replace').decode('latin-1')
-        # Reemplazar caracteres de reemplazo por espacios
-        cleaned = cleaned.replace('?', ' ')
-    except:
-        # Si falla, filtrar manualmente manteniendo caracteres latinos comunes
-        # Mantener ASCII + acentos comunes en español
-        allowed_chars = set(range(32, 127))  # ASCII imprimible
-        allowed_chars.update([225, 233, 237, 243, 250, 241, 252, 193, 201, 205, 211, 218, 209, 220])  # á,é,í,ó,ú,ñ,ü,Á,É,Í,Ó,Ú,Ñ,Ü
-        cleaned = ''.join(c if ord(c) in allowed_chars else ' ' for c in cleaned)
+    # FORZAR a ASCII puro - eliminar cualquier carácter fuera de ASCII
+    # Esto garantiza que no habrá errores de Unicode con FPDF
+    # También reemplazar acentos por versiones sin acento
+    accent_replacements = {
+        "á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ñ": "n", "ü": "u",
+        "Á": "A", "É": "E", "Í": "I", "Ó": "O", "Ú": "U", "Ñ": "N", "Ü": "U",
+    }
+    for accent, no_accent in accent_replacements.items():
+        cleaned = cleaned.replace(accent, no_accent)
+    
+    # Filtrar solo caracteres ASCII (0-127)
+    cleaned = ''.join(c if ord(c) < 128 else ' ' for c in cleaned)
+    
+    # Limpiar espacios múltiples
+    cleaned = ' '.join(cleaned.split())
     
     return cleaned.strip()
 
@@ -230,14 +232,15 @@ def generar_pdf_page1(
             pdf.rect(0, 0, pdf.w, pdf.h, 'F')
             
             fig = scatter_inicial.get('fig')
-            titulo_scatter = scatter_inicial.get('titulo', 'Comparativa Liga')
+            titulo_scatter_raw = scatter_inicial.get('titulo', 'Comparativa Liga')
+            titulo_scatter = clean_text_for_pdf(titulo_scatter_raw)
             
             if fig is not None:
                 # Título
                 pdf.set_font('Arial', 'B', 14)
                 pdf.set_text_color(*pdf.orange_rgb)
                 pdf.set_y(10)
-                pdf.cell(0, 8, clean_text_for_pdf(titulo_scatter), align='C', ln=True)
+                pdf.cell(0, 8, titulo_scatter, align='C', ln=True)
                 
                 # Convertir y mostrar scatter a tamaño completo
                 img_bytes = plotly_to_image(fig, width=1200, height=600, scale=2.0)
@@ -288,7 +291,9 @@ def generar_pdf_page1(
             
             for idx, figura_info in enumerate(grupo):
                 fig = figura_info.get('fig')
-                titulo_grafico = figura_info.get('titulo', f'Gráfico {i+idx+1}')
+                titulo_grafico_raw = figura_info.get('titulo', f'Grafico {i+idx+1}')
+                # Limpiar título ANTES de truncarlo
+                titulo_grafico = clean_text_for_pdf(titulo_grafico_raw)
                 
                 if fig is None:
                     continue
@@ -316,7 +321,7 @@ def generar_pdf_page1(
                 pdf.set_font('Arial', 'B', 9)
                 pdf.set_text_color(*pdf.orange_rgb)
                 pdf.set_xy(x_pos, y_pos)
-                # Truncar título si es muy largo
+                # Truncar título si es muy largo (ya está limpio de Unicode)
                 titulo_corto = titulo_grafico[:35] + "..." if len(titulo_grafico) > 35 else titulo_grafico
                 pdf.cell(ancho_grafico, 4, titulo_corto, align='C')
                 
