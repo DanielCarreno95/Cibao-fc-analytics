@@ -130,9 +130,32 @@ class ReportePDFPage1(FPDF):
     def header(self):
         """Header personalizado con logo y título"""
         if self.es_contenido:
-            # Fondo del header (barra naranja)
-            self.set_fill_color(*self.orange_rgb)
-            self.rect(0, 0, self.w, 20, 'F')
+            # Intentar cargar imagen de header si existe
+            # Ruta relativa desde el directorio del proyecto: assets/images/header.png
+            header_paths = [
+                "assets/images/header.png",
+                "PDF TEMPLATE/header.png",
+                "header.png"
+            ]
+            
+            header_img = None
+            for path in header_paths:
+                if os.path.exists(path):
+                    header_img = path
+                    break
+            
+            if header_img:
+                # Si existe imagen, usarla
+                try:
+                    self.image(header_img, x=0, y=0, w=self.w, h=20)
+                except:
+                    # Si falla, usar fondo naranja
+                    self.set_fill_color(*self.orange_rgb)
+                    self.rect(0, 0, self.w, 20, 'F')
+            else:
+                # Fondo del header (barra naranja)
+                self.set_fill_color(*self.orange_rgb)
+                self.rect(0, 0, self.w, 20, 'F')
             
             # Título del header
             self.set_y(5)
@@ -149,9 +172,31 @@ class ReportePDFPage1(FPDF):
     def footer(self):
         """Footer con número de página y marca"""
         if self.es_contenido:
-            # Fondo del footer (barra gris oscura)
-            self.set_fill_color(40, 40, 40)
-            self.rect(0, self.h - 15, self.w, 15, 'F')
+            # Intentar cargar imagen de footer si existe
+            footer_paths = [
+                "assets/images/footer.png",
+                "PDF TEMPLATE/footer.png",
+                "footer.png"
+            ]
+            
+            footer_img = None
+            for path in footer_paths:
+                if os.path.exists(path):
+                    footer_img = path
+                    break
+            
+            if footer_img:
+                # Si existe imagen, usarla
+                try:
+                    self.image(footer_img, x=0, y=self.h - 15, w=self.w, h=15)
+                except:
+                    # Si falla, usar fondo gris
+                    self.set_fill_color(40, 40, 40)
+                    self.rect(0, self.h - 15, self.w, 15, 'F')
+            else:
+                # Fondo del footer (barra gris oscura)
+                self.set_fill_color(40, 40, 40)
+                self.rect(0, self.h - 15, self.w, 15, 'F')
             
             # Número de página centrado
             self.set_y(-12)
@@ -215,7 +260,8 @@ class ReportePDFPage1(FPDF):
 def generar_pdf_page1(
     figuras: List[Dict[str, Any]],
     titulo: str = "Reporte de Rendimiento Colectivo",
-    subtitulo: str = "Cibao FC - Liga Dominicana"
+    subtitulo: str = "Cibao FC - Liga Dominicana",
+    kpis_data: Optional[Dict[str, Any]] = None
 ) -> bytes:
     """
     Genera un PDF con los gráficos de la página 1
@@ -251,7 +297,7 @@ def generar_pdf_page1(
             else:
                 otros_graficos.append(figura_info)
         
-        # Página especial para scatter inicial (si existe)
+        # Página especial para scatter inicial + KPIs (si existe)
         if scatter_inicial:
             pdf.add_page()
             pdf.set_fill_color(*pdf.black_rgb)
@@ -268,38 +314,127 @@ def generar_pdf_page1(
                 pdf.set_y(25)
                 pdf.cell(0, 10, titulo_scatter, align='C', ln=True)
                 
-                # Convertir y mostrar scatter a tamaño completo con mejor proporción
-                # Aspect ratio más cuadrado para evitar alargamiento
-                img_bytes = plotly_to_image(fig, width=1400, height=800, scale=2.0)
+                # Convertir y mostrar scatter con mejor proporción (más ancho, menos alto)
+                img_bytes = plotly_to_image(fig, width=1600, height=700, scale=2.0)
                 if img_bytes:
                     img_path = save_image_temp(img_bytes)
                     if img_path:
                         temp_files.append(img_path)
-                        # Gráfico centrado, con mejor proporción (más ancho que alto)
+                        # Gráfico más ancho y menos alto (proporción 2.3:1)
                         ancho_scatter = pdf.w - 40
-                        # Mantener proporción 16:9 aproximadamente
-                        alto_scatter = (ancho_scatter * 9) / 16
-                        # Asegurar que quepa en la página (considerando header y footer)
-                        max_alto = pdf.h - 50  # Espacio para header (20) + footer (15) + márgenes
+                        alto_scatter = ancho_scatter / 2.3  # Más ancho que alto
+                        # Asegurar que quepa
+                        max_alto = pdf.h - 100  # Espacio para header, footer y KPIs
                         if alto_scatter > max_alto:
                             alto_scatter = max_alto
-                            ancho_scatter = (alto_scatter * 16) / 9
-                        # Centrar horizontalmente y verticalmente
+                            ancho_scatter = alto_scatter * 2.3
+                        # Centrar horizontalmente
                         x_centro = (pdf.w - ancho_scatter) / 2
-                        y_centro = 38 + (max_alto - alto_scatter) / 2  # Después del título
                         pdf.image(
                             img_path,
                             x=x_centro,
-                            y=y_centro,
+                            y=38,
                             w=ancho_scatter,
                             h=alto_scatter
                         )
+                
+                # Añadir KPIs debajo del scatter si están disponibles
+                if kpis_data:
+                    y_kpis = 38 + alto_scatter + 10
+                    pdf.set_y(y_kpis)
+                    
+                    # Título de KPIs
+                    pdf.set_font('Arial', 'B', 14)
+                    pdf.set_text_color(*pdf.orange_rgb)
+                    pdf.cell(0, 8, clean_text_for_pdf("Indicadores del Ultimo Partido"), align='C', ln=True)
+                    pdf.ln(3)
+                    
+                    # KPIs textuales
+                    kpi_texts = kpis_data.get('textuales', [])
+                    if kpi_texts:
+                        ancho_kpi = (pdf.w - 50) / len(kpi_texts)
+                        x_inicio = 25
+                        pdf.set_font('Arial', 'B', 10)
+                        pdf.set_text_color(*pdf.orange_rgb)
+                        
+                        for idx, (label, value) in enumerate(kpi_texts):
+                            x_pos = x_inicio + idx * ancho_kpi
+                            pdf.set_xy(x_pos, pdf.get_y())
+                            
+                            # Caja para KPI
+                            pdf.set_fill_color(25, 25, 25)
+                            pdf.rect(x_pos, pdf.get_y(), ancho_kpi - 5, 12, 'F')
+                            pdf.set_draw_color(*pdf.orange_rgb)
+                            pdf.rect(x_pos, pdf.get_y(), ancho_kpi - 5, 12, 'D')
+                            
+                            # Valor
+                            display = str(value) if pd.notna(value) else "-"
+                            pdf.set_text_color(*pdf.orange_rgb)
+                            pdf.set_xy(x_pos + 2, pdf.get_y() + 1)
+                            pdf.set_font('Arial', 'B', 9)
+                            pdf.cell(ancho_kpi - 9, 5, clean_text_for_pdf(display[:20]), align='C')
+                            
+                            # Label
+                            pdf.set_text_color(*pdf.gray_rgb)
+                            pdf.set_xy(x_pos + 2, pdf.get_y() + 6)
+                            pdf.set_font('Arial', '', 7)
+                            pdf.cell(ancho_kpi - 9, 4, clean_text_for_pdf(label[:25]), align='C')
+                        
+                        pdf.ln(15)
+                    
+                    # KPIs numéricos
+                    kpi_numericos = kpis_data.get('numericos', [])
+                    if kpi_numericos:
+                        ancho_kpi = (pdf.w - 50) / len(kpi_numericos)
+                        x_inicio = 25
+                        y_kpi_num = pdf.get_y()
+                        
+                        for idx, (label, val) in enumerate(kpi_numericos):
+                            x_pos = x_inicio + idx * ancho_kpi
+                            
+                            # Caja para KPI numérico
+                            pdf.set_fill_color(25, 25, 25)
+                            pdf.rect(x_pos, y_kpi_num, ancho_kpi - 5, 18, 'F')
+                            pdf.set_draw_color(*pdf.orange_rgb)
+                            pdf.rect(x_pos, y_kpi_num, ancho_kpi - 5, 18, 'D')
+                            
+                            # Valor numérico
+                            if "Tarjetas" in label:
+                                display = "-" if pd.isna(val) else f"{int(val)}"
+                            else:
+                                display = "-" if pd.isna(val) else f"{val:.2f}"
+                            
+                            pdf.set_text_color(*pdf.orange_rgb)
+                            pdf.set_xy(x_pos + 2, y_kpi_num + 2)
+                            pdf.set_font('Arial', 'B', 12)
+                            pdf.cell(ancho_kpi - 9, 8, clean_text_for_pdf(display), align='C')
+                            
+                            # Label
+                            pdf.set_text_color(*pdf.gray_rgb)
+                            pdf.set_xy(x_pos + 2, y_kpi_num + 11)
+                            pdf.set_font('Arial', '', 7)
+                            pdf.cell(ancho_kpi - 9, 5, clean_text_for_pdf(label[:30]), align='C')
         
         # Procesar resto de gráficos agrupados por tab
-        # Primero, agrupar por tab
+        # Primero, agrupar por tab (filtrar "Sin categoria")
         graficos_por_tab = {}
         for figura_info in otros_graficos:
-            tab_nombre = figura_info.get('tab', 'Sin categoria')
+            tab_nombre = figura_info.get('tab', None)
+            # Si no tiene tab, intentar inferirlo del título o usar "Otros"
+            if not tab_nombre or tab_nombre == "Sin categoria":
+                # Intentar inferir del título
+                titulo = figura_info.get('titulo', '')
+                if any(x in titulo.lower() for x in ['eficiencia', 'ataque', 'produccion', 'tiro', 'patrones', 'balon', 'juego']):
+                    tab_nombre = "Eficiencia y Ataque"
+                elif any(x in titulo.lower() for x in ['pase', 'construccion', 'control', 'progresion', 'longitud']):
+                    tab_nombre = "Construccion y Pases"
+                elif any(x in titulo.lower() for x in ['defensa', 'duelo', 'disputa', 'intercepcion', 'despeje']):
+                    tab_nombre = "Defensa y Eficiencia"
+                elif any(x in titulo.lower() for x in ['recuperacion', 'presion', 'distribucion', 'tactica']):
+                    tab_nombre = "Distribucion Tactica"
+                else:
+                    tab_nombre = "Otros"
+            
             if tab_nombre not in graficos_por_tab:
                 graficos_por_tab[tab_nombre] = []
             graficos_por_tab[tab_nombre].append(figura_info)
@@ -317,20 +452,22 @@ def generar_pdf_page1(
                 pdf.set_fill_color(*pdf.black_rgb)
                 pdf.rect(0, 0, pdf.w, pdf.h, 'F')
                 
-                # Título de la sección (nombre del tab)
-                pdf.set_font('Arial', 'B', 18)
-                pdf.set_text_color(*pdf.orange_rgb)
-                pdf.set_y(25)
-                pdf.cell(0, 10, clean_text_for_pdf(tab_nombre), align='C', ln=True)
-                
-                y_inicio = 38
+                # Título de la sección (nombre del tab) - solo en primera página del tab
+                if i == 0:
+                    pdf.set_font('Arial', 'B', 20)
+                    pdf.set_text_color(*pdf.orange_rgb)
+                    pdf.set_y(25)
+                    pdf.cell(0, 10, clean_text_for_pdf(tab_nombre), align='C', ln=True)
+                    y_inicio = 38
+                else:
+                    y_inicio = 25
                 
                 # Dimensiones para 2x2 en landscape A4 (297mm x 210mm)
-                # Márgenes: 15mm a cada lado = 30mm total horizontal
-                # Espacio para header (20mm) y footer (15mm) = 35mm vertical
+                # Formato tipo presentación: gráficos más anchos que altos
                 ancho_grafico = (pdf.w - 40) / 2  # 2 columnas con márgenes
-                # Altura ajustada para mejor proporción (más ancho que alto)
-                alto_grafico = ((pdf.h - y_inicio - 30) / 2) * 0.85  # Reducir altura para mejor proporción
+                # Proporción 2.5:1 (mucho más ancho que alto) para formato presentación
+                alto_disponible = pdf.h - y_inicio - 30
+                alto_grafico = (alto_disponible / 2) * 0.70  # Más ancho, menos alto (formato PPT)
                 
                 # Procesar hasta 4 gráficos en esta página
                 grupo = graficos_tab[i:i+graficos_por_pagina]
@@ -344,8 +481,9 @@ def generar_pdf_page1(
                     if fig is None:
                         continue
                     
-                    # Convertir Plotly a imagen con mejor proporción (más ancho)
-                    img_bytes = plotly_to_image(fig, width=900, height=500, scale=2.0)
+                    # Convertir Plotly a imagen con mejor proporción (más ancho, menos alto)
+                    # Proporción 2.5:1 para formato presentación (menos alargado)
+                    img_bytes = plotly_to_image(fig, width=1100, height=350, scale=2.0)
                     if img_bytes is None:
                         continue
                     
