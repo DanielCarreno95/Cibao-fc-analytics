@@ -119,8 +119,9 @@ class ReportePDFPage1(FPDF):
     """PDF personalizado para Reporte de Rendimiento Colectivo - Liga"""
     
     def __init__(self):
-        # A4 Landscape: 297mm x 210mm
-        super().__init__(orientation='L', unit='mm', format=(297, 210))
+        # A4 Landscape (horizontal): ancho=297mm, alto=210mm
+        # Usar 'A4' con orientation='L' para asegurar formato horizontal
+        super().__init__(orientation='L', unit='mm', format='A4')
         self.set_auto_page_break(auto=True, margin=35)  # Más margen para header/footer
         self.orange_rgb = hex_to_rgb(CIBAO_ORANGE)
         self.gray_rgb = hex_to_rgb(CIBAO_GRAY)
