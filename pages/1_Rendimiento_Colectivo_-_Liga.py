@@ -20,7 +20,7 @@ pio.templates.default = "plotly_dark"
 
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
-# from src.utils.navigation import render_top_navigation  # Comentado - módulo no disponible
+from src.utils.navigation import render_top_navigation
 # === IMPORTA GENERADOR DE PDF ===
 from src.utils.pdf_generator_page1 import generar_pdf_page1
 from datetime import datetime
@@ -36,7 +36,7 @@ st.set_page_config(
 inject_dark_theme()
 
 # ---------- TOP NAVIGATION BAR ----------
-# render_top_navigation()  # Comentado - módulo no disponible
+render_top_navigation()
 
 # ---------- CUSTOM FONT SIZES ----------
 st.markdown("""
@@ -611,6 +611,9 @@ st.markdown(
 # Bloque 0 — ANÁLISIS RÁPIDO CIBAO VS RIVAL
 # ==============================
 
+# Inicializar opponent_choice como None por defecto (para evitar NameError)
+opponent_choice = None
+
 if not df_liga_mayor.empty:
 
     st.markdown(
@@ -894,7 +897,7 @@ def plot_group(nombre_grupo, mapping, opponent=None):
     
     if df_plot.empty:
         st.warning(f"No hay datos disponibles para: {nombre_grupo}")
-        return None
+        return
 
     # Find available columns using flexible matching
     columnas = []
@@ -1012,9 +1015,11 @@ def plot_group(nombre_grupo, mapping, opponent=None):
     
     # Guardar figura para PDF si está activado
     if st.session_state.get("generar_pdf", False):
+        tab_nombre = st.session_state.get("tab_actual", "Sin categoria")
         st.session_state["pdf_figuras"].append({
             "fig": fig,
-            "titulo": nombre_grupo
+            "titulo": nombre_grupo,
+            "tab": tab_nombre
         })
 
     # -------- CONCLUSIONES TÁCTICAS --------
@@ -1037,8 +1042,6 @@ def plot_group(nombre_grupo, mapping, opponent=None):
         """
 
         st.markdown(conclusion, unsafe_allow_html=True)
-    
-    return fig
 
 # ============================================================
 # 🔶 CREACIÓN DE LAS 5 PESTAÑAS
@@ -1173,9 +1176,11 @@ with tab2:
         
         # Guardar figura para PDF si está activado
         if st.session_state.get("generar_pdf", False):
+            tab_nombre = st.session_state.get("tab_actual", "Sin categoria")
             st.session_state["pdf_figuras"].append({
                 "fig": fig,
-                "titulo": nombre_grupo
+                "titulo": nombre_grupo,
+                "tab": tab_nombre
             })
 
         # -------- CONCLUSIONES TÁCTICAS --------
@@ -1241,9 +1246,11 @@ with tab2:
                 
                 # Guardar figura para PDF si está activado
                 if st.session_state.get("generar_pdf", False):
+                    tab_nombre = st.session_state.get("tab_actual", "Sin categoria")
                     st.session_state["pdf_figuras"].append({
                         "fig": fig,
-                        "titulo": f"{list(mapping.keys())[0]} — {team}"
+                        "titulo": f"{list(mapping.keys())[0]} - {team}",
+                        "tab": tab_nombre
                     })
 
         st.markdown(f"""
@@ -1276,6 +1283,9 @@ with tab2:
     plot_longitud_pase(grupos_pases["Longitud media de pase"])
 
 with tab3:
+    # Establecer tab actual para captura de PDF
+    if st.session_state.get("generar_pdf", False):
+        st.session_state["tab_actual"] = "Defensa y Eficiencia"
 
     # ============================================================
     # 🔶 DEFENSA Y EFICIENCIA — BLOQUE COMPLETO
@@ -1372,9 +1382,11 @@ with tab3:
         
         # Guardar figura para PDF si está activado
         if st.session_state.get("generar_pdf", False):
+            tab_nombre = st.session_state.get("tab_actual", "Sin categoria")
             st.session_state["pdf_figuras"].append({
                 "fig": fig,
-                "titulo": nombre
+                "titulo": nombre,
+                "tab": tab_nombre
             })
 
         df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
@@ -1425,13 +1437,6 @@ with tab3:
         )
 
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Guardar figura para PDF si está activado
-        if st.session_state.get("generar_pdf", False):
-            st.session_state["pdf_figuras"].append({
-                "fig": fig,
-                "titulo": nombre
-            })
 
         df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
         if not df_cibao_only.empty:
@@ -1490,9 +1495,11 @@ with tab3:
                 
                 # Guardar figura para PDF si está activado
                 if st.session_state.get("generar_pdf", False):
+                    tab_nombre = st.session_state.get("tab_actual", "Sin categoria")
                     st.session_state["pdf_figuras"].append({
                         "fig": fig,
-                        "titulo": f"{list(mapping.keys())[0]} — {team}"
+                        "titulo": f"{list(mapping.keys())[0]} - {team}",
+                        "tab": tab_nombre
                     })
 
         st.markdown(f"""
@@ -1524,6 +1531,9 @@ with tab3:
     plot_gauge(grupos_def["Distancia media de disparo"])
 
 with tab4:
+    # Establecer tab actual para captura de PDF
+    if st.session_state.get("generar_pdf", False):
+        st.session_state["tab_actual"] = "Distribucion Tactica"
 
     # ============================================================
     # 🔶 DISTRIBUCIÓN TÁCTICA — BLOQUE COMPLETO
@@ -1642,9 +1652,11 @@ with tab4:
             
             # Guardar figura para PDF si está activado
             if st.session_state.get("generar_pdf", False):
+                tab_nombre = st.session_state.get("tab_actual", "Sin categoria")
                 st.session_state["pdf_figuras"].append({
                     "fig": fig,
-                    "titulo": f"{nombre_grupo} — {team}"
+                    "titulo": f"{nombre_grupo} - {team}",
+                    "tab": tab_nombre
                 })
 
             # --- CONCLUSIONES TÁCTICAS ---
@@ -1681,6 +1693,9 @@ with tab4:
         plot_heatmap("Mapa de Presión por Altura", grupos_tacticos["Mapa de Presión por Altura"])
 
 with tab5:
+    # Establecer tab actual para captura de PDF
+    if st.session_state.get("generar_pdf", False):
+        st.session_state["tab_actual"] = "Analisis Comparativo (Tablas)"
 
     # ============================================================
     # 🔶 ANÁLISIS COMPARATIVO — BLOQUE COMPLETO
