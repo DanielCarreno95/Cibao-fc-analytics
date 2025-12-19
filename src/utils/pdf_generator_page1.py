@@ -122,7 +122,7 @@ class ReportePDFPage1(FPDF):
         # A4 Landscape (horizontal): ancho=297mm, alto=210mm
         # Usar 'A4' con orientation='L' para asegurar formato horizontal
         super().__init__(orientation='L', unit='mm', format='A4')
-        self.set_auto_page_break(auto=True, margin=35)  # Más margen para header/footer
+        self.set_auto_page_break(auto=True, margin=25)  # Margen ajustado para header (22mm) y footer (18mm)
         self.orange_rgb = hex_to_rgb(CIBAO_ORANGE)
         self.gray_rgb = hex_to_rgb(CIBAO_GRAY)
         self.black_rgb = hex_to_rgb(CIBAO_BLACK)
@@ -130,88 +130,80 @@ class ReportePDFPage1(FPDF):
         self.tab_actual = None  # Para rastrear el tab actual
     
     def header(self):
-        """Header personalizado con logo y título"""
+        """Header personalizado estético y profesional"""
         if self.es_contenido:
-            # Intentar cargar imagen de header si existe
-            # Ruta relativa desde el directorio del proyecto
-            header_paths = [
-                "assets/assets/header.png",  # Ruta donde están las imágenes en GitHub
-                "assets/images/header.png",
-                "PDF TEMPLATE/header.png",
-                "header.png"
-            ]
+            # Fondo del header (barra naranja con gradiente visual)
+            self.set_fill_color(*self.orange_rgb)
+            self.rect(0, 0, self.w, 22, 'F')
             
-            header_img = None
-            for path in header_paths:
-                if os.path.exists(path):
-                    header_img = path
-                    break
+            # Línea decorativa superior (más oscura)
+            self.set_fill_color(200, 100, 0)  # Naranja más oscuro
+            self.rect(0, 0, self.w, 2, 'F')
             
-            if header_img:
-                # Si existe imagen, usarla
-                try:
-                    self.image(header_img, x=0, y=0, w=self.w, h=20)
-                except:
-                    # Si falla, usar fondo naranja
-                    self.set_fill_color(*self.orange_rgb)
-                    self.rect(0, 0, self.w, 20, 'F')
-            else:
-                # Fondo del header (barra naranja)
-                self.set_fill_color(*self.orange_rgb)
-                self.rect(0, 0, self.w, 20, 'F')
-            
-            # Título del header
-            self.set_y(5)
-            self.set_font('Arial', 'B', 12)
+            # Título del header (centrado, blanco, bold)
+            self.set_y(6)
+            self.set_font('Arial', 'B', 13)
             self.set_text_color(255, 255, 255)  # Blanco
-            self.cell(0, 10, clean_text_for_pdf("Cibao FC - Reporte de Rendimiento Colectivo"), align='C')
+            self.cell(0, 10, clean_text_for_pdf("CIBAO FC - REPORTE DE RENDIMIENTO COLECTIVO"), align='C')
             
-            # Fecha en la esquina derecha
+            # Fecha en la esquina derecha (estilo elegante)
             fecha_actual = datetime.now().strftime("%d/%m/%Y")
             self.set_font('Arial', '', 9)
-            self.set_xy(self.w - 50, 5)
-            self.cell(45, 10, clean_text_for_pdf(fecha_actual), align='R')
+            self.set_text_color(255, 255, 255)  # Blanco
+            self.set_xy(self.w - 55, 6)
+            # Fondo sutil para la fecha
+            self.set_fill_color(220, 120, 0)
+            self.rect(self.w - 55, 6, 50, 8, 'F')
+            self.set_xy(self.w - 52, 8)
+            self.cell(45, 6, clean_text_for_pdf(fecha_actual), align='R')
+            
+            # Línea decorativa inferior (más clara)
+            self.set_fill_color(255, 180, 80)
+            self.rect(0, 20, self.w, 2, 'F')
     
     def footer(self):
-        """Footer con número de página y marca"""
+        """Footer estético y profesional con número de página y marca"""
         if self.es_contenido:
-            # Intentar cargar imagen de footer si existe
-            footer_paths = [
-                "assets/assets/footer.png",  # Ruta donde están las imágenes en GitHub
-                "assets/images/footer.png",
-                "PDF TEMPLATE/footer.png",
-                "footer.png"
-            ]
+            # Fondo del footer (barra gris oscura elegante)
+            self.set_fill_color(30, 30, 30)  # Gris muy oscuro
+            self.rect(0, self.h - 18, self.w, 18, 'F')
             
-            footer_img = None
-            for path in footer_paths:
-                if os.path.exists(path):
-                    footer_img = path
-                    break
+            # Línea decorativa superior (naranja sutil)
+            self.set_fill_color(*self.orange_rgb)
+            self.rect(0, self.h - 18, self.w, 2, 'F')
             
-            if footer_img:
-                # Si existe imagen, usarla
-                try:
-                    self.image(footer_img, x=0, y=self.h - 15, w=self.w, h=15)
-                except:
-                    # Si falla, usar fondo gris
-                    self.set_fill_color(40, 40, 40)
-                    self.rect(0, self.h - 15, self.w, 15, 'F')
-            else:
-                # Fondo del footer (barra gris oscura)
-                self.set_fill_color(40, 40, 40)
-                self.rect(0, self.h - 15, self.w, 15, 'F')
+            # Línea decorativa inferior (gris más claro)
+            self.set_fill_color(60, 60, 60)
+            self.rect(0, self.h - 2, self.w, 2, 'F')
             
-            # Número de página centrado
-            self.set_y(-12)
-            self.set_font('Arial', 'I', 9)
+            # Número de página centrado (estilo elegante)
+            self.set_y(-11)
+            self.set_font('Arial', 'B', 10)
+            self.set_text_color(*self.orange_rgb)  # Naranja para destacar
+            # Fondo sutil para el número de página
+            self.set_fill_color(50, 50, 50)
+            page_text = clean_text_for_pdf(f'Pagina {self.page_no()}')
+            text_width = self.get_string_width(page_text) + 8
+            self.rect((self.w - text_width) / 2, self.h - 14, text_width, 8, 'F')
+            self.set_xy((self.w - text_width) / 2 + 4, -11)
+            self.cell(text_width - 8, 6, page_text, align='C')
+            
+            # Marca en la esquina izquierda (estilo profesional)
+            self.set_xy(12, -11)
+            self.set_font('Arial', 'B', 9)
             self.set_text_color(*self.gray_rgb)
-            self.cell(0, 10, clean_text_for_pdf(f'Pagina {self.page_no()}'), align='C')
+            self.cell(0, 6, clean_text_for_pdf("Cibao FC Data Hub"), align='L')
             
-            # Marca en la esquina izquierda
-            self.set_xy(10, -12)
+            # Separador decorativo
+            self.set_fill_color(*self.orange_rgb)
+            self.rect(10, self.h - 12, 1, 4, 'F')
+            
+            # Copyright/año en la esquina derecha
+            año_actual = datetime.now().strftime("%Y")
+            self.set_xy(self.w - 50, -11)
             self.set_font('Arial', '', 8)
-            self.cell(0, 10, clean_text_for_pdf("Cibao FC Data Hub"), align='L')
+            self.set_text_color(120, 120, 120)
+            self.cell(45, 6, clean_text_for_pdf(f"© {año_actual} Cibao FC"), align='R')
     
     def generar_caratula(self, titulo: str, subtitulo: str):
         """Genera la portada del PDF"""
@@ -340,10 +332,10 @@ def generar_pdf_page1(
             titulo_scatter = clean_text_for_pdf(titulo_scatter_raw)
             
             if fig is not None:
-                # Título (después del header)
+                # Título (después del header - 22mm)
                 pdf.set_font('Arial', 'B', 16)
                 pdf.set_text_color(*pdf.orange_rgb)
-                pdf.set_y(25)
+                pdf.set_y(28)
                 pdf.cell(0, 10, titulo_scatter, align='C', ln=True)
                 
                 # Convertir y mostrar scatter con mejor proporción (más ancho, menos alto)
@@ -490,17 +482,18 @@ def generar_pdf_page1(
                 if i == 0:
                     pdf.set_font('Arial', 'B', 20)
                     pdf.set_text_color(*pdf.orange_rgb)
-                    pdf.set_y(25)
+                    pdf.set_y(28)  # Después del header (22mm) + espacio (6mm)
                     pdf.cell(0, 10, clean_text_for_pdf(tab_nombre), align='C', ln=True)
-                    y_inicio = 38
+                    y_inicio = 42
                 else:
-                    y_inicio = 25
+                    y_inicio = 28  # Después del header
                 
                 # Dimensiones para 2x2 en landscape A4 (297mm x 210mm)
                 # Formato tipo presentación: gráficos más anchos que altos
                 ancho_grafico = (pdf.w - 40) / 2  # 2 columnas con márgenes
                 # Proporción 2.5:1 (mucho más ancho que alto) para formato presentación
-                alto_disponible = pdf.h - y_inicio - 30
+                # Considerar header (22mm) y footer (18mm)
+                alto_disponible = pdf.h - y_inicio - 20  # Espacio para footer
                 alto_grafico = (alto_disponible / 2) * 0.70  # Más ancho, menos alto (formato PPT)
                 
                 # Procesar hasta 4 gráficos en esta página
