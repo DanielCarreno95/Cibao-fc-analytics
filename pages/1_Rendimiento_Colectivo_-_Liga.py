@@ -884,20 +884,35 @@ def build_comparison_df(mapping, prefer_wyscout=True, opponent=None):
 
 def plot_group(nombre_grupo, mapping, opponent=None):
     # Use Wyscout data - include both Cibao and opponent if specified
-    if df_liga_mayor.empty:
+    if df_liga_mayor.empty or "Team" not in df_liga_mayor.columns:
         st.warning(f"No hay datos disponibles para: {nombre_grupo}")
-        return None
+        return
     
     # Filter for Cibao and opponent (if provided)
-    teams_to_include = ["Cibao"]
-    if opponent and opponent != "Cibao":
-        teams_to_include.append(opponent)
+    # First, get actual team names from dataframe (case-insensitive matching)
+    df_liga_mayor_copy = df_liga_mayor.copy()
+    df_liga_mayor_copy["Team_str"] = df_liga_mayor_copy["Team"].astype(str).str.strip()
     
-    df_plot = df_liga_mayor[df_liga_mayor["Team"].isin(teams_to_include)].copy()
+    # Find Cibao team name (case-insensitive)
+    cibao_teams = df_liga_mayor_copy[df_liga_mayor_copy["Team_str"].str.lower() == "cibao"]["Team_str"].unique()
+    if len(cibao_teams) == 0:
+        st.warning(f"No hay datos disponibles para: {nombre_grupo}")
+        return
+    
+    teams_to_include = [cibao_teams[0]]  # Use first match for Cibao
+    
+    # Add opponent if provided
+    if opponent and opponent is not None:
+        opponent_str = str(opponent).strip()
+        opponent_teams = df_liga_mayor_copy[df_liga_mayor_copy["Team_str"].str.lower() == opponent_str.lower()]["Team_str"].unique()
+        if len(opponent_teams) > 0 and opponent_teams[0].lower() != "cibao":
+            teams_to_include.append(opponent_teams[0])
+    
+    df_plot = df_liga_mayor_copy[df_liga_mayor_copy["Team_str"].isin(teams_to_include)].copy()
     
     if df_plot.empty:
         st.warning(f"No hay datos disponibles para: {nombre_grupo}")
-        return None
+        return
 
     # Find available columns using flexible matching
     columnas = []
@@ -948,7 +963,7 @@ def plot_group(nombre_grupo, mapping, opponent=None):
 
     if len(columnas) == 0:
         st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
-        return None
+        return
 
     # Ensure all numeric columns are properly converted to float (handle comma decimals)
     for col in columnas:
@@ -959,7 +974,7 @@ def plot_group(nombre_grupo, mapping, opponent=None):
                 errors='coerce'
             )
     
-    # Calculate means per team
+    # Calculate means per team (use original Team column, not Team_str)
     df_means = df_plot.groupby("Team")[columnas].mean().reset_index()
     
     # Melt to long format for plotting
@@ -1041,7 +1056,10 @@ def plot_group(nombre_grupo, mapping, opponent=None):
 
         st.markdown(conclusion, unsafe_allow_html=True)
     
-    return fig
+    # Retornar figura solo si se necesita para PDF
+    if st.session_state.get("generar_pdf", False):
+        return fig
+    return
 
 # ============================================================
 # 🔶 CREACIÓN DE LAS 5 PESTAÑAS
