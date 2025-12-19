@@ -296,3 +296,5 @@ def generar_pdf_page1(
                 Path(temp_file).unlink(missing_ok=True)
             except:
                 pass
+
+
