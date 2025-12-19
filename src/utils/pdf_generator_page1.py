@@ -133,8 +133,9 @@ class ReportePDFPage1(FPDF):
         """Header personalizado con logo y título"""
         if self.es_contenido:
             # Intentar cargar imagen de header si existe
-            # Ruta relativa desde el directorio del proyecto: assets/images/header.png
+            # Ruta relativa desde el directorio del proyecto
             header_paths = [
+                "assets/assets/header.png",  # Ruta donde están las imágenes en GitHub
                 "assets/images/header.png",
                 "PDF TEMPLATE/header.png",
                 "header.png"
@@ -176,6 +177,7 @@ class ReportePDFPage1(FPDF):
         if self.es_contenido:
             # Intentar cargar imagen de footer si existe
             footer_paths = [
+                "assets/assets/footer.png",  # Ruta donde están las imágenes en GitHub
                 "assets/images/footer.png",
                 "PDF TEMPLATE/footer.png",
                 "footer.png"
@@ -220,8 +222,36 @@ class ReportePDFPage1(FPDF):
         self.set_fill_color(*self.orange_rgb)
         self.rect(0, 0, self.w, self.h, 'F')
         
+        # Intentar cargar logo si existe
+        logo_paths = [
+            "assets/assets/logo.png",  # Ruta donde está el logo en GitHub
+            "assets/images/logo.png",
+            "PDF TEMPLATE/logo.png",
+            "logo.png"
+        ]
+        
+        logo_img = None
+        for path in logo_paths:
+            if os.path.exists(path):
+                logo_img = path
+                break
+        
+        # Si hay logo, mostrarlo arriba
+        if logo_img:
+            try:
+                # Logo centrado en la parte superior
+                logo_width = 60  # mm
+                logo_height = 60  # mm
+                x_logo = (self.w - logo_width) / 2
+                self.image(logo_img, x=x_logo, y=30, w=logo_width, h=logo_height)
+                y_titulo = 100  # Empezar título más abajo si hay logo
+            except:
+                y_titulo = 75
+        else:
+            y_titulo = 75
+        
         # Título principal (blanco sobre naranja)
-        self.set_y(75)
+        self.set_y(y_titulo)
         self.set_font('Arial', 'B', 32)
         self.set_text_color(255, 255, 255)  # Blanco
         self.multi_cell(0, 18, clean_text_for_pdf(titulo), align='C')
@@ -424,16 +454,18 @@ def generar_pdf_page1(
             tab_nombre = figura_info.get('tab', None)
             # Si no tiene tab, intentar inferirlo del título o usar "Otros"
             if not tab_nombre or tab_nombre == "Sin categoria":
-                # Intentar inferir del título
-                titulo = figura_info.get('titulo', '')
-                if any(x in titulo.lower() for x in ['eficiencia', 'ataque', 'produccion', 'tiro', 'patrones', 'balon', 'juego']):
+                # Intentar inferir del título (usar nombres exactos de los tabs)
+                titulo = figura_info.get('titulo', '').lower()
+                if any(x in titulo for x in ['eficiencia', 'ataque', 'produccion', 'tiro', 'patrones', 'balon', 'juego']):
                     tab_nombre = "Eficiencia y Ataque"
-                elif any(x in titulo.lower() for x in ['pase', 'construccion', 'control', 'progresion', 'longitud']):
-                    tab_nombre = "Construccion y Pases"
-                elif any(x in titulo.lower() for x in ['defensa', 'duelo', 'disputa', 'intercepcion', 'despeje']):
+                elif any(x in titulo for x in ['pase', 'construccion', 'construcción', 'control', 'progresion', 'longitud']):
+                    tab_nombre = "Construcción y Pases"
+                elif any(x in titulo for x in ['defensa', 'duelo', 'disputa', 'intercepcion', 'despeje']):
                     tab_nombre = "Defensa y Eficiencia"
-                elif any(x in titulo.lower() for x in ['recuperacion', 'presion', 'distribucion', 'tactica']):
-                    tab_nombre = "Distribucion Tactica"
+                elif any(x in titulo for x in ['recuperacion', 'presion', 'distribucion', 'distribución', 'tactica', 'táctica']):
+                    tab_nombre = "Distribución Táctica"
+                elif any(x in titulo for x in ['comparativa', 'tabla', 'analisis', 'análisis']):
+                    tab_nombre = "Análisis Comparativo (Tablas)"
                 else:
                     tab_nombre = "Otros"
             
