@@ -267,6 +267,9 @@ except Exception as exc:
     st.error(f"❌ Error cargando Liga Mayor per 90: {exc}")
     df_liga_mayor = pd.DataFrame()
 
+# Inicializar opponent_choice como None por defecto (antes de cualquier uso)
+opponent_choice = None
+
 # ---------- PAGE TITLE ----------
 titulo_naranja("Rendimiento Colectivo — Cibao FC (Liga)")
 
