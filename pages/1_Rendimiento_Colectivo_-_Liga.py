@@ -20,7 +20,10 @@ pio.templates.default = "plotly_dark"
 
 # === IMPORTA EL TEMA OSCURO GLOBAL + TÍTULOS NARANJA ===
 from src.utils.global_dark_theme import inject_dark_theme, titulo_naranja
-from src.utils.navigation import render_top_navigation
+# from src.utils.navigation import render_top_navigation  # Comentado - módulo no disponible
+# === IMPORTA GENERADOR DE PDF ===
+from src.utils.pdf_generator_page1 import generar_pdf_page1
+from datetime import datetime
 
 # ---------- CONFIG ----------
 st.set_page_config(
@@ -33,7 +36,7 @@ st.set_page_config(
 inject_dark_theme()
 
 # ---------- TOP NAVIGATION BAR ----------
-render_top_navigation()
+# render_top_navigation()  # Comentado - módulo no disponible
 
 # ---------- CUSTOM FONT SIZES ----------
 st.markdown("""
@@ -494,11 +497,18 @@ def warn_missing(metrics, titulo: str):
         st.info(f"ℹ️ {titulo}: faltan columnas para {', '.join(missing)}")
 
 # ===============================================
-# 🔁 BOTÓN GLOBAL DE REINICIO
+# 🔁 BOTÓN GLOBAL DE REINICIO + GENERAR PDF
 # ===============================================
-cols_reset = st.columns([4, 1])
+cols_reset = st.columns([3, 1, 1])
 with cols_reset[1]:
-    if st.button("Restablecer filtros de la página", use_container_width=True):
+    if st.button("📄 Generar PDF", use_container_width=True, type="primary"):
+        # Inicializar lista de figuras en session_state
+        if "pdf_figuras" not in st.session_state:
+            st.session_state["pdf_figuras"] = []
+        st.session_state["generar_pdf"] = True
+        st.toast("Preparando PDF... Los gráficos se capturarán al renderizarse.", icon="📄")
+with cols_reset[2]:
+    if st.button("🔄 Restablecer filtros", use_container_width=True):
         for key in list(st.session_state.keys()):
             if any(x in key for x in [
                 "jornadas", "matches", "partidos", "metricas", "filtros",
@@ -507,6 +517,12 @@ with cols_reset[1]:
                 del st.session_state[key]
         st.toast("Filtros restablecidos a las últimas 3 jornadas ✅", icon="🔄")
         st.rerun()
+
+# Inicializar lista de figuras para PDF
+if "pdf_figuras" not in st.session_state:
+    st.session_state["pdf_figuras"] = []
+if "generar_pdf" not in st.session_state:
+    st.session_state["generar_pdf"] = False
 
 
 # ==============================
@@ -686,6 +702,14 @@ if not df_liga_mayor.empty:
                 use_container_width=True,
                 config={"displayModeBar": True},
             )
+            
+            # Guardar figura para PDF si está activado (scatter inicial va solo)
+            if st.session_state.get("generar_pdf", False):
+                st.session_state["pdf_figuras"].append({
+                    "fig": fig_radar,
+                    "titulo": f"Comparativa Liga - {x_choice} vs {y_choice}",
+                    "es_scatter": True  # Marcar como scatter inicial
+                })
 
             if resumen_radar:
                 st.caption(f"Resumen: {resumen_radar}")
@@ -859,7 +883,7 @@ def plot_group(nombre_grupo, mapping, opponent=None):
     # Use Wyscout data - include both Cibao and opponent if specified
     if df_liga_mayor.empty:
         st.warning(f"No hay datos disponibles para: {nombre_grupo}")
-        return
+        return None
     
     # Filter for Cibao and opponent (if provided)
     teams_to_include = ["Cibao"]
@@ -870,7 +894,7 @@ def plot_group(nombre_grupo, mapping, opponent=None):
     
     if df_plot.empty:
         st.warning(f"No hay datos disponibles para: {nombre_grupo}")
-        return
+        return None
 
     # Find available columns using flexible matching
     columnas = []
@@ -921,7 +945,7 @@ def plot_group(nombre_grupo, mapping, opponent=None):
 
     if len(columnas) == 0:
         st.warning(f"No hay métricas disponibles para: {nombre_grupo}")
-        return
+        return None
 
     # Ensure all numeric columns are properly converted to float (handle comma decimals)
     for col in columnas:
@@ -985,6 +1009,13 @@ def plot_group(nombre_grupo, mapping, opponent=None):
     )
     
     st.plotly_chart(fig, use_container_width=True)
+    
+    # Guardar figura para PDF si está activado
+    if st.session_state.get("generar_pdf", False):
+        st.session_state["pdf_figuras"].append({
+            "fig": fig,
+            "titulo": nombre_grupo
+        })
 
     # -------- CONCLUSIONES TÁCTICAS --------
     # Get Cibao's data for conclusions
@@ -1006,6 +1037,8 @@ def plot_group(nombre_grupo, mapping, opponent=None):
         """
 
         st.markdown(conclusion, unsafe_allow_html=True)
+    
+    return fig
 
 # ============================================================
 # 🔶 CREACIÓN DE LAS 5 PESTAÑAS
@@ -1137,6 +1170,13 @@ with tab2:
         )
 
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Guardar figura para PDF si está activado
+        if st.session_state.get("generar_pdf", False):
+            st.session_state["pdf_figuras"].append({
+                "fig": fig,
+                "titulo": nombre_grupo
+            })
 
         # -------- CONCLUSIONES TÁCTICAS --------
         df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
@@ -1198,6 +1238,13 @@ with tab2:
                     font=dict(color="#D3D3D3")
                 )
                 st.plotly_chart(fig, use_container_width=True)
+                
+                # Guardar figura para PDF si está activado
+                if st.session_state.get("generar_pdf", False):
+                    st.session_state["pdf_figuras"].append({
+                        "fig": fig,
+                        "titulo": f"{list(mapping.keys())[0]} — {team}"
+                    })
 
         st.markdown(f"""
         <div style='background:#111; padding:12px; border-left:3px solid #FF8C00; margin-top:-5px; margin-bottom:25px;'>
@@ -1322,6 +1369,13 @@ with tab3:
         )
 
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Guardar figura para PDF si está activado
+        if st.session_state.get("generar_pdf", False):
+            st.session_state["pdf_figuras"].append({
+                "fig": fig,
+                "titulo": nombre
+            })
 
         df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
         if not df_cibao_only.empty:
@@ -1371,6 +1425,13 @@ with tab3:
         )
 
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Guardar figura para PDF si está activado
+        if st.session_state.get("generar_pdf", False):
+            st.session_state["pdf_figuras"].append({
+                "fig": fig,
+                "titulo": nombre
+            })
 
         df_cibao_only = df_comp[df_comp["Team"].str.lower() == "cibao"]
         if not df_cibao_only.empty:
@@ -1426,6 +1487,13 @@ with tab3:
                 )
 
                 st.plotly_chart(fig, use_container_width=True)
+                
+                # Guardar figura para PDF si está activado
+                if st.session_state.get("generar_pdf", False):
+                    st.session_state["pdf_figuras"].append({
+                        "fig": fig,
+                        "titulo": f"{list(mapping.keys())[0]} — {team}"
+                    })
 
         st.markdown(f"""
         <div style='background:#111;padding:12px;border-left:3px solid {CIBAO_ORANGE};
@@ -1571,6 +1639,13 @@ with tab4:
             )
 
             st.plotly_chart(fig, use_container_width=True)
+            
+            # Guardar figura para PDF si está activado
+            if st.session_state.get("generar_pdf", False):
+                st.session_state["pdf_figuras"].append({
+                    "fig": fig,
+                    "titulo": f"{nombre_grupo} — {team}"
+                })
 
             # --- CONCLUSIONES TÁCTICAS ---
             max_m = series_real.idxmax()
@@ -1805,4 +1880,46 @@ with tab5:
             y en cuáles existe margen para ajustar comportamientos.
         </div>
         """, unsafe_allow_html=True)
+
+# ============================================================
+# 📄 GENERACIÓN DE PDF
+# ============================================================
+if st.session_state.get("generar_pdf", False) and len(st.session_state.get("pdf_figuras", [])) > 0:
+    st.markdown("---")
+    st.markdown("### 📄 Generación de PDF")
+    
+    with st.spinner("Generando PDF con los gráficos capturados..."):
+        try:
+            figuras = st.session_state["pdf_figuras"]
+            
+            pdf_bytes = generar_pdf_page1(
+                figuras=figuras,
+                titulo="Reporte de Rendimiento Colectivo",
+                subtitulo="Cibao FC - Liga Dominicana"
+            )
+            
+            # Botón de descarga
+            st.download_button(
+                label="⬇️ Descargar PDF",
+                data=pdf_bytes,
+                file_name=f"reporte_rendimiento_colectivo_liga_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                type="primary"
+            )
+            
+            st.success(f"✅ PDF generado con {len(figuras)} gráficos. Listo para descargar.")
+            
+            # Limpiar estado
+            st.session_state["generar_pdf"] = False
+            st.session_state["pdf_figuras"] = []
+            
+        except Exception as e:
+            st.error(f"❌ Error al generar PDF: {e}")
+            st.exception(e)
+            st.session_state["generar_pdf"] = False
+            st.session_state["pdf_figuras"] = []
+elif st.session_state.get("generar_pdf", False):
+    # Si se presionó el botón pero aún no hay figuras, mostrar mensaje
+    st.info("ℹ️ **Modo captura activado**: Los gráficos se están capturando automáticamente. Por favor, navega por todas las pestañas (Eficiencia y Ataque, Construcción y Pases, Defensa, etc.) para capturar todos los gráficos. Una vez que hayas visitado todas las pestañas, vuelve aquí para descargar el PDF.")
 
