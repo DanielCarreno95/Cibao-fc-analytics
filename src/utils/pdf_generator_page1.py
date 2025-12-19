@@ -120,23 +120,49 @@ class ReportePDFPage1(FPDF):
     def __init__(self):
         # A4 Landscape: 297mm x 210mm
         super().__init__(orientation='L', unit='mm', format=(297, 210))
-        self.set_auto_page_break(auto=True, margin=20)
+        self.set_auto_page_break(auto=True, margin=35)  # Más margen para header/footer
         self.orange_rgb = hex_to_rgb(CIBAO_ORANGE)
         self.gray_rgb = hex_to_rgb(CIBAO_GRAY)
         self.black_rgb = hex_to_rgb(CIBAO_BLACK)
         self.es_contenido = False
+        self.tab_actual = None  # Para rastrear el tab actual
     
     def header(self):
-        """Header personalizado (opcional, no lo usamos por ahora)"""
-        pass
+        """Header personalizado con logo y título"""
+        if self.es_contenido:
+            # Fondo del header (barra naranja)
+            self.set_fill_color(*self.orange_rgb)
+            self.rect(0, 0, self.w, 20, 'F')
+            
+            # Título del header
+            self.set_y(5)
+            self.set_font('Arial', 'B', 12)
+            self.set_text_color(255, 255, 255)  # Blanco
+            self.cell(0, 10, clean_text_for_pdf("Cibao FC - Reporte de Rendimiento Colectivo"), align='C')
+            
+            # Fecha en la esquina derecha
+            fecha_actual = datetime.now().strftime("%d/%m/%Y")
+            self.set_font('Arial', '', 9)
+            self.set_xy(self.w - 50, 5)
+            self.cell(45, 10, clean_text_for_pdf(fecha_actual), align='R')
     
     def footer(self):
-        """Footer con número de página"""
+        """Footer con número de página y marca"""
         if self.es_contenido:
-            self.set_y(-15)
-            self.set_font('Arial', 'I', 8)
+            # Fondo del footer (barra gris oscura)
+            self.set_fill_color(40, 40, 40)
+            self.rect(0, self.h - 15, self.w, 15, 'F')
+            
+            # Número de página centrado
+            self.set_y(-12)
+            self.set_font('Arial', 'I', 9)
             self.set_text_color(*self.gray_rgb)
-            self.cell(0, 10, clean_text_for_pdf(f'Pagina {self.page_no()}'), 0, 0, 'C')
+            self.cell(0, 10, clean_text_for_pdf(f'Pagina {self.page_no()}'), align='C')
+            
+            # Marca en la esquina izquierda
+            self.set_xy(10, -12)
+            self.set_font('Arial', '', 8)
+            self.cell(0, 10, clean_text_for_pdf("Cibao FC Data Hub"), align='L')
     
     def generar_caratula(self, titulo: str, subtitulo: str):
         """Genera la portada del PDF"""
@@ -236,103 +262,123 @@ def generar_pdf_page1(
             titulo_scatter = clean_text_for_pdf(titulo_scatter_raw)
             
             if fig is not None:
-                # Título
-                pdf.set_font('Arial', 'B', 14)
+                # Título (después del header)
+                pdf.set_font('Arial', 'B', 16)
                 pdf.set_text_color(*pdf.orange_rgb)
-                pdf.set_y(10)
-                pdf.cell(0, 8, titulo_scatter, align='C', ln=True)
+                pdf.set_y(25)
+                pdf.cell(0, 10, titulo_scatter, align='C', ln=True)
                 
-                # Convertir y mostrar scatter a tamaño completo
-                img_bytes = plotly_to_image(fig, width=1200, height=600, scale=2.0)
+                # Convertir y mostrar scatter a tamaño completo con mejor proporción
+                # Aspect ratio más cuadrado para evitar alargamiento
+                img_bytes = plotly_to_image(fig, width=1400, height=800, scale=2.0)
                 if img_bytes:
                     img_path = save_image_temp(img_bytes)
                     if img_path:
                         temp_files.append(img_path)
-                        # Gráfico centrado, ocupando la mayor parte de la página
-                        ancho_scatter = pdf.w - 20
-                        alto_scatter = pdf.h - 30
+                        # Gráfico centrado, con mejor proporción (más ancho que alto)
+                        ancho_scatter = pdf.w - 40
+                        # Mantener proporción 16:9 aproximadamente
+                        alto_scatter = (ancho_scatter * 9) / 16
+                        # Asegurar que quepa en la página (considerando header y footer)
+                        max_alto = pdf.h - 50  # Espacio para header (20) + footer (15) + márgenes
+                        if alto_scatter > max_alto:
+                            alto_scatter = max_alto
+                            ancho_scatter = (alto_scatter * 16) / 9
+                        # Centrar horizontalmente y verticalmente
+                        x_centro = (pdf.w - ancho_scatter) / 2
+                        y_centro = 38 + (max_alto - alto_scatter) / 2  # Después del título
                         pdf.image(
                             img_path,
-                            x=10,
-                            y=20,
+                            x=x_centro,
+                            y=y_centro,
                             w=ancho_scatter,
                             h=alto_scatter
                         )
         
-        # Procesar resto de gráficos en grupos de 4 (2x2 por página)
-        num_graficos = len(otros_graficos)
-        graficos_por_pagina = 4
+        # Procesar resto de gráficos agrupados por tab
+        # Primero, agrupar por tab
+        graficos_por_tab = {}
+        for figura_info in otros_graficos:
+            tab_nombre = figura_info.get('tab', 'Sin categoria')
+            if tab_nombre not in graficos_por_tab:
+                graficos_por_tab[tab_nombre] = []
+            graficos_por_tab[tab_nombre].append(figura_info)
         
-        for i in range(0, num_graficos, graficos_por_pagina):
-            # Nueva página para cada grupo de 4
-            pdf.add_page()
+        # Procesar cada tab
+        for tab_nombre, graficos_tab in graficos_por_tab.items():
+            num_graficos = len(graficos_tab)
+            graficos_por_pagina = 4
             
-            # Fondo negro
-            pdf.set_fill_color(*pdf.black_rgb)
-            pdf.rect(0, 0, pdf.w, pdf.h, 'F')
-            
-            # Título de la página (opcional)
-            if i == 0:
-                pdf.set_font('Arial', 'B', 16)
+            for i in range(0, num_graficos, graficos_por_pagina):
+                # Nueva página para cada grupo de 4
+                pdf.add_page()
+                
+                # Fondo negro
+                pdf.set_fill_color(*pdf.black_rgb)
+                pdf.rect(0, 0, pdf.w, pdf.h, 'F')
+                
+                # Título de la sección (nombre del tab)
+                pdf.set_font('Arial', 'B', 18)
                 pdf.set_text_color(*pdf.orange_rgb)
-                pdf.set_y(8)
-                pdf.cell(0, 8, clean_text_for_pdf("Analisis de Rendimiento"), align='C', ln=True)
-                y_inicio = 20
-            else:
-                y_inicio = 10
-            
-            # Dimensiones para 2x2 en landscape A4 (297mm x 210mm)
-            # Márgenes: 10mm a cada lado = 20mm total horizontal, 10mm arriba/abajo
-            ancho_grafico = (pdf.w - 30) / 2  # 2 columnas con márgenes (10mm cada lado + 10mm entre)
-            alto_grafico = (pdf.h - y_inicio - 25) / 2  # 2 filas con espacio entre
-            
-            # Procesar hasta 4 gráficos en esta página
-            grupo = otros_graficos[i:i+graficos_por_pagina]
-            
-            for idx, figura_info in enumerate(grupo):
-                fig = figura_info.get('fig')
-                titulo_grafico_raw = figura_info.get('titulo', f'Grafico {i+idx+1}')
-                # Limpiar título ANTES de truncarlo
-                titulo_grafico = clean_text_for_pdf(titulo_grafico_raw)
+                pdf.set_y(25)
+                pdf.cell(0, 10, clean_text_for_pdf(tab_nombre), align='C', ln=True)
                 
-                if fig is None:
-                    continue
+                y_inicio = 38
                 
-                # Convertir Plotly a imagen
-                img_bytes = plotly_to_image(fig, width=800, height=400, scale=2.0)
-                if img_bytes is None:
-                    continue
+                # Dimensiones para 2x2 en landscape A4 (297mm x 210mm)
+                # Márgenes: 15mm a cada lado = 30mm total horizontal
+                # Espacio para header (20mm) y footer (15mm) = 35mm vertical
+                ancho_grafico = (pdf.w - 40) / 2  # 2 columnas con márgenes
+                # Altura ajustada para mejor proporción (más ancho que alto)
+                alto_grafico = ((pdf.h - y_inicio - 30) / 2) * 0.85  # Reducir altura para mejor proporción
                 
-                # Guardar temporalmente
-                img_path = save_image_temp(img_bytes)
-                if img_path is None:
-                    continue
+                # Procesar hasta 4 gráficos en esta página
+                grupo = graficos_tab[i:i+graficos_por_pagina]
                 
-                temp_files.append(img_path)
-                
-                # Calcular posición (2x2 grid)
-                fila = idx // 2
-                columna = idx % 2
-                
-                x_pos = 10 + columna * (ancho_grafico + 10)
-                y_pos = y_inicio + fila * (alto_grafico + 5)
-                
-                # Título del gráfico (pequeño, arriba)
-                pdf.set_font('Arial', 'B', 9)
-                pdf.set_text_color(*pdf.orange_rgb)
-                pdf.set_xy(x_pos, y_pos)
-                # Truncar título si es muy largo (ya está limpio de Unicode)
-                titulo_corto = titulo_grafico[:35] + "..." if len(titulo_grafico) > 35 else titulo_grafico
-                pdf.cell(ancho_grafico, 4, titulo_corto, align='C')
-                
-                # Imagen del gráfico
-                pdf.image(
-                    img_path,
-                    x=x_pos,
-                    y=y_pos + 5,
-                    w=ancho_grafico,
-                    h=alto_grafico - 5
-                )
+                for idx, figura_info in enumerate(grupo):
+                    fig = figura_info.get('fig')
+                    titulo_grafico_raw = figura_info.get('titulo', f'Grafico {i+idx+1}')
+                    # Limpiar título ANTES de truncarlo
+                    titulo_grafico = clean_text_for_pdf(titulo_grafico_raw)
+                    
+                    if fig is None:
+                        continue
+                    
+                    # Convertir Plotly a imagen con mejor proporción (más ancho)
+                    img_bytes = plotly_to_image(fig, width=900, height=500, scale=2.0)
+                    if img_bytes is None:
+                        continue
+                    
+                    # Guardar temporalmente
+                    img_path = save_image_temp(img_bytes)
+                    if img_path is None:
+                        continue
+                    
+                    temp_files.append(img_path)
+                    
+                    # Calcular posición (2x2 grid)
+                    fila = idx // 2
+                    columna = idx % 2
+                    
+                    x_pos = 15 + columna * (ancho_grafico + 10)
+                    y_pos = y_inicio + fila * (alto_grafico + 8)
+                    
+                    # Título del gráfico (pequeño, arriba)
+                    pdf.set_font('Arial', 'B', 10)
+                    pdf.set_text_color(*pdf.orange_rgb)
+                    pdf.set_xy(x_pos, y_pos)
+                    # Truncar título si es muy largo (ya está limpio de Unicode)
+                    titulo_corto = titulo_grafico[:40] + "..." if len(titulo_grafico) > 40 else titulo_grafico
+                    pdf.cell(ancho_grafico, 5, titulo_corto, align='C')
+                    
+                    # Imagen del gráfico
+                    pdf.image(
+                        img_path,
+                        x=x_pos,
+                        y=y_pos + 6,
+                        w=ancho_grafico,
+                        h=alto_grafico - 6
+                    )
         
         # Página de cierre
         pdf.generar_cierre()
