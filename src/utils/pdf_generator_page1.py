@@ -338,7 +338,11 @@ def generar_pdf_page1(
         pdf.generar_cierre()
         
         # Generar PDF como bytes
-        pdf_bytes = pdf.output(dest='S').encode('latin-1')
+        pdf_bytes = pdf.output(dest='S')
+        
+        # Asegurar que es bytes (no bytearray)
+        if isinstance(pdf_bytes, bytearray):
+            pdf_bytes = bytes(pdf_bytes)
         
         return pdf_bytes
         
