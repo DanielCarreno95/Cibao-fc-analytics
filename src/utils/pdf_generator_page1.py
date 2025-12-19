@@ -64,6 +64,54 @@ def save_image_temp(img_bytes: bytes) -> Optional[str]:
         return None
 
 
+def clean_text_for_pdf(text: str) -> str:
+    """Limpia texto de caracteres Unicode problemáticos para FPDF"""
+    if not text:
+        return ""
+    
+    # Reemplazar caracteres Unicode problemáticos por ASCII
+    replacements = {
+        "—": "-",  # em dash -> hyphen
+        "–": "-",  # en dash -> hyphen
+        "…": "...",  # ellipsis
+        "«": '"',  # left double angle quote
+        "»": '"',  # right double angle quote
+        "“": '"',  # left double quotation mark
+        "”": '"',  # right double quotation mark
+        "'": "'",  # left single quotation mark
+        "'": "'",  # right single quotation mark
+        "€": "EUR",  # euro sign
+        "£": "GBP",  # pound sign
+        "©": "(c)",  # copyright
+        "®": "(R)",  # registered
+        "™": "(TM)",  # trademark
+        "°": " grados",  # degree sign
+        "±": "+/-",  # plus-minus
+        "×": "x",  # multiplication
+        "÷": "/",  # division
+    }
+    
+    cleaned = text
+    for unicode_char, ascii_char in replacements.items():
+        cleaned = cleaned.replace(unicode_char, ascii_char)
+    
+    # Usar latin-1 que soporta acentos y caracteres latinos comunes
+    # pero elimina caracteres fuera del rango latin-1 (como em dash)
+    try:
+        # Intentar codificar/decodificar con latin-1 (soporta acentos españoles)
+        cleaned = cleaned.encode('latin-1', 'replace').decode('latin-1')
+        # Reemplazar caracteres de reemplazo por espacios
+        cleaned = cleaned.replace('?', ' ')
+    except:
+        # Si falla, filtrar manualmente manteniendo caracteres latinos comunes
+        # Mantener ASCII + acentos comunes en español
+        allowed_chars = set(range(32, 127))  # ASCII imprimible
+        allowed_chars.update([225, 233, 237, 243, 250, 241, 252, 193, 201, 205, 211, 218, 209, 220])  # á,é,í,ó,ú,ñ,ü,Á,É,Í,Ó,Ú,Ñ,Ü
+        cleaned = ''.join(c if ord(c) in allowed_chars else ' ' for c in cleaned)
+    
+    return cleaned.strip()
+
+
 class ReportePDFPage1(FPDF):
     """PDF personalizado para Reporte de Rendimiento Colectivo - Liga"""
     
@@ -86,7 +134,7 @@ class ReportePDFPage1(FPDF):
             self.set_y(-15)
             self.set_font('Arial', 'I', 8)
             self.set_text_color(*self.gray_rgb)
-            self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
+            self.cell(0, 10, clean_text_for_pdf(f'Pagina {self.page_no()}'), 0, 0, 'C')
     
     def generar_caratula(self, titulo: str, subtitulo: str):
         """Genera la portada del PDF"""
@@ -101,20 +149,20 @@ class ReportePDFPage1(FPDF):
         self.set_y(75)
         self.set_font('Arial', 'B', 32)
         self.set_text_color(255, 255, 255)  # Blanco
-        self.multi_cell(0, 18, titulo, align='C')
+        self.multi_cell(0, 18, clean_text_for_pdf(titulo), align='C')
         
         # Subtítulo deportivo (blanco sobre naranja)
         self.ln(12)
         self.set_font('Arial', 'B', 18)
         self.set_text_color(255, 255, 255)  # Blanco
-        self.multi_cell(0, 12, subtitulo, align='C')
+        self.multi_cell(0, 12, clean_text_for_pdf(subtitulo), align='C')
         
         # Fecha (blanco sobre naranja)
         fecha_actual = datetime.now().strftime("%d de %B de %Y")
         self.set_font('Arial', '', 14)
         self.set_text_color(255, 255, 255)  # Blanco
         self.set_y(self.get_y() + 25)
-        self.cell(0, 10, f'Fecha de generación: {fecha_actual}', 0, 1, 'C')
+        self.cell(0, 10, clean_text_for_pdf(f'Fecha de generacion: {fecha_actual}'), 0, 1, 'C')
     
     def generar_cierre(self):
         """Página de cierre"""
@@ -129,11 +177,11 @@ class ReportePDFPage1(FPDF):
         self.set_y(self.h / 2)
         self.set_font('Arial', 'B', 20)
         self.set_text_color(*self.orange_rgb)
-        self.cell(0, 10, "FIN DEL REPORTE", align='C')
+        self.cell(0, 10, clean_text_for_pdf("FIN DEL REPORTE"), align='C')
         self.ln(10)
         self.set_font('Arial', '', 12)
         self.set_text_color(*self.gray_rgb)
-        self.cell(0, 10, "Generado con Cibao FC Data Hub", align='C')
+        self.cell(0, 10, clean_text_for_pdf("Generado con Cibao FC Data Hub"), align='C')
 
 
 def generar_pdf_page1(
@@ -189,7 +237,7 @@ def generar_pdf_page1(
                 pdf.set_font('Arial', 'B', 14)
                 pdf.set_text_color(*pdf.orange_rgb)
                 pdf.set_y(10)
-                pdf.cell(0, 8, titulo_scatter, align='C', ln=True)
+                pdf.cell(0, 8, clean_text_for_pdf(titulo_scatter), align='C', ln=True)
                 
                 # Convertir y mostrar scatter a tamaño completo
                 img_bytes = plotly_to_image(fig, width=1200, height=600, scale=2.0)
@@ -225,7 +273,7 @@ def generar_pdf_page1(
                 pdf.set_font('Arial', 'B', 16)
                 pdf.set_text_color(*pdf.orange_rgb)
                 pdf.set_y(8)
-                pdf.cell(0, 8, "Análisis de Rendimiento", align='C', ln=True)
+                pdf.cell(0, 8, clean_text_for_pdf("Analisis de Rendimiento"), align='C', ln=True)
                 y_inicio = 20
             else:
                 y_inicio = 10
@@ -296,5 +344,4 @@ def generar_pdf_page1(
                 Path(temp_file).unlink(missing_ok=True)
             except:
                 pass
-
 
