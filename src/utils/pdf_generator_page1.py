@@ -4,6 +4,7 @@ Basado en el template de PDF TEMPLATE pero adaptado para gráficos Plotly
 """
 
 import io
+import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
